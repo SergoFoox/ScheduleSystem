@@ -16,7 +16,7 @@
 - Create: `src/main/java/com/sergofoox/domain/group/Group.java`
 - Create: `src/test/java/com/sergofoox/domain/group/GroupTest.java`
 
-- [ ] **Step 1: Write the failing test for Group instantiation and equality**
+- [x] **Step 1: Write the failing test for Group instantiation and equality**
 
 ```java
 package com.sergofoox.domain.group;
@@ -44,12 +44,12 @@ class GroupTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./mvnw test -Dtest=GroupTest`
 Expected: FAIL (Compilation error: Group class does not exist)
 
-- [ ] **Step 3: Implement Group Entity**
+- [x] **Step 3: Implement Group Entity**
 
 ```java
 package com.sergofoox.domain.group;
@@ -139,12 +139,12 @@ public class Group {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./mvnw test -Dtest=GroupTest`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/group/Group.java src/test/java/com/sergofoox/domain/group/GroupTest.java
@@ -185,7 +185,7 @@ class CoursePlanTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./mvnw test -Dtest=CoursePlanTest`
 Expected: FAIL (Compilation error: RoomType and CoursePlan classes do not exist)

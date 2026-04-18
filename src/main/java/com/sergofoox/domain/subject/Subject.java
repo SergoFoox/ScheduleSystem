@@ -1,6 +1,8 @@
 package com.sergofoox.domain.subject;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.Objects;
 
 @Entity
@@ -9,9 +11,13 @@ public class Subject {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank
+    @Size(min = 2, max = 100)
     @Column(nullable = false)
     private String name;
 
+    @NotBlank
+    @Size(min = 1, max = 20)
     @Column(nullable = false)
     private String abbreviation;
 
@@ -38,16 +44,15 @@ public class Subject {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (!(o instanceof Subject)) return false;
         Subject subject = (Subject) o;
-        return Objects.equals(id, subject.id) &&
-               Objects.equals(name, subject.name) &&
+        return Objects.equals(name, subject.name) &&
                Objects.equals(abbreviation, subject.abbreviation);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, abbreviation);
+        return Objects.hash(name, abbreviation);
     }
 
     @Override

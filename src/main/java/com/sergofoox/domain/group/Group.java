@@ -63,13 +63,12 @@ public class Group {
         if (this == o) return true;
         if (!(o instanceof Group group)) return false;
         return Objects.equals(name, group.name) &&
-               Objects.equals(course, group.course) &&
                Objects.equals(department, group.department);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, course, department);
+        return Objects.hash(name, department);
     }
 
     @Override

@@ -21,7 +21,9 @@
 ```java
 package com.sergofoox.domain.teacher;
 
+import com.sergofoox.entity.Teacher;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class TeacherTest {
