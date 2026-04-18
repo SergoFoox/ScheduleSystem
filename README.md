@@ -1,4 +1,4 @@
-# My Application README
+# ScheduleSystem README
 
 - [ ] TODO Replace or update this README with instructions relevant to your application
 

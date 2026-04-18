@@ -5,6 +5,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
+import jakarta.validation.constraints.NotBlank;
+import java.util.Objects;
 
 @Entity
 public class Teacher {
@@ -12,12 +14,15 @@ public class Teacher {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Full name is required")
     @Column(nullable = false)
     private String fullName;
 
+    @NotBlank(message = "Department is required")
     @Column(nullable = false)
     private String department;
 
+    @NotBlank(message = "Position type is required")
     @Column(nullable = false)
     private String positionType;
 
@@ -48,16 +53,15 @@ public class Teacher {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Teacher)) return false;
-        Teacher teacher = (Teacher) o;
-        return java.util.Objects.equals(fullName, teacher.fullName) &&
-               java.util.Objects.equals(department, teacher.department) &&
-               java.util.Objects.equals(positionType, teacher.positionType);
+        if (!(o instanceof Teacher other)) return false;
+        return Objects.equals(fullName, other.fullName) &&
+               Objects.equals(department, other.department) &&
+               Objects.equals(positionType, other.positionType);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(fullName, department, positionType);
+        return Objects.hash(fullName, department, positionType);
     }
 
     @Override

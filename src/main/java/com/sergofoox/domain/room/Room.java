@@ -101,9 +101,8 @@ public class Room {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Room)) return false;
-        Room room = (Room) o;
-        return Objects.equals(name, room.name) && Objects.equals(building, room.building);
+        if (!(o instanceof Room other)) return false;
+        return Objects.equals(name, other.name) && Objects.equals(building, other.building);
     }
 
     @Override

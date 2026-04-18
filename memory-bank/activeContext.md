@@ -1,15 +1,15 @@
 # Active Context — ASMS V3
 
 ## Current Focus
-Initializing Memory Bank and preparing for domain modeling
+Transitioning from Domain Modeling to Timefold Solver integration and configuration.
 
 ---
 
 ## Active Tasks
-- Formalizing domain entities
-- Preparing for Timefold integration
+- Initializing Timefold Solver configuration
+- Mapping domain entities to Timefold planning entities
 
 ---
 
 ## Next Step
-Define Domain Model (entities and relationships)
+Configure Timefold Solver and define the initial set of scheduling constraints.

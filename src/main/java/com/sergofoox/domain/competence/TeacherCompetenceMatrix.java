@@ -64,11 +64,10 @@ public class TeacherCompetenceMatrix {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof TeacherCompetenceMatrix)) return false;
-        TeacherCompetenceMatrix that = (TeacherCompetenceMatrix) o;
-        return Objects.equals(teacher, that.teacher) &&
-               Objects.equals(subject, that.subject) &&
-               lessonType == that.lessonType;
+        if (!(o instanceof TeacherCompetenceMatrix other)) return false;
+        return Objects.equals(teacher, other.teacher) &&
+               Objects.equals(subject, other.subject) &&
+               lessonType == other.lessonType;
     }
 
     @Override
