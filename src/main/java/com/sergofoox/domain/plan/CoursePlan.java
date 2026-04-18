@@ -3,6 +3,7 @@ package com.sergofoox.domain.plan;
 import com.sergofoox.domain.group.Group;
 import com.sergofoox.domain.subject.Subject;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
@@ -54,6 +55,14 @@ public class CoursePlan {
     @NotNull
     @Enumerated(EnumType.STRING)
     private RoomType requiredRoomType;
+
+    @AssertTrue(message = "Total hours must equal the sum of lecture, practice, and lab hours")
+    public boolean isHoursConsistent() {
+        if (totalHours == null || lectureHours == null || practiceHours == null || labHours == null) {
+            return true; // Let @NotNull handle nulls
+        }
+        return totalHours == (lectureHours + practiceHours + labHours);
+    }
 
     public CoursePlan() {}
 
