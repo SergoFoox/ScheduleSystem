@@ -9,13 +9,14 @@
 
 - [x] Memory Bank structure created
 - [x] Core context documents defined
+- [x] Teacher domain entity (Task 1)
 
 ---
 
 ## In Progress
 
-- [ ] Domain model design
-- [ ] Core entities definition (Teacher, Subject, Lesson)
+- [ ] Domain model design (ongoing)
+- [ ] Core entities definition (Subject, Lesson)
 
 ---
 

@@ -11,4 +11,13 @@ class TeacherTest {
         assertEquals("Computer Science", teacher.getDepartment());
         assertEquals("Full-time", teacher.getPositionType());
     }
+
+    @Test
+    void testTeacherAllArgsConstructor() {
+        Teacher teacher = new Teacher(1L, "Petrov Petr", "Mathematics", "Part-time");
+        assertEquals(1L, teacher.getId());
+        assertEquals("Petrov Petr", teacher.getFullName());
+        assertEquals("Mathematics", teacher.getDepartment());
+        assertEquals("Part-time", teacher.getPositionType());
+    }
 }

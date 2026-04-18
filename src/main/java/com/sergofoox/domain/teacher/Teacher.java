@@ -29,6 +29,13 @@ public class Teacher {
         this.positionType = positionType;
     }
 
+    public Teacher(Long id, String fullName, String department, String positionType) {
+        this.id = id;
+        this.fullName = fullName;
+        this.department = department;
+        this.positionType = positionType;
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getFullName() { return fullName; }
