@@ -33,6 +33,23 @@ public class Room {
     public Room() {
     }
 
+    public Room(String name, Integer capacity, String building, String equipment, RoomType type) {
+        this.name = name;
+        this.capacity = capacity;
+        this.building = building;
+        this.equipment = equipment;
+        this.type = type;
+    }
+
+    public Room(Long id, String name, Integer capacity, String building, String equipment, RoomType type) {
+        this.id = id;
+        this.name = name;
+        this.capacity = capacity;
+        this.building = building;
+        this.equipment = equipment;
+        this.type = type;
+    }
+
     public Long getId() {
         return id;
     }

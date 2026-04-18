@@ -45,4 +45,22 @@ public class RoomTest {
 
         assertNotEquals(room1, room3);
     }
+
+    @Test
+    void testConstructors() {
+        Room room5 = new Room("101", 30, "Building A", "Projector", RoomType.LECTURE_HALL);
+        assertEquals("101", room5.getName());
+        assertEquals(30, room5.getCapacity());
+        assertEquals("Building A", room5.getBuilding());
+        assertEquals("Projector", room5.getEquipment());
+        assertEquals(RoomType.LECTURE_HALL, room5.getType());
+
+        Room room6 = new Room(1L, "102", 20, "Building B", "Computer", RoomType.LABORATORY);
+        assertEquals(1L, room6.getId());
+        assertEquals("102", room6.getName());
+        assertEquals(20, room6.getCapacity());
+        assertEquals("Building B", room6.getBuilding());
+        assertEquals("Computer", room6.getEquipment());
+        assertEquals(RoomType.LABORATORY, room6.getType());
+    }
 }
