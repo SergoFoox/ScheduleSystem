@@ -1,9 +1,10 @@
 package com.sergofoox.domain.competence;
 
-import com.sergofoox.entity.Teacher;
+import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.subject.Subject;
 import com.sergofoox.domain.subject.LessonType;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
 
 @Entity
@@ -12,20 +13,24 @@ public class TeacherCompetenceMatrix {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
+    @NotNull
     private Teacher teacher;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
+    @NotNull
     private Subject subject;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private LessonType lessonType;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private Priority priority;
 
     public TeacherCompetenceMatrix() {}
@@ -59,18 +64,16 @@ public class TeacherCompetenceMatrix {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (!(o instanceof TeacherCompetenceMatrix)) return false;
         TeacherCompetenceMatrix that = (TeacherCompetenceMatrix) o;
-        return Objects.equals(id, that.id) &&
-               Objects.equals(teacher, that.teacher) &&
+        return Objects.equals(teacher, that.teacher) &&
                Objects.equals(subject, that.subject) &&
-               lessonType == that.lessonType &&
-               priority == that.priority;
+               lessonType == that.lessonType;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, teacher, subject, lessonType, priority);
+        return Objects.hash(teacher, subject, lessonType);
     }
 
     @Override
