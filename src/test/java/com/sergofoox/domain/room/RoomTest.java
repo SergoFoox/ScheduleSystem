@@ -47,6 +47,40 @@ public class RoomTest {
     }
 
     @Test
+    void testEqualityWithSubclass() {
+        Room room = new Room();
+        room.setName("101");
+        room.setBuilding("Building A");
+
+        // Simulating a JPA proxy or simple subclass
+        Room proxy = new Room() {
+            @Override
+            public String getName() {
+                return "101";
+            }
+            @Override
+            public String getBuilding() {
+                return "Building A";
+            }
+        };
+        proxy.setName("101");
+        proxy.setBuilding("Building A");
+
+        assertEquals(room, proxy);
+        assertEquals(proxy, room);
+    }
+
+    @Test
+    void testToString() {
+        Room room = new Room("101", 30, "Building A", "Projector", RoomType.LECTURE_HALL);
+        String toString = room.toString();
+        
+        assertTrue(toString.contains("equipment='Projector'"));
+        assertTrue(toString.contains("name='101'"));
+        assertTrue(toString.contains("building='Building A'"));
+    }
+
+    @Test
     void testConstructors() {
         Room room5 = new Room("101", 30, "Building A", "Projector", RoomType.LECTURE_HALL);
         assertEquals("101", room5.getName());
