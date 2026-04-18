@@ -44,4 +44,30 @@ public class Teacher {
     public void setDepartment(String department) { this.department = department; }
     public String getPositionType() { return positionType; }
     public void setPositionType(String positionType) { this.positionType = positionType; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Teacher teacher = (Teacher) o;
+        return java.util.Objects.equals(id, teacher.id) &&
+               java.util.Objects.equals(fullName, teacher.fullName) &&
+               java.util.Objects.equals(department, teacher.department) &&
+               java.util.Objects.equals(positionType, teacher.positionType);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(id, fullName, department, positionType);
+    }
+
+    @Override
+    public String toString() {
+        return "Teacher{" +
+                "id=" + id +
+                ", fullName='" + fullName + '\'' +
+                ", department='" + department + '\'' +
+                ", positionType='" + positionType + '\'' +
+                '}';
+    }
 }
