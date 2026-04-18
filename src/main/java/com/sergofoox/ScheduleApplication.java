@@ -10,10 +10,10 @@ import com.vaadin.flow.component.page.AppShellConfigurator;
 @SpringBootApplication
 @StyleSheet(Aura.STYLESHEET)
 @StyleSheet("styles.css") // Your custom styles
-public class Application implements AppShellConfigurator {
+public class ScheduleApplication implements AppShellConfigurator {
 
     public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
+        SpringApplication.run(ScheduleApplication.class, args);
     }
 
 }
