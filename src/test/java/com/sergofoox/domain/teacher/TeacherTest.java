@@ -30,6 +30,14 @@ class TeacherTest {
     }
 
     @Test
+    void testEqualityWithoutId() {
+        Teacher t1 = new Teacher(1L, "Ivanov Ivan", "CS", "Full");
+        Teacher t2 = new Teacher(2L, "Ivanov Ivan", "CS", "Full");
+        assertEquals(t1, t2);
+        assertEquals(t1.hashCode(), t2.hashCode());
+    }
+
+    @Test
     void testToString() {
         Teacher teacher = new Teacher(1L, "Ivanov Ivan", "CS", "Full");
         String teacherString = teacher.toString();
