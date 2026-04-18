@@ -1,0 +1,119 @@
+package com.sergofoox.domain.plan;
+
+import com.sergofoox.domain.group.Group;
+import com.sergofoox.domain.subject.Subject;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import java.util.Objects;
+
+@Entity
+public class CoursePlan {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(nullable = false)
+    private Subject subject;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(nullable = false)
+    private Group group;
+
+    @NotNull
+    @Min(0)
+    private Integer totalHours;
+
+    @NotNull
+    @Min(0)
+    private Integer lectureHours;
+
+    @NotNull
+    @Min(0)
+    private Integer practiceHours;
+
+    @NotNull
+    @Min(0)
+    private Integer labHours;
+
+    @NotNull
+    @Min(0)
+    private Integer lectureSessionsPerWeek;
+
+    @NotNull
+    @Min(0)
+    private Integer practiceSessionsPerWeek;
+
+    @NotNull
+    @Min(0)
+    private Integer labSessionsPerWeek;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    private RoomType requiredRoomType;
+
+    public CoursePlan() {}
+
+    public CoursePlan(Subject subject, Group group, Integer totalHours, Integer lectureHours, Integer practiceHours, Integer labHours, Integer lectureSessionsPerWeek, Integer practiceSessionsPerWeek, Integer labSessionsPerWeek, RoomType requiredRoomType) {
+        this.subject = subject;
+        this.group = group;
+        this.totalHours = totalHours;
+        this.lectureHours = lectureHours;
+        this.practiceHours = practiceHours;
+        this.labHours = labHours;
+        this.lectureSessionsPerWeek = lectureSessionsPerWeek;
+        this.practiceSessionsPerWeek = practiceSessionsPerWeek;
+        this.labSessionsPerWeek = labSessionsPerWeek;
+        this.requiredRoomType = requiredRoomType;
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Subject getSubject() { return subject; }
+    public void setSubject(Subject subject) { this.subject = subject; }
+    public Group getGroup() { return group; }
+    public void setGroup(Group group) { this.group = group; }
+    public Integer getTotalHours() { return totalHours; }
+    public void setTotalHours(Integer totalHours) { this.totalHours = totalHours; }
+    public Integer getLectureHours() { return lectureHours; }
+    public void setLectureHours(Integer lectureHours) { this.lectureHours = lectureHours; }
+    public Integer getPracticeHours() { return practiceHours; }
+    public void setPracticeHours(Integer practiceHours) { this.practiceHours = practiceHours; }
+    public Integer getLabHours() { return labHours; }
+    public void setLabHours(Integer labHours) { this.labHours = labHours; }
+    public Integer getLectureSessionsPerWeek() { return lectureSessionsPerWeek; }
+    public void setLectureSessionsPerWeek(Integer lectureSessionsPerWeek) { this.lectureSessionsPerWeek = lectureSessionsPerWeek; }
+    public Integer getPracticeSessionsPerWeek() { return practiceSessionsPerWeek; }
+    public void setPracticeSessionsPerWeek(Integer practiceSessionsPerWeek) { this.practiceSessionsPerWeek = practiceSessionsPerWeek; }
+    public Integer getLabSessionsPerWeek() { return labSessionsPerWeek; }
+    public void setLabSessionsPerWeek(Integer labSessionsPerWeek) { this.labSessionsPerWeek = labSessionsPerWeek; }
+    public RoomType getRequiredRoomType() { return requiredRoomType; }
+    public void setRequiredRoomType(RoomType requiredRoomType) { this.requiredRoomType = requiredRoomType; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof CoursePlan that)) return false;
+        return Objects.equals(subject, that.subject) &&
+               Objects.equals(group, that.group);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(subject, group);
+    }
+
+    @Override
+    public String toString() {
+        return "CoursePlan{" +
+                "id=" + id +
+                ", subject=" + subject +
+                ", group=" + group +
+                ", totalHours=" + totalHours +
+                ", requiredRoomType=" + requiredRoomType +
+                '}';
+    }
+}
