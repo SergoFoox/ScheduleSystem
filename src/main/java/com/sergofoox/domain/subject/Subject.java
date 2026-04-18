@@ -44,8 +44,7 @@ public class Subject {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Subject)) return false;
-        Subject subject = (Subject) o;
+        if (!(o instanceof Subject subject)) return false;
         return Objects.equals(name, subject.name) &&
                Objects.equals(abbreviation, subject.abbreviation);
     }
