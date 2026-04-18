@@ -1,4 +1,4 @@
-package com.sergofoox.domain.teacher;
+package com.sergofoox;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
