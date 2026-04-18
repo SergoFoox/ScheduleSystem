@@ -1,4 +1,4 @@
-package com.sergofoox;
+package com.sergofoox.domain.teacher;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -48,17 +48,16 @@ public class Teacher {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (!(o instanceof Teacher)) return false;
         Teacher teacher = (Teacher) o;
-        return java.util.Objects.equals(id, teacher.id) &&
-               java.util.Objects.equals(fullName, teacher.fullName) &&
+        return java.util.Objects.equals(fullName, teacher.fullName) &&
                java.util.Objects.equals(department, teacher.department) &&
                java.util.Objects.equals(positionType, teacher.positionType);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(id, fullName, department, positionType);
+        return java.util.Objects.hash(fullName, department, positionType);
     }
 
     @Override
