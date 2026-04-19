@@ -1,7 +1,7 @@
 # Progress — ASMS V3
 
 ## Current Status
-🟢 Core Domain Entities Completed
+🟢 Domain Model Completed & Planning Entities Defined
 
 ---
 
@@ -9,27 +9,30 @@
 
 - [x] Memory Bank structure created
 - [x] Core context documents defined
-- [x] Teacher domain entity (standardized with validation and business key)
+- [x] Teacher domain entity (standardized with validation, workload limits)
 - [x] Subject domain entity and LessonType enum
-- [x] TeacherCompetenceMatrix junction entity and Priority enum
-- [x] Group domain entity
-- [x] CoursePlan domain entity with hours consistency validation
+- [x] TeacherCompetenceMatrix junction entity and refined Priority enum (PRIMARY, SECONDARY, SUBSTITUTE)
+- [x] Group domain entity (student_group mapping)
+- [x] CoursePlan domain entity (hours consistency validation, periodicity support, executed hours tracking)
 - [x] Room domain entity and RoomType enum
-- [x] Domain model standardization (JPA proxy safety, Bean Validation)
+- [x] **Timeslot** domain entity (DayOfWeek, LocalTime, weekParity/periodicity support)
+- [x] **Lesson** domain entity (Timefold **@PlanningEntity** with **@PlanningVariable** for timeslot and room)
+- [x] Domain model standardization (JPA proxy safety, Bean Validation, Timefold-safe toString)
+- [x] **100% Test Coverage for Domain Layer** (26/26 tests passing)
 
 ---
 
 ## In Progress
 
-- [ ] Timefold Solver configuration
-- [ ] Initial scheduling constraints definition
+- [ ] Timefold Planning Solution (Schedule class)
+- [ ] ConstraintProvider definition (Hard/Soft constraints)
 
 ---
 
 ## Next Steps
 
-1. Set up Timefold Solver and Solution classes
-2. Define first Hard Constraint (no teacher/group/room overlaps)
+1. Create `Schedule` class as the Timefold **@PlanningSolution**
+2. Define first Hard Constraint (no teacher/group/room overlaps) in `ScheduleConstraintProvider`
 3. Implement basic Vaadin dashboard for schedule visualization
 
 ---
@@ -44,6 +47,7 @@
 
 ## Notes
 
-- Timefold chosen over OptaPlanner
+- Timefold chosen over OptaPlanner (version 1.33.0)
 - Domain entities use stable business keys for equals/hashCode
 - Project follows clean architecture with domain-by-feature packaging
+- Timeslot includes `weekParity` for alternating week scheduling (odd/even)

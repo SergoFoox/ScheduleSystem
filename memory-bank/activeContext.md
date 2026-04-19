@@ -1,15 +1,16 @@
 # Active Context — ASMS V3
 
 ## Current Focus
-Transitioning from Domain Modeling to Timefold Solver integration and configuration.
+Developing the Timefold **@PlanningSolution** and defining scheduling constraints.
 
 ---
 
 ## Active Tasks
-- Initializing Timefold Solver configuration
-- Mapping domain entities to Timefold planning entities
+- Implementing the `Schedule` planning solution class
+- Designing the `ScheduleConstraintProvider` for hard and soft constraints
+- Verifying domain model compatibility with Timefold Solver
 
 ---
 
 ## Next Step
-Configure Timefold Solver and define the initial set of scheduling constraints.
+Create the `Schedule` class to manage the collection of lessons, timeslots, and rooms for the solver.

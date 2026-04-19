@@ -4,10 +4,12 @@
 
 ### Backend
 - Java 21
-- Spring Boot
+- Spring Boot 4.0.5 (Starter Parent)
 
 ### Frontend
-- Vaadin 25.x
+- Vaadin 25.1.2
+- Aura theme
+- React integration (as per package.json)
 
 ### Optimization Engine
 - Timefold 1.33.0
@@ -15,28 +17,31 @@
 ---
 
 ## Architecture
-- Monolithic (initial phase)
-- Designed for modular monolith evolution
+- Clean Architecture + DDD
+- Domain-by-feature packaging (e.g., com.sergofoox.domain.teacher)
+- Monolithic structure
 
 ---
 
 ## Database
-- PostgreSQL (recommended)
+- H2 Database (In-memory for development/test)
+- PostgreSQL (Production target)
 
 ---
 
 ## Core Components
 
 ### Scheduling Engine
-- Timefold Solver
-- Constraint definitions
+- Timefold Solver (PlanningEntity, PlanningVariable, PlanningSolution)
+- ConstraintProvider (Java Streams API)
 
 ### UI Layer
-- Vaadin Views
-- Dashboards
+- Vaadin Flow Views
+- Dashboards with React components
 
 ### Data Layer
 - JPA / Hibernate
+- Bean Validation (jakarta.validation)
 
 ---
 
@@ -47,18 +52,19 @@
 ---
 
 ## Deployment (initial)
-- Docker (recommended)
-- Linux server / cloud hosting
+- Docker
+- Maven Wrapper (mvnw)
 
 ---
 
 ## Development Tools
 - Maven
-- IntelliJ IDEA
+- IntelliJ IDEA / VS Code
+- Gemini CLI (AI Assistant)
 
 ---
 
 ## Key Technical Requirements
-- Efficient constraint solving
+- Efficient constraint solving (Hard/Soft constraints)
 - Fast schedule recalculation
-- High extensibility
+- High extensibility for new constraint types
