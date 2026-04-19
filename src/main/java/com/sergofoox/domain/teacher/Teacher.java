@@ -1,11 +1,10 @@
 package com.sergofoox.domain.teacher;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Column;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
 
 @Entity
@@ -22,23 +21,33 @@ public class Teacher {
     @Column(nullable = false)
     private String department;
 
-    @NotBlank(message = "Position type is required")
+    @NotNull(message = "Position type is required")
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String positionType;
+    private PositionType positionType;
+
+    @NotNull
+    @Min(0)
+    private Integer weeklyHourLimit = 40; // Default or common limit
+
+    @Min(1)
+    @Max(6)
+    private Integer maxWorkingDaysPerWeek;
 
     public Teacher() {}
 
-    public Teacher(String fullName, String department, String positionType) {
+    public Teacher(String fullName, String department, PositionType positionType) {
         this.fullName = fullName;
         this.department = department;
         this.positionType = positionType;
     }
 
-    public Teacher(Long id, String fullName, String department, String positionType) {
+    public Teacher(Long id, String fullName, String department, PositionType positionType, Integer weeklyHourLimit) {
         this.id = id;
         this.fullName = fullName;
         this.department = department;
         this.positionType = positionType;
+        this.weeklyHourLimit = weeklyHourLimit;
     }
 
     public Long getId() { return id; }
@@ -47,8 +56,12 @@ public class Teacher {
     public void setFullName(String fullName) { this.fullName = fullName; }
     public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
-    public String getPositionType() { return positionType; }
-    public void setPositionType(String positionType) { this.positionType = positionType; }
+    public PositionType getPositionType() { return positionType; }
+    public void setPositionType(PositionType positionType) { this.positionType = positionType; }
+    public Integer getWeeklyHourLimit() { return weeklyHourLimit; }
+    public void setWeeklyHourLimit(Integer weeklyHourLimit) { this.weeklyHourLimit = weeklyHourLimit; }
+    public Integer getMaxWorkingDaysPerWeek() { return maxWorkingDaysPerWeek; }
+    public void setMaxWorkingDaysPerWeek(Integer maxWorkingDaysPerWeek) { this.maxWorkingDaysPerWeek = maxWorkingDaysPerWeek; }
 
     @Override
     public boolean equals(Object o) {
@@ -70,7 +83,9 @@ public class Teacher {
                 "id=" + id +
                 ", fullName='" + fullName + '\'' +
                 ", department='" + department + '\'' +
-                ", positionType='" + positionType + '\'' +
+                ", positionType=" + positionType +
+                ", weeklyHourLimit=" + weeklyHourLimit +
+                ", maxWorkingDaysPerWeek=" + maxWorkingDaysPerWeek +
                 '}';
     }
 }
