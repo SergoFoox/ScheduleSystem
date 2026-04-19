@@ -54,6 +54,22 @@ public class CoursePlan {
 
     @NotNull
     @Enumerated(EnumType.STRING)
+    private Periodicity lecturePeriodicity = Periodicity.WEEKLY;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    private Periodicity practicePeriodicity = Periodicity.WEEKLY;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    private Periodicity labPeriodicity = Periodicity.WEEKLY;
+
+    @NotNull
+    @Min(0)
+    private Integer executedHours = 0;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
     private RoomType requiredRoomType;
 
     @AssertTrue(message = "Total hours must equal the sum of lecture, practice, and lab hours")
@@ -62,6 +78,14 @@ public class CoursePlan {
             return true; // Let @NotNull handle nulls
         }
         return totalHours == (lectureHours + practiceHours + labHours);
+    }
+
+    /**
+     * Відсоток виконання навчального плану (згідно з ТЗ 3.3)
+     */
+    public double getCompletionPercentage() {
+        if (totalHours == null || totalHours == 0) return 0;
+        return (executedHours * 100.0) / totalHours;
     }
 
     public CoursePlan() {}
@@ -99,6 +123,16 @@ public class CoursePlan {
     public void setPracticeSessionsPerWeek(Integer practiceSessionsPerWeek) { this.practiceSessionsPerWeek = practiceSessionsPerWeek; }
     public Integer getLabSessionsPerWeek() { return labSessionsPerWeek; }
     public void setLabSessionsPerWeek(Integer labSessionsPerWeek) { this.labSessionsPerWeek = labSessionsPerWeek; }
+
+    public Periodicity getLecturePeriodicity() { return lecturePeriodicity; }
+    public void setLecturePeriodicity(Periodicity lecturePeriodicity) { this.lecturePeriodicity = lecturePeriodicity; }
+    public Periodicity getPracticePeriodicity() { return practicePeriodicity; }
+    public void setPracticePeriodicity(Periodicity practicePeriodicity) { this.practicePeriodicity = practicePeriodicity; }
+    public Periodicity getLabPeriodicity() { return labPeriodicity; }
+    public void setLabPeriodicity(Periodicity labPeriodicity) { this.labPeriodicity = labPeriodicity; }
+    public Integer getExecutedHours() { return executedHours; }
+    public void setExecutedHours(Integer executedHours) { this.executedHours = executedHours; }
+
     public RoomType getRequiredRoomType() { return requiredRoomType; }
     public void setRequiredRoomType(RoomType requiredRoomType) { this.requiredRoomType = requiredRoomType; }
 
