@@ -1,16 +1,16 @@
 # Active Context — ASMS V3
 
 ## Current Focus
-Developing the Timefold **@PlanningSolution** and defining scheduling constraints.
+Transitioning to Data Persistence and Service Layer implementation.
 
 ---
 
 ## Active Tasks
-- Implementing the `Schedule` planning solution class
-- Designing the `ScheduleConstraintProvider` for hard and soft constraints
-- Verifying domain model compatibility with Timefold Solver
+- Designing JPA Repositories for CRUD operations
+- Implementing the orchestration service to connect JPA data with the Timefold Solver
+- Refining soft constraints for better schedule quality
 
 ---
 
 ## Next Step
-Create the `Schedule` class to manage the collection of lessons, timeslots, and rooms for the solver.
+Create JPA repository interfaces for all domain entities and ensure proper database mapping.

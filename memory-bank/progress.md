@@ -1,7 +1,7 @@
 # Progress — ASMS V3
 
 ## Current Status
-🟢 Domain Model Completed & Planning Entities Defined
+🟢 Timefold Solver Integrated & Constraints Defined
 
 ---
 
@@ -17,37 +17,40 @@
 - [x] Room domain entity and RoomType enum
 - [x] **Timeslot** domain entity (DayOfWeek, LocalTime, weekParity/periodicity support)
 - [x] **Lesson** domain entity (Timefold **@PlanningEntity** with **@PlanningVariable** for timeslot and room)
+- [x] **Schedule** class as the Timefold **@PlanningSolution**
+- [x] **ScheduleConstraintProvider** with Hard/Soft constraints (Teacher, Group, Room conflicts, Room Capacity)
+- [x] **SolverConfiguration** (Java API) with **FIRST_FIT** and **TABU_SEARCH** strategies
 - [x] Domain model standardization (JPA proxy safety, Bean Validation, Timefold-safe toString)
-- [x] **100% Test Coverage for Domain Layer** (26/26 tests passing)
+- [x] **100% Test Coverage for Domain & Solver** (27 tests passing, including Solver Integration)
 
 ---
 
 ## In Progress
 
-- [ ] Timefold Planning Solution (Schedule class)
-- [ ] ConstraintProvider definition (Hard/Soft constraints)
+- [ ] JPA Repositories for all domain entities
+- [ ] Service layer for schedule generation orchestration
 
 ---
 
 ## Next Steps
 
-1. Create `Schedule` class as the Timefold **@PlanningSolution**
-2. Define first Hard Constraint (no teacher/group/room overlaps) in `ScheduleConstraintProvider`
-3. Implement basic Vaadin dashboard for schedule visualization
+1. Create JPA Repositories for CRUD operations on domain entities.
+2. Implement `ScheduleService` to load data into the `Schedule` object and trigger solving.
+3. Implement basic Vaadin dashboard for schedule visualization and management.
 
 ---
 
 ## Risks
 
-- High complexity of constraint logic
-- Timefold performance tuning
-- UI complexity in Vaadin
+- High complexity of advanced constraint logic (e.g., travel time between buildings)
+- Performance tuning for large-scale datasets
+- Vaadin UI state management during asynchronous solving
 
 ---
 
 ## Notes
 
 - Timefold chosen over OptaPlanner (version 1.33.0)
-- Domain entities use stable business keys for equals/hashCode
-- Project follows clean architecture with domain-by-feature packaging
-- Timeslot includes `weekParity` for alternating week scheduling (odd/even)
+- Solver configured with 2-minute termination limit for initial testing
+- Constraint Streams API used for better readability and performance
+- `ScheduleSolverTest` verifies that the solver can successfully resolve teacher overlaps
