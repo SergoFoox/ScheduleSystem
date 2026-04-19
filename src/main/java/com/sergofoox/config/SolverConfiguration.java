@@ -27,7 +27,7 @@ public class SolverConfiguration {
                 .withEntityClassList(Collections.singletonList(Lesson.class))
                 .withConstraintProviderClass(ScheduleConstraintProvider.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withSpentLimit(Duration.ofMinutes(2)))
+                        .withSpentLimit(Duration.ofMinutes(5)))
                 .withPhaseList(List.of(
                         new ConstructionHeuristicPhaseConfig()
                                 .withConstructionHeuristicType(ConstructionHeuristicType.FIRST_FIT),

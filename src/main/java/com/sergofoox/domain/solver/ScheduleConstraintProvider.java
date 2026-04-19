@@ -5,6 +5,7 @@ import ai.timefold.solver.core.api.score.stream.Constraint;
 import ai.timefold.solver.core.api.score.stream.ConstraintFactory;
 import ai.timefold.solver.core.api.score.stream.ConstraintProvider;
 import ai.timefold.solver.core.api.score.stream.Joiners;
+import ai.timefold.solver.core.api.score.stream.ConstraintCollectors;
 import com.sergofoox.domain.lesson.Lesson;
 import java.time.Duration;
 
@@ -71,7 +72,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         Joiners.equal(l -> l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
                     Duration between = Duration.between(l1.getTimeslot().getEndTime(), l2.getTimeslot().getStartTime());
-                    return !between.isNegative() && between.toMinutes() <= 120; // Якщо розрив більше 1 пари, це вже вікно
+                    return !between.isNegative() && between.toMinutes() > 40; // Штрафуємо за будь-яке вікно між парами
                 })
                 .penalize(HardSoftScore.ONE_SOFT)
                 .asConstraint("Group window");
@@ -93,7 +94,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     // ТЗ 4.2: Рівномірність навантаження (уникання занадто насичених днів)
     Constraint loadBalance(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
-                .groupBy(l -> l.getGroup(), l -> l.getTimeslot().getDayOfWeek(), ai.timefold.solver.core.api.score.stream.ConstraintCollectors.count())
+                .groupBy(l -> l.getGroup(), l -> l.getTimeslot().getDayOfWeek(), ConstraintCollectors.count())
                 .filter((group, day, count) -> count > 4) // Більше 4 пар на день - це вже забагато
                 .penalize(HardSoftScore.ofSoft(10)) // Вищий штраф для балансу
                 .asConstraint("Too many lessons per day");
