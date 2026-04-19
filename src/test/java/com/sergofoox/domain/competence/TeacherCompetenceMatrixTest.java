@@ -12,20 +12,20 @@ class TeacherCompetenceMatrixTest {
     void testMatrixCreation() {
         Teacher teacher = new Teacher("Ivanov Ivan", "CS", PositionType.FULL_TIME);
         Subject subject = new Subject("Mathematics", "Math");
-        TeacherCompetenceMatrix matrix = new TeacherCompetenceMatrix(teacher, subject, LessonType.LECTURE, Priority.HIGH);
+        TeacherCompetenceMatrix matrix = new TeacherCompetenceMatrix(teacher, subject, LessonType.LECTURE, Priority.PRIMARY);
         
         assertEquals(teacher, matrix.getTeacher());
         assertEquals(subject, matrix.getSubject());
         assertEquals(LessonType.LECTURE, matrix.getLessonType());
-        assertEquals(Priority.HIGH, matrix.getPriority());
+        assertEquals(Priority.PRIMARY, matrix.getPriority());
     }
 
     @Test
     void testBusinessKeyEquality() {
         Teacher t = new Teacher("Ivan", "CS", PositionType.FULL_TIME);
         Subject s = new Subject("Math", "M");
-        TeacherCompetenceMatrix m1 = new TeacherCompetenceMatrix(1L, t, s, LessonType.LECTURE, Priority.HIGH);
-        TeacherCompetenceMatrix m2 = new TeacherCompetenceMatrix(2L, t, s, LessonType.LECTURE, Priority.LOW);
+        TeacherCompetenceMatrix m1 = new TeacherCompetenceMatrix(1L, t, s, LessonType.LECTURE, Priority.PRIMARY);
+        TeacherCompetenceMatrix m2 = new TeacherCompetenceMatrix(2L, t, s, LessonType.LECTURE, Priority.SECONDARY);
         
         assertEquals(m1, m2);
         assertEquals(m1.hashCode(), m2.hashCode());
@@ -36,8 +36,8 @@ class TeacherCompetenceMatrixTest {
         Teacher t = new Teacher("Ivan", "CS", PositionType.FULL_TIME);
         Subject s1 = new Subject("Math", "M");
         Subject s2 = new Subject("Physics", "P");
-        TeacherCompetenceMatrix m1 = new TeacherCompetenceMatrix(t, s1, LessonType.LECTURE, Priority.HIGH);
-        TeacherCompetenceMatrix m2 = new TeacherCompetenceMatrix(t, s2, LessonType.LECTURE, Priority.HIGH);
+        TeacherCompetenceMatrix m1 = new TeacherCompetenceMatrix(t, s1, LessonType.LECTURE, Priority.PRIMARY);
+        TeacherCompetenceMatrix m2 = new TeacherCompetenceMatrix(t, s2, LessonType.LECTURE, Priority.PRIMARY);
         
         assertNotEquals(m1, m2);
     }
