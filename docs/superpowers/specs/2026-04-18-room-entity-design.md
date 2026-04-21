@@ -1,25 +1,25 @@
-# Room Entity Design Spec
+# Специфікація дизайну сутності Room
 
-## Goal
-Implement the `Room` (Аудиторія) domain entity to store information about physical classrooms, their capacity, equipment, and location.
+## Мета
+Впровадження доменної сутності `Room` (Аудиторія) для зберігання інформації про фізичні навчальні приміщення, їхню місткість, обладнання та місцезнаходження.
 
-## Architecture
-- **Layer:** Domain/Infrastructure (JPA Entity)
-- **Package:** `com.sergofoox.domain.room`
-- **Pattern:** standard Java POJO with JPA annotations and Bean Validation.
+## Архітектура
+- **Рівень:** Домен/Інфраструктура (JPA-сутність)
+- **Пакет:** `com.sergofoox.domain.room`
+- **Шаблон:** стандартний Java POJO з анотаціями JPA та Bean Validation.
 
-## Data Model
-| Field | Type | Description | JPA Mapping |
+## Модель даних
+| Поле | Тип | Опис | Мапінг JPA |
 | :--- | :--- | :--- | :--- |
-| `id` | `Long` | Primary Key | `@Id`, `@GeneratedValue` |
-| `name` | `String` | Room name/number (e.g., "101") | `@NotBlank`, `@Column(nullable = false)` |
-| `capacity` | `Integer` | Student capacity | `@NotNull`, `@Min(1)`, `@Column(nullable = false)` |
-| `building` | `String` | Building/Corps (e.g., "Main") | `@NotBlank`, `@Column(nullable = false)` |
-| `equipment` | `String` | List of equipment | `@Column` |
-| `type` | `RoomType` | Category (LECTURE_HALL, etc.) | `@Enumerated(STRING)`, `@NotNull` |
+| `id` | `Long` | Первинний ключ | `@Id`, `@GeneratedValue` |
+| `name` | `String` | Назва/номер аудиторії (напр., "101") | `@NotBlank`, `@Column(nullable = false)` |
+| `capacity` | `Integer` | Місткість студентів | `@NotNull`, `@Min(1)`, `@Column(nullable = false)` |
+| `building` | `String` | Будівля/Корпус (напр., "Головний") | `@NotBlank`, `@Column(nullable = false)` |
+| `equipment` | `String` | Список обладнання | `@Column` |
+| `type` | `RoomType` | Категорія (LECTURE_HALL тощо) | `@Enumerated(STRING)`, `@NotNull` |
 
-## Requirements
-1. **Standard Boilerplate:** No-args/All-args constructors, Getters/Setters, Equals/HashCode/ToString.
-2. **Equals/HashCode:** Use business keys for JPA safety (`name` and `building`).
-3. **Validation:** Use `jakarta.validation.constraints` for all mandatory and range-limited fields.
-4. **Integration:** Reuse `com.sergofoox.domain.plan.RoomType` enum.
+## Вимоги
+1. **Стандартний шаблонний код:** Конструктори без аргументів/з усіма аргументами, геттери/сеттери, Equals/HashCode/ToString.
+2. **Equals/HashCode:** Використовуйте бізнес-ключі для безпеки JPA (`name` та `building`).
+3. **Валідація:** Використовуйте `jakarta.validation.constraints` для всіх обов'язкових полів та полів з обмеженням діапазону.
+4. **Інтеграція:** Повторне використання перерахування `com.sergofoox.domain.plan.RoomType`.

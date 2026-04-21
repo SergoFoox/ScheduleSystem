@@ -1,31 +1,31 @@
-# Teacher Relocation and Entity Refinement Plan
+# План переміщення та вдосконалення сутності Teacher
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Relocate the `Teacher` entity to the domain package and refine entity logic (equality, lazy fetching, validation) for `Teacher`, `Subject`, and `TeacherCompetenceMatrix`.
+**Мета:** Перемістити сутність `Teacher` до доменного пакету та вдосконалити логіку сутності (рівність, відкладена вибірка (lazy fetching), валідація) для `Teacher`, `Subject` та `TeacherCompetenceMatrix`.
 
-**Architecture:** Domain-Driven Design (DDD) alignment by moving entities to domain packages. Standardizing JPA entity equality using business keys and `instanceof`. Improving performance with lazy loading.
+**Архітектура:** Узгодження з проблемно-орієнтованим проектуванням (DDD) шляхом переміщення сутностей у доменні пакети. Стандартизація рівності JPA-сутностей за допомогою бізнес-ключів та `instanceof`. Покращення продуктивності за допомогою відкладеного завантаження (lazy loading).
 
-**Tech Stack:** Java 21, Spring Boot 4.0.5, Jakarta Persistence (JPA), JUnit 5, Jakarta Validation.
+**Технологічний стек:** Java 21, Spring Boot 4.0.5, Jakarta Persistence (JPA), JUnit 5, Jakarta Validation.
 
 ---
 
-### Task 1: Relocate Teacher.java
+### Завдання 1: Переміщення Teacher.java
 
-**Files:**
-- Move: `src/main/java/com/sergofoox/entity/Teacher.java` to `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
-- Modify: `src/main/java/com/sergofoox/domain/teacher/Teacher.java` (package update)
+**Файли:**
+- Перемістити: `src/main/java/com/sergofoox/entity/Teacher.java` до `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
+- Змінити: `src/main/java/com/sergofoox/domain/teacher/Teacher.java` (оновлення пакету)
 
-- [ ] **Step 1: Move the file**
-Run: `mkdir -p src/main/java/com/sergofoox/domain/teacher && mv src/main/java/com/sergofoox/entity/Teacher.java src/main/java/com/sergofoox/domain/teacher/Teacher.java`
+- [ ] **Крок 1: Переміщення файлу**
+Виконати: `mkdir -p src/main/java/com/sergofoox/domain/teacher && mv src/main/java/com/sergofoox/entity/Teacher.java src/main/java/com/sergofoox/domain/teacher/Teacher.java`
 
-- [ ] **Step 2: Update package declaration in Teacher.java**
+- [ ] **Крок 2: Оновлення оголошення пакету в Teacher.java**
 ```java
 package com.sergofoox.domain.teacher;
 ```
 
-- [ ] **Step 3: Standardize equals() in Teacher.java**
-Use `instanceof` and only business keys (`fullName`, `department`, `positionType`).
+- [ ] **Крок 3: Стандартизація equals() у Teacher.java**
+Використовувати `instanceof` та тільки бізнес-ключі (`fullName`, `department`, `positionType`).
 ```java
     @Override
     public boolean equals(Object o) {
@@ -43,22 +43,22 @@ Use `instanceof` and only business keys (`fullName`, `department`, `positionType
     }
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Крок 4: Коміт**
 ```bash
 git add src/main/java/com/sergofoox/domain/teacher/Teacher.java
 git rm src/main/java/com/sergofoox/entity/Teacher.java
 git commit -m "refactor: relocate Teacher entity to domain package and refine equality"
 ```
 
-### Task 2: Update TeacherCompetenceMatrix.java
+### Завдання 2: Оновлення TeacherCompetenceMatrix.java
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java`
 
-- [ ] **Step 1: Update imports and add @NotNull**
-Update `Teacher` import. Add `jakarta.validation.constraints.NotNull`.
+- [ ] **Крок 1: Оновлення імпортів та додавання @NotNull**
+Оновити імпорт `Teacher`. Додати `jakarta.validation.constraints.NotNull`.
 
-- [ ] **Step 2: Apply FetchType.LAZY and @NotNull to fields**
+- [ ] **Крок 2: Застосування FetchType.LAZY та @NotNull до полів**
 ```java
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
@@ -81,8 +81,8 @@ Update `Teacher` import. Add `jakarta.validation.constraints.NotNull`.
     private Priority priority;
 ```
 
-- [ ] **Step 3: Refine equals() and hashCode()**
-Use business keys: `teacher`, `subject`, `lessonType`. Use `instanceof`.
+- [ ] **Крок 3: Вдосконалення equals() та hashCode()**
+Використовувати бізнес-ключі: `teacher`, `subject`, `lessonType`. Використовувати `instanceof`.
 ```java
     @Override
     public boolean equals(Object o) {
@@ -100,34 +100,34 @@ Use business keys: `teacher`, `subject`, `lessonType`. Use `instanceof`.
     }
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Крок 4: Коміт**
 ```bash
 git add src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java
 git commit -m "refactor: update TeacherCompetenceMatrix with lazy loading, validation, and business key equality"
 ```
 
-### Task 3: Standardize Subject.java
+### Завдання 3: Стандартизація Subject.java
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/subject/Subject.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/subject/Subject.java`
 
-- [ ] **Step 1: Verify equals() uses instanceof** (Already done in research, but ensuring consistency in plan)
+- [ ] **Крок 1: Перевірка, чи використовує equals() instanceof** (Вже зроблено під час дослідження, але забезпечуємо узгодженість у плані)
 
-- [ ] **Step 2: Commit (if any changes made)**
+- [ ] **Крок 2: Коміт (якщо були внесені зміни)**
 ```bash
 git add src/main/java/com/sergofoox/domain/subject/Subject.java
 git commit -m "style: ensure Subject equality standardization"
 ```
 
-### Task 4: Update All Tests
+### Завдання 4: Оновлення всіх тестів
 
-**Files:**
-- Modify: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
-- Modify: `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
-- Modify: `src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java`
+**Файли:**
+- Змінити: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
+- Змінити: `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
+- Змінити: `src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java`
 
-- [ ] **Step 1: Update TeacherTest.java**
-Fix package and imports. Add test for equality without ID.
+- [ ] **Крок 1: Оновлення TeacherTest.java**
+Виправити пакет та імпорти. Додати тест для рівності без ID.
 ```java
 package com.sergofoox.domain.teacher;
 
@@ -145,8 +145,8 @@ class TeacherTest {
 }
 ```
 
-- [ ] **Step 2: Update TeacherCompetenceMatrixTest.java**
-Fix imports. Add test for business key equality.
+- [ ] **Крок 2: Оновлення TeacherCompetenceMatrixTest.java**
+Виправити імпорти. Додати тест для рівності за бізнес-ключами.
 ```java
 package com.sergofoox.domain.competence;
 
@@ -170,10 +170,10 @@ class TeacherCompetenceMatrixTest {
 }
 ```
 
-- [ ] **Step 3: Run all tests**
-Run: `./mvnw test`
+- [ ] **Крок 3: Запуск усіх тестів**
+Виконати: `./mvnw test`
 
-- [ ] **Step 4: Commit tests**
+- [ ] **Крок 4: Коміт тестів**
 ```bash
 git add src/test/java/com/sergofoox/domain/teacher/TeacherTest.java src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java src/test/java/com/sergofoox/domain/subject/SubjectTest.java
 git commit -m "test: update tests for relocated entities and new equality logic"

@@ -1,22 +1,22 @@
-# Cleanup & Standardization Implementation Plan
+# План впровадження очищення та стандартизації
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Refactor domain entities for better validation, JPA safety, and standardization.
+**Мета:** Рефакторинг доменних сутностей для кращої валідації, безпеки JPA та стандартизації.
 
-**Architecture:** Update entities with Jakarta Validation constraints and Java 16+ pattern matching in `equals()`. Standardize business keys for `equals` and `hashCode`.
+**Архітектура:** Оновлення сутностей обмеженнями Jakarta Validation та зіставленням шаблонів (pattern matching) Java 16+ у методі `equals()`. Стандартизація бізнес-ключів для `equals` та `hashCode`.
 
-**Tech Stack:** Java 21, Spring Boot, Jakarta Validation, JPA.
+**Технологічний стек:** Java 21, Spring Boot, Jakarta Validation, JPA.
 
 ---
 
-### Task 1: Teacher Entity Refactor
+### Завдання 1: Рефакторинг сутності Teacher
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
-- Test: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
+- Тест: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
 
-- [ ] **Step 1: Update Teacher.java with constraints and pattern matching**
+- [ ] **Крок 1: Оновлення Teacher.java обмеженнями та зіставленням шаблонів**
 
 ```java
 package com.sergofoox.domain.teacher;
@@ -97,18 +97,18 @@ public class Teacher {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify Teacher changes**
+- [ ] **Крок 2: Запуск тестів для перевірки змін у Teacher**
 
-Run: `./mvnw test -Dtest=TeacherTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=TeacherTest`
+Очікується: УСПІШНО
 
-### Task 2: Standardize Room Entity
+### Завдання 2: Стандартизація сутності Room
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/room/Room.java`
-- Test: `src/test/java/com/sergofoox/domain/room/RoomTest.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/room/Room.java`
+- Тест: `src/test/java/com/sergofoox/domain/room/RoomTest.java`
 
-- [ ] **Step 1: Update Room.java with pattern matching in equals**
+- [ ] **Крок 1: Оновлення Room.java зі зіставленням шаблонів у equals**
 
 ```java
     @Override
@@ -119,18 +119,18 @@ Expected: PASS
     }
 ```
 
-- [ ] **Step 2: Run tests to verify Room changes**
+- [ ] **Крок 2: Запуск тестів для перевірки змін у Room**
 
-Run: `./mvnw test -Dtest=RoomTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=RoomTest`
+Очікується: УСПІШНО
 
-### Task 3: Standardize TeacherCompetenceMatrix Entity
+### Завдання 3: Стандартизація сутності TeacherCompetenceMatrix
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java`
-- Test: `src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java`
+- Тест: `src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java`
 
-- [ ] **Step 1: Update TeacherCompetenceMatrix.java with pattern matching in equals**
+- [ ] **Крок 1: Оновлення TeacherCompetenceMatrix.java зі зіставленням шаблонів у equals**
 
 ```java
     @Override
@@ -143,44 +143,44 @@ Expected: PASS
     }
 ```
 
-- [ ] **Step 2: Run tests to verify Matrix changes**
+- [ ] **Крок 2: Запуск тестів для перевірки змін у Matrix**
 
-Run: `./mvnw test -Dtest=TeacherCompetenceMatrixTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=TeacherCompetenceMatrixTest`
+Очікується: УСПІШНО
 
-### Task 4: Standardize Other Entities (Verification)
+### Завдання 4: Стандартизація інших сутностей (Перевірка)
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/subject/Subject.java`
-- Modify: `src/main/java/com/sergofoox/domain/group/Group.java`
-- Modify: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/subject/Subject.java`
+- Змінити: `src/main/java/com/sergofoox/domain/group/Group.java`
+- Змінити: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
 
-- [ ] **Step 1: Verify and ensure pattern matching in Subject.java** (Already seems correct, but double check)
-- [ ] **Step 2: Verify and ensure pattern matching in Group.java** (Already seems correct, but double check)
-- [ ] **Step 3: Verify and ensure pattern matching in CoursePlan.java** (Already seems correct, but double check)
+- [ ] **Крок 1: Перевірка та забезпечення зіставлення шаблонів у Subject.java** (Здається, вже правильно, але перевірте двічі)
+- [ ] **Крок 2: Перевірка та забезпечення зіставлення шаблонів у Group.java** (Здається, вже правильно, але перевірте двічі)
+- [ ] **Крок 3: Перевірка та забезпечення зіставлення шаблонів у CoursePlan.java** (Здається, вже правильно, але перевірте двічі)
 
-### Task 5: Memory Bank Update
+### Завдання 5: Оновлення Memory Bank
 
-**Files:**
-- Modify: `memory-bank/progress.md`
-- Modify: `memory-bank/activeContext.md`
+**Файли:**
+- Змінити: `memory-bank/progress.md`
+- Змінити: `memory-bank/activeContext.md`
 
-- [ ] **Step 1: Update progress.md**
-  - Mark `Subject`, `Group`, `CoursePlan`, `Room`, and `Matrix` as completed.
-  - Move "Define Domain Model" to Completed.
-  - Add "Timefold Integration" to In Progress.
-- [ ] **Step 2: Update activeContext.md**
-  - Update focus to "Timefold Integration and Solver configuration".
-  - Update next steps to "Set up Timefold Solver and define initial constraints".
+- [ ] **Крок 1: Оновлення progress.md**
+  - Позначити `Subject`, `Group`, `CoursePlan`, `Room` та `Matrix` як завершені.
+  - Перемістити "Define Domain Model" до завершених (Completed).
+  - Додати "Timefold Integration" до завдань у процесі (In Progress).
+- [ ] **Крок 2: Оновлення activeContext.md**
+  - Оновити фокус на "Timefold Integration and Solver configuration".
+  - Оновити наступні кроки на "Set up Timefold Solver and define initial constraints".
 
-### Task 6: Final Verification & Commit
+### Завдання 6: Фінальна перевірка та коміт
 
-- [ ] **Step 1: Run all domain tests**
+- [ ] **Крок 1: Запуск усіх доменних тестів**
 
-Run: `./mvnw test`
-Expected: PASS
+Виконати: `./mvnw test`
+Очікується: УСПІШНО
 
-- [ ] **Step 2: Commit changes**
+- [ ] **Крок 2: Фіксація змін (коміт)**
 
 ```bash
 git add .

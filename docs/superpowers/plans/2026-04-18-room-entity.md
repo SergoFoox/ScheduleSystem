@@ -1,22 +1,22 @@
-# Room Entity Implementation Plan
+# План впровадження сутності Room
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Implement the `Room` (Аудиторія) domain entity to store physical classroom information.
+**Мета:** Впровадження доменної сутності `Room` (Аудиторія) для зберігання інформації про фізичні навчальні приміщення.
 
-**Architecture:** JPA Entity in the `com.sergofoox.domain.room` package, reusing `RoomType` from the `plan` domain.
+**Архітектура:** JPA-сутність у пакеті `com.sergofoox.domain.room`, з повторним використанням `RoomType` із домену `plan`.
 
-**Tech Stack:** Java 21, Spring Boot 4.x, Jakarta Persistence, Jakarta Validation, JUnit 5.
+**Технологічний стек:** Java 21, Spring Boot 4.x, Jakarta Persistence, Jakarta Validation, JUnit 5.
 
 ---
 
-### Task 1: Implement `Room` Entity
+### Завдання 1: Впровадження сутності `Room`
 
-**Files:**
-- Create: `src/main/java/com/sergofoox/domain/room/Room.java`
-- Create: `src/test/java/com/sergofoox/domain/room/RoomTest.java`
+**Файли:**
+- Створити: `src/main/java/com/sergofoox/domain/room/Room.java`
+- Створити: `src/test/java/com/sergofoox/domain/room/RoomTest.java`
 
-- [ ] **Step 1: Write the failing test for Room instantiation and equality**
+- [ ] **Крок 1: Написання тесту для створення Room та перевірки рівності, що не проходить**
 
 ```java
 package com.sergofoox.domain.room;
@@ -46,12 +46,12 @@ class RoomTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Крок 2: Запуск тесту для підтвердження невдачі**
 
-Run: `./mvnw test -Dtest=RoomTest`
-Expected: FAIL (Compilation error: Room class does not exist)
+Виконати: `./mvnw test -Dtest=RoomTest`
+Очікується: ПОМИЛКА (Помилка компіляції: клас Room не існує)
 
-- [ ] **Step 3: Implement Room Entity**
+- [ ] **Крок 3: Впровадження сутності Room**
 
 ```java
 package com.sergofoox.domain.room;
@@ -146,12 +146,12 @@ public class Room {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Крок 4: Запуск тесту для підтвердження успіху**
 
-Run: `./mvnw test -Dtest=RoomTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=RoomTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 5: Commit**
+- [ ] **Крок 5: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/room/Room.java src/test/java/com/sergofoox/domain/room/RoomTest.java

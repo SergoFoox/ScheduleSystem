@@ -1,22 +1,22 @@
-# Teacher Entity Implementation Plan
+# План впровадження сутності Teacher
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Implement the `Teacher` domain entity as a JPA-managed persistence object.
+**Мета:** Впровадження доменної сутності `Teacher` як керованого JPA об'єкта стійкості.
 
-**Architecture:** JPA Entity following standard POJO patterns in the `com.sergofoox.domain.teacher` package.
+**Архітектура:** JPA-сутність за стандартними шаблонами POJO у пакеті `com.sergofoox.domain.teacher`.
 
-**Tech Stack:** Java 21, Spring Boot 4.x (Jakarta Persistence), JUnit 5.
+**Технологічний стек:** Java 21, Spring Boot 4.x (Jakarta Persistence), JUnit 5.
 
 ---
 
-### Task 1: Create Teacher Entity and Basic Test
+### Завдання 1: Створення сутності Teacher та базового тесту
 
-**Files:**
-- Create: `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
-- Create: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
+**Файли:**
+- Створити: `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
+- Створити: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
 
-- [ ] **Step 1: Write the failing test for Teacher instantiation**
+- [ ] **Крок 1: Написання тесту створення Teacher, що не проходить**
 
 ```java
 package com.sergofoox.domain.teacher;
@@ -37,12 +37,12 @@ class TeacherTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Крок 2: Запуск тесту для підтвердження невдачі**
 
-Run: `./mvnw test -Dtest=TeacherTest`
-Expected: FAIL (Compilation error: Teacher class does not exist)
+Виконати: `./mvnw test -Dtest=TeacherTest`
+Очікується: ПОМИЛКА (Помилка компіляції: клас Teacher не існує)
 
-- [ ] **Step 3: Write minimal implementation of Teacher class**
+- [ ] **Крок 3: Написання мінімальної реалізації класу Teacher**
 
 ```java
 package com.sergofoox.domain.teacher;
@@ -87,12 +87,12 @@ public class Teacher {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Крок 4: Запуск тесту для підтвердження успіху**
 
-Run: `./mvnw test -Dtest=TeacherTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=TeacherTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 5: Commit**
+- [ ] **Крок 5: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/teacher/Teacher.java src/test/java/com/sergofoox/domain/teacher/TeacherTest.java
@@ -101,13 +101,13 @@ git commit -m "feat: add Teacher entity with basic tests"
 
 ---
 
-### Task 2: Implement Equals, HashCode, and ToString
+### Завдання 2: Впровадження Equals, HashCode та ToString
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
-- Modify: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/teacher/Teacher.java`
+- Змінити: `src/test/java/com/sergofoox/domain/teacher/TeacherTest.java`
 
-- [ ] **Step 1: Write failing tests for equality and toString**
+- [ ] **Крок 1: Написання тестів для рівності та toString, що не проходять**
 
 ```java
     @Test
@@ -125,12 +125,12 @@ git commit -m "feat: add Teacher entity with basic tests"
     }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Крок 2: Запуск тестів для підтвердження невдачі**
 
-Run: `./mvnw test -Dtest=TeacherTest`
-Expected: FAIL (Default Object methods don't match business equality)
+Виконати: `./mvnw test -Dtest=TeacherTest`
+Очікується: НЕВДАЧА (Методи Object за замовчуванням не відповідають бізнес-рівності)
 
-- [ ] **Step 3: Implement equals, hashCode, and toString**
+- [ ] **Крок 3: Впровадження equals, hashCode та toString**
 
 ```java
     @Override
@@ -160,12 +160,12 @@ Expected: FAIL (Default Object methods don't match business equality)
     }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [ ] **Крок 4: Запуск тестів для підтвердження успіху**
 
-Run: `./mvnw test -Dtest=TeacherTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=TeacherTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 5: Commit**
+- [ ] **Крок 5: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/teacher/Teacher.java src/test/java/com/sergofoox/domain/teacher/TeacherTest.java

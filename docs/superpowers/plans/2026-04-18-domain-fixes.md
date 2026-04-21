@@ -1,40 +1,40 @@
-# ASMS V3 Domain Fixes Implementation Plan
+# План впровадження виправлень доменів ASMS V3
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Fix Group, Subject, and CoursePlan entities based on code quality review: stable business keys for Group, pattern matching for Subject equality, and total hours consistency for CoursePlan.
+**Мета:** Виправлення сутностей Group, Subject та CoursePlan на основі огляду якості коду: стабільні бізнес-ключі для Group, зіставлення шаблонів (pattern matching) для рівності Subject та узгодженість загальної кількості годин для CoursePlan.
 
-**Architecture:** Surgical updates to existing domain entities and their unit tests.
+**Архітектура:** Точкові оновлення існуючих доменних сутностей та їх модульних тестів.
 
-**Tech Stack:** Java 21, Spring Boot 4.0.5, JUnit 5, Jakarta Validation.
+**Технологічний стек:** Java 21, Spring Boot 4.0.5, JUnit 5, Jakarta Validation.
 
 ---
 
-### Task 1: Update Group equality logic
+### Завдання 1: Оновлення логіки рівності Group
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/group/Group.java`
-- Modify: `src/test/java/com/sergofoox/domain/group/GroupTest.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/group/Group.java`
+- Змінити: `src/test/java/com/sergofoox/domain/group/GroupTest.java`
 
-- [ ] **Step 1: Update GroupTest.java with failing test**
-Update `testEquality` to check that groups with different course but same name and department are equal.
+- [ ] **Крок 1: Оновлення GroupTest.java тестом, що не проходить**
+Оновити `testEquality`, щоб перевірити, що групи з різним курсом, але однаковою назвою та відділом, рівні.
 
 ```java
     @Test
     void testEquality() {
         Group g1 = new Group("KB-41", 25, 4, "CS");
-        Group g2 = new Group("KB-41", 25, 3, "CS"); // Different course, should still be equal
+        Group g2 = new Group("KB-41", 25, 3, "CS"); // Різний курс, все одно мають бути рівними
         assertEquals(g1, g2, "Groups with same name and department should be equal regardless of course");
         assertEquals(g1.hashCode(), g2.hashCode());
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
-Run: `./mvnw test -Dtest=GroupTest`
-Expected: FAIL
+- [ ] **Крок 2: Запуск тесту для підтвердження невдачі**
+Виконати: `./mvnw test -Dtest=GroupTest`
+Очікується: НЕВДАЧА
 
-- [ ] **Step 3: Update Group.java equality logic**
-Remove `course` from `equals()` and `hashCode()`.
+- [ ] **Крок 3: Оновлення логіки рівності Group.java**
+Видалити `course` з `equals()` та `hashCode()`.
 
 ```java
     @Override
@@ -51,24 +51,24 @@ Remove `course` from `equals()` and `hashCode()`.
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-Run: `./mvnw test -Dtest=GroupTest`
-Expected: PASS
+- [ ] **Крок 4: Запуск тесту для підтвердження успіху**
+Виконати: `./mvnw test -Dtest=GroupTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 5: Commit**
+- [ ] **Крок 5: Коміт**
 ```bash
 git add src/main/java/com/sergofoox/domain/group/Group.java src/test/java/com/sergofoox/domain/group/GroupTest.java
 git commit -m "refactor(domain): update Group equality to use stable business keys (name, department)"
 ```
 
-### Task 2: Update Subject equality pattern matching
+### Завдання 2: Оновлення зіставлення шаблонів рівності Subject
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/subject/Subject.java`
-- Test: `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/subject/Subject.java`
+- Тест: `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
 
-- [ ] **Step 1: Update Subject.java equality pattern matching**
-Use pattern matching for `instanceof` in `equals()`.
+- [ ] **Крок 1: Оновлення зіставлення шаблонів рівності Subject.java**
+Використовувати зіставлення шаблонів для `instanceof` у `equals()`.
 
 ```java
     @Override
@@ -80,24 +80,24 @@ Use pattern matching for `instanceof` in `equals()`.
     }
 ```
 
-- [ ] **Step 2: Run test to verify it passes**
-Run: `./mvnw test -Dtest=SubjectTest`
-Expected: PASS
+- [ ] **Крок 2: Запуск тесту для підтвердження успіху**
+Виконати: `./mvnw test -Dtest=SubjectTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 3: Commit**
+- [ ] **Крок 3: Коміт**
 ```bash
 git add src/main/java/com/sergofoox/domain/subject/Subject.java
 git commit -m "style(domain): update Subject equality to use pattern matching for instanceof"
 ```
 
-### Task 3: Add CoursePlan consistency validation
+### Завдання 3: Додавання валідації узгодженості CoursePlan
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
-- Modify: `src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
+- Змінити: `src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java`
 
-- [ ] **Step 1: Add validation test to CoursePlanTest.java**
-Add a test case that checks for validation violations when total hours are inconsistent.
+- [ ] **Крок 1: Додавання тесту валідації до CoursePlanTest.java**
+Додати тестовий випадок, який перевіряє порушення валідації при неузгодженості загальної кількості годин.
 
 ```java
     @Test
@@ -122,28 +122,28 @@ Add a test case that checks for validation violations when total hours are incon
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
-Run: `./mvnw test -Dtest=CoursePlanTest`
-Expected: FAIL (on `hasConsistencyViolation`)
+- [ ] **Крок 2: Запуск тесту для підтвердження невдачі**
+Виконати: `./mvnw test -Dtest=CoursePlanTest`
+Очікується: НЕВДАЧА (на `hasConsistencyViolation`)
 
-- [ ] **Step 3: Add validation logic to CoursePlan.java**
-Add `@AssertTrue` method.
+- [ ] **Крок 3: Додавання логіки валідації до CoursePlan.java**
+Додати метод `@AssertTrue`.
 
 ```java
     @jakarta.validation.constraints.AssertTrue(message = "Total hours must match the sum of lecture, practice and lab hours")
     public boolean isTotalHoursConsistent() {
         if (totalHours == null || lectureHours == null || practiceHours == null || labHours == null) {
-            return true; // Let @NotNull handle null checks
+            return true; // Нехай @NotNull обробляє перевірки на null
         }
         return totalHours.equals(lectureHours + practiceHours + labHours);
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-Run: `./mvnw test -Dtest=CoursePlanTest`
-Expected: PASS
+- [ ] **Крок 4: Запуск тесту для підтвердження успіху**
+Виконати: `./mvnw test -Dtest=CoursePlanTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 5: Commit**
+- [ ] **Крок 5: Коміт**
 ```bash
 git add src/main/java/com/sergofoox/domain/plan/CoursePlan.java src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java
 git commit -m "feat(domain): add consistency validation for CoursePlan total hours"

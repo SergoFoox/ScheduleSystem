@@ -1,27 +1,27 @@
-# Teacher Entity Design Spec
+# Специфікація дизайну сутності Teacher
 
-## Goal
-Implement the `Teacher` (Викладач) domain entity as a JPA-managed persistence object to store information about academic staff.
+## Мета
+Впровадження доменної сутності `Teacher` (Викладач) як керованого JPA об'єкта стійкості для зберігання інформації про викладацький склад.
 
-## Architecture
-- **Layer:** Domain/Infrastructure (JPA Entity)
-- **Package:** `com.sergofoox.domain.teacher`
-- **Pattern:** standard Java POJO with JPA annotations.
+## Архітектура
+- **Рівень:** Домен/Інфраструктура (JPA-сутність)
+- **Пакет:** `com.sergofoox.domain.teacher`
+- **Шаблон:** стандартний Java POJO з анотаціями JPA.
 
-## Data Model
-| Field | Type | Description | JPA Mapping |
+## Модель даних
+| Поле | Тип | Опис | Мапінг JPA |
 | :--- | :--- | :--- | :--- |
-| `id` | `Long` | Primary Key | `@Id`, `@GeneratedValue(strategy = GenerationType.IDENTITY)` |
+| `id` | `Long` | Первинний ключ | `@Id`, `@GeneratedValue(strategy = GenerationType.IDENTITY)` |
 | `fullName` | `String` | ПІБ (Full Name) | `@Column(nullable = false)` |
 | `department` | `String` | Кафедра (Department) | `@Column(nullable = false)` |
 | `positionType` | `String` | Тип ставки (Position Type) | `@Column(nullable = false)` |
 
-## Requirements
-1. **No-args Constructor:** Required by JPA.
-2. **All-args Constructor:** For convenient instantiation.
-3. **Getters/Setters:** Standard boilerplate for all fields.
-4. **Equals/HashCode:** Based on `id` (or all fields if `id` is null) for consistent behavior in collections and Timefold.
-5. **ToString:** For debugging purposes.
+## Вимоги
+1. **Конструктор без аргументів:** Необхідний для JPA.
+2. **Конструктор з усіма аргументами:** Для зручного створення екземплярів.
+3. **Геттери/Сеттери:** Стандартний шаблонний код для всіх полів.
+4. **Equals/HashCode:** На основі `id` (або всіх полів, якщо `id` дорівнює null) для узгодженої поведінки в колекціях та Timefold.
+5. **ToString:** Для цілей налагодження.
 
-## Validation
-- `fullName`, `department`, and `positionType` should not be null in the database.
+## Валідація
+- `fullName`, `department` та `positionType` не повинні бути null у базі даних.

@@ -1,47 +1,47 @@
-# Group and CoursePlan Design Spec
+# Специфікація дизайну Group та CoursePlan
 
-## Goal
-Implement the `Group` (Група) and `CoursePlan` (Навчальний план) entities to define student groups and their academic requirements for the scheduling system.
+## Мета
+Впровадження сутностей `Group` (Група) та `CoursePlan` (Навчальний план) для визначення студентських груп та їхніх академічних вимог для системи планування розкладу.
 
-## Architecture
-- **Layer:** Domain/Infrastructure (JPA Entities)
-- **Package:** `com.sergofoox.domain.group` and `com.sergofoox.domain.plan`
-- **Pattern:** standard Java POJOs with JPA annotations and Bean Validation.
+## Архітектура
+- **Рівень:** Домен/Інфраструктура (JPA-сутності)
+- **Пакет:** `com.sergofoox.domain.group` та `com.sergofoox.domain.plan`
+- **Шаблон:** стандартні Java POJO з анотаціями JPA та Bean Validation.
 
-## Data Models
+## Моделі даних
 
-### Group
-| Field | Type | Description | JPA Mapping |
+### Group (Група)
+| Поле | Тип | Опис | Мапінг JPA |
 | :--- | :--- | :--- | :--- |
-| `id` | `Long` | Primary Key | `@Id`, `@GeneratedValue` |
-| `name` | `String` | Group name (e.g., "KB-41") | `@NotBlank`, `@Column(nullable = false)` |
-| `size` | `Integer` | Number of students | `@NotNull`, `@Min(1)`, `@Column(nullable = false)` |
-| `course` | `Integer` | Study year (1–4) | `@NotNull`, `@Min(1)`, `@Max(4)`, `@Column(nullable = false)` |
-| `department` | `String` | Department name | `@NotBlank`, `@Column(nullable = false)` |
+| `id` | `Long` | Первинний ключ | `@Id`, `@GeneratedValue` |
+| `name` | `String` | Назва групи (напр., "КБ-41") | `@NotBlank`, `@Column(nullable = false)` |
+| `size` | `Integer` | Кількість студентів | `@NotNull`, `@Min(1)`, `@Column(nullable = false)` |
+| `course` | `Integer` | Рік навчання (1–4) | `@NotNull`, `@Min(1)`, `@Max(4)`, `@Column(nullable = false)` |
+| `department` | `String` | Назва кафедри/факультету | `@NotBlank`, `@Column(nullable = false)` |
 
-### RoomType (Enum)
-- `LECTURE_HALL`
-- `LABORATORY`
-- `COMPUTER_CLASS`
-- `GENERAL_CLASSROOM`
+### RoomType (Enum, Тип приміщення)
+- `LECTURE_HALL` (Лекційна аудиторія)
+- `LABORATORY` (Лабораторія)
+- `COMPUTER_CLASS` (Комп'ютерний клас)
+- `GENERAL_CLASSROOM` (Загальна аудиторія)
 
-### CoursePlan
-| Field | Type | Description | JPA Mapping |
+### CoursePlan (Навчальний план)
+| Поле | Тип | Опис | Мапінг JPA |
 | :--- | :--- | :--- | :--- |
-| `id` | `Long` | Primary Key | `@Id`, `@GeneratedValue` |
-| `subject` | `Subject` | Linked subject | `@ManyToOne(fetch = LAZY)`, `@NotNull`, `@JoinColumn(nullable = false)` |
-| `group` | `Group` | Linked group | `@ManyToOne(fetch = LAZY)`, `@NotNull`, `@JoinColumn(nullable = false)` |
-| `totalHours` | `Integer` | Total hours for the subject | `@NotNull`, `@Min(0)` |
-| `lectureHours` | `Integer` | Hours for lectures | `@NotNull`, `@Min(0)` |
-| `practiceHours` | `Integer` | Hours for practice | `@NotNull`, `@Min(0)` |
-| `labHours` | `Integer` | Hours for labs | `@NotNull`, `@Min(0)` |
-| `lectureSessionsPerWeek` | `Integer` | Distribution: lectures/week | `@NotNull`, `@Min(0)` |
-| `practiceSessionsPerWeek` | `Integer` | Distribution: practice/week | `@NotNull`, `@Min(0)` |
-| `labSessionsPerWeek` | `Integer` | Distribution: labs/week | `@NotNull`, `@Min(0)` |
-| `requiredRoomType` | `RoomType` | Constraint: required room | `@Enumerated(STRING)`, `@NotNull` |
+| `id` | `Long` | Первинний ключ | `@Id`, `@GeneratedValue` |
+| `subject` | `Subject` | Пов'язаний предмет | `@ManyToOne(fetch = LAZY)`, `@NotNull`, `@JoinColumn(nullable = false)` |
+| `group` | `Group` | Пов'язана група | `@ManyToOne(fetch = LAZY)`, `@NotNull`, `@JoinColumn(nullable = false)` |
+| `totalHours` | `Integer` | Загальна кількість годин | `@NotNull`, `@Min(0)` |
+| `lectureHours` | `Integer` | Години лекцій | `@NotNull`, `@Min(0)` |
+| `practiceHours` | `Integer` | Години практичних занять | `@NotNull`, `@Min(0)` |
+| `labHours` | `Integer` | Години лабораторних занять | `@NotNull`, `@Min(0)` |
+| `lectureSessionsPerWeek` | `Integer` | Розподіл: лекцій на тиждень | `@NotNull`, `@Min(0)` |
+| `practiceSessionsPerWeek` | `Integer` | Розподіл: практик на тиждень | `@NotNull`, `@Min(0)` |
+| `labSessionsPerWeek` | `Integer` | Розподіл: лаб на тиждень | `@NotNull`, `@Min(0)` |
+| `requiredRoomType` | `RoomType` | Обмеження: необхідний тип аудиторії | `@Enumerated(STRING)`, `@NotNull` |
 
-## Requirements
-1. **Standard Boilerplate:** No-args/All-args constructors, Getters/Setters, Equals/HashCode/ToString.
-2. **Equals/HashCode:** Use business keys for JPA safety (name/course/department for Group; subject/group for CoursePlan).
-3. **Validation:** Use `jakarta.validation.constraints` for all mandatory and range-limited fields.
-4. **Fetch Strategy:** Use `FetchType.LAZY` for all `@ManyToOne` relationships.
+## Вимоги
+1. **Стандартний шаблонний код:** Конструктори без аргументів/з усіма аргументами, геттери/сеттери, Equals/HashCode/ToString.
+2. **Equals/HashCode:** Використовуйте бізнес-ключі для безпеки JPA (name/course/department для Group; subject/group для CoursePlan).
+3. **Валідація:** Використовуйте `jakarta.validation.constraints` для всіх обов'язкових полів та полів з обмеженням діапазону.
+4. **Стратегія вибірки:** Використовуйте `FetchType.LAZY` для всіх зв'язків `@ManyToOne`.

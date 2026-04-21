@@ -1,23 +1,23 @@
-# Subject and TeacherCompetenceMatrix Implementation Plan
+# План впровадження сутностей Subject та TeacherCompetenceMatrix
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Implement the `Subject` entity and the `TeacherCompetenceMatrix` entity to define teacher competencies.
+**Мета:** Впровадження сутності `Subject` та сутності `TeacherCompetenceMatrix` для визначення компетенцій викладачів.
 
-**Architecture:** JPA Entities following standard POJO patterns in `com.sergofoox.entity` and `com.sergofoox.domain.competence`.
+**Архітектура:** JPA-сутності за стандартними шаблонами POJO у пакетах `com.sergofoox.entity` та `com.sergofoox.domain.competence`.
 
-**Tech Stack:** Java 21, Spring Boot 4.x (Jakarta Persistence), JUnit 5.
+**Технологічний стек:** Java 21, Spring Boot 4.x (Jakarta Persistence), JUnit 5.
 
 ---
 
-### Task 1: Implement `Subject` Entity and `LessonType` Enum
+### Завдання 1: Впровадження сутності `Subject` та перерахування `LessonType`
 
-**Files:**
-- Create: `src/main/java/com/sergofoox/entity/Subject.java`
-- Create: `src/main/java/com/sergofoox/entity/LessonType.java`
-- Create: `src/test/java/com/sergofoox/entity/SubjectTest.java`
+**Файли:**
+- Створити: `src/main/java/com/sergofoox/entity/Subject.java`
+- Створити: `src/main/java/com/sergofoox/entity/LessonType.java`
+- Створити: `src/test/java/com/sergofoox/entity/SubjectTest.java`
 
-- [ ] **Step 1: Write the failing test for Subject instantiation**
+- [ ] **Крок 1: Написання тесту для створення Subject, що не проходить**
 
 ```java
 package com.sergofoox.entity;
@@ -35,12 +35,12 @@ class SubjectTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Крок 2: Запуск тесту для підтвердження невдачі**
 
-Run: `./mvnw test -Dtest=SubjectTest`
-Expected: FAIL (Compilation error: Subject class does not exist)
+Виконати: `./mvnw test -Dtest=SubjectTest`
+Очікується: ПОМИЛКА (Помилка компіляції: клас Subject не існує)
 
-- [ ] **Step 3: Implement LessonType Enum**
+- [ ] **Крок 3: Впровадження перерахування LessonType**
 
 ```java
 package com.sergofoox.entity;
@@ -52,7 +52,7 @@ public enum LessonType {
 }
 ```
 
-- [ ] **Step 4: Implement Subject Entity**
+- [ ] **Крок 4: Впровадження сутності Subject**
 
 ```java
 package com.sergofoox.entity;
@@ -118,12 +118,12 @@ public class Subject {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [ ] **Крок 5: Запуск тесту для підтвердження успіху**
 
-Run: `./mvnw test -Dtest=SubjectTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=SubjectTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 6: Commit**
+- [ ] **Крок 6: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/entity/Subject.java src/main/java/com/sergofoox/entity/LessonType.java src/test/java/com/sergofoox/entity/SubjectTest.java
@@ -132,14 +132,14 @@ git commit -m "feat: add Subject entity and LessonType enum"
 
 ---
 
-### Task 2: Implement `Priority` Enum and `TeacherCompetenceMatrix` Entity
+### Завдання 2: Впровадження перерахування `Priority` та сутності `TeacherCompetenceMatrix`
 
-**Files:**
-- Create: `src/main/java/com/sergofoox/domain/competence/Priority.java`
-- Create: `src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java`
-- Create: `src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java`
+**Файли:**
+- Створити: `src/main/java/com/sergofoox/domain/competence/Priority.java`
+- Створити: `src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java`
+- Створити: `src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java`
 
-- [ ] **Step 1: Write failing test for TeacherCompetenceMatrix creation**
+- [ ] **Крок 1: Написання тесту для створення TeacherCompetenceMatrix, що не проходить**
 
 ```java
 package com.sergofoox.domain.competence;
@@ -165,12 +165,12 @@ class TeacherCompetenceMatrixTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Крок 2: Запуск тесту для підтвердження невдачі**
 
-Run: `./mvnw test -Dtest=TeacherCompetenceMatrixTest`
-Expected: FAIL (Compilation error: Priority and TeacherCompetenceMatrix classes do not exist)
+Виконати: `./mvnw test -Dtest=TeacherCompetenceMatrixTest`
+Очікується: ПОМИЛКА (Помилка компіляції: класи Priority та TeacherCompetenceMatrix не існують)
 
-- [ ] **Step 3: Implement Priority Enum**
+- [ ] **Крок 3: Впровадження перерахування Priority**
 
 ```java
 package com.sergofoox.domain.competence;
@@ -182,7 +182,7 @@ public enum Priority {
 }
 ```
 
-- [ ] **Step 4: Implement TeacherCompetenceMatrix Entity**
+- [ ] **Крок 4: Впровадження сутності TeacherCompetenceMatrix**
 
 ```java
 package com.sergofoox.domain.competence;
@@ -273,12 +273,12 @@ public class TeacherCompetenceMatrix {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [ ] **Крок 5: Запуск тесту для підтвердження успіху**
 
-Run: `./mvnw test -Dtest=TeacherCompetenceMatrixTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=TeacherCompetenceMatrixTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 6: Commit**
+- [ ] **Крок 6: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/competence/Priority.java src/main/java/com/sergofoox/domain/competence/TeacherCompetenceMatrix.java src/test/java/com/sergofoox/domain/competence/TeacherCompetenceMatrixTest.java

@@ -1,50 +1,50 @@
-# Task 1 Quality Fix Implementation Plan
+# План впровадження виправлення якості Завдання 1
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Fix Task 1 implementation by relocating files to the correct domain package, adding bean validation, and improving test coverage and JPA-safe equals/hashCode.
+**Мета:** Виправлення впровадження Завдання 1 шляхом переміщення файлів до правильного доменного пакета, додавання валідації bean-компонентів, а також покращення тестового покриття та безпечного для JPA equals/hashCode.
 
-**Architecture:** Domain-Driven Design (DDD) approach by moving entities to domain packages. Jakarta Bean Validation for data integrity. JPA-safe equals/hashCode based on business keys or consistent identifier handling.
+**Архітектура:** Підхід проблемно-орієнтованого проектування (DDD) шляхом переміщення сутностей у доменні пакети. Jakarta Bean Validation для цілісності даних. Безпечний для JPA equals/hashCode на основі бізнес-ключів або узгодженої обробки ідентифікаторів.
 
-**Tech Stack:** Java 21, Spring Boot 4.0.5, Jakarta Persistence, Jakarta Validation, JUnit 5.
+**Технологічний стек:** Java 21, Spring Boot 4.0.5, Jakarta Persistence, Jakarta Validation, JUnit 5.
 
 ---
 
-### Task 1: Relocation and Package Refactoring
+### Завдання 1: Переміщення та рефакторинг пакетів
 
-**Files:**
-- Move: `src/main/java/com/sergofoox/entity/Subject.java` -> `src/main/java/com/sergofoox/domain/subject/Subject.java`
-- Move: `src/main/java/com/sergofoox/entity/LessonType.java` -> `src/main/java/com/sergofoox/domain/subject/LessonType.java`
-- Move: `src/test/java/com/sergofoox/entity/SubjectTest.java` -> `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
+**Файли:**
+- Перемістити: `src/main/java/com/sergofoox/entity/Subject.java` -> `src/main/java/com/sergofoox/domain/subject/Subject.java`
+- Перемістити: `src/main/java/com/sergofoox/entity/LessonType.java` -> `src/main/java/com/sergofoox/domain/subject/LessonType.java`
+- Перемістити: `src/test/java/com/sergofoox/entity/SubjectTest.java` -> `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
 
-- [ ] **Step 1: Create target directories**
-Run: `mkdir -p src/main/java/com/sergofoox/domain/subject src/test/java/com/sergofoox/domain/subject`
+- [ ] **Крок 1: Створення цільових каталогів**
+Виконати: `mkdir -p src/main/java/com/sergofoox/domain/subject src/test/java/com/sergofoox/domain/subject`
 
-- [ ] **Step 2: Relocate files**
-Run: `mv src/main/java/com/sergofoox/entity/Subject.java src/main/java/com/sergofoox/domain/subject/`
-Run: `mv src/main/java/com/sergofoox/entity/LessonType.java src/main/java/com/sergofoox/domain/subject/`
-Run: `mv src/test/java/com/sergofoox/entity/SubjectTest.java src/test/java/com/sergofoox/domain/subject/`
+- [ ] **Крок 2: Переміщення файлів**
+Виконати: `mv src/main/java/com/sergofoox/entity/Subject.java src/main/java/com/sergofoox/domain/subject/`
+Виконати: `mv src/main/java/com/sergofoox/entity/LessonType.java src/main/java/com/sergofoox/domain/subject/`
+Виконати: `mv src/test/java/com/sergofoox/entity/SubjectTest.java src/test/java/com/sergofoox/domain/subject/`
 
-- [ ] **Step 3: Update package declarations and imports**
-Update `Subject.java`, `LessonType.java`, and `SubjectTest.java` to use `package com.sergofoox.domain.subject;`.
+- [ ] **Крок 3: Оновлення оголошень пакетів та імпортів**
+Оновити `Subject.java`, `LessonType.java` та `SubjectTest.java` для використання `package com.sergofoox.domain.subject;`.
 
-- [ ] **Step 4: Verify project compiles**
-Run: `./mvnw compile`
-Expected: SUCCESS
+- [ ] **Крок 4: Перевірка компіляції проекту**
+Виконати: `./mvnw compile`
+Очікується: УСПІШНО
 
-- [ ] **Step 5: Commit relocation**
+- [ ] **Крок 5: Коміт переміщення**
 ```bash
 git add src/main/java/com/sergofoox/domain/subject src/test/java/com/sergofoox/domain/subject src/main/java/com/sergofoox/entity/ src/test/java/com/sergofoox/entity/
 git commit -m "refactor: relocate Subject and LessonType to domain package"
 ```
 
-### Task 2: Expand SubjectTest with TDD (Red Phase)
+### Завдання 2: Розширення SubjectTest за допомогою TDD (Червона фаза)
 
-**Files:**
-- Modify: `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
+**Файли:**
+- Змінити: `src/test/java/com/sergofoox/domain/subject/SubjectTest.java`
 
-- [ ] **Step 1: Add tests for all-args constructor, equals, and hashCode**
-Update `SubjectTest.java` with more comprehensive tests.
+- [ ] **Крок 1: Додавання тестів для конструктора з усіма аргументами, equals та hashCode**
+Оновити `SubjectTest.java` більш розлогими тестами.
 
 ```java
 package com.sergofoox.domain.subject;
@@ -100,13 +100,13 @@ class SubjectTest {
 }
 ```
 
-- [ ] **Step 2: Add validation tests (will fail initially)**
-Requires `jakarta.validation-api` and an implementation (like Hibernate Validator) in `pom.xml`. Assuming it's there as it's a Spring Boot project.
+- [ ] **Крок 2: Додавання тестів валідації (спочатку не пройдуть)**
+Потребує `jakarta.validation-api` та реалізацію (наприклад, Hibernate Validator) у `pom.xml`. Припускаємо, що вони там є, оскільки це проект Spring Boot.
 
 ```java
     @Test
     void testValidation() {
-        // This is a unit test, we can use a Validator to check annotations
+        // Це модульний тест, ми можемо використовувати Validator для перевірки анотацій
         jakarta.validation.ValidatorFactory factory = jakarta.validation.Validation.buildDefaultValidatorFactory();
         jakarta.validation.Validator validator = factory.getValidator();
 
@@ -119,37 +119,37 @@ Requires `jakarta.validation-api` and an implementation (like Hibernate Validato
     }
 ```
 
-- [ ] **Step 3: Run tests and verify failure**
-Run: `./mvnw test -Dtest=SubjectTest`
-Expected: FAIL (validation test will fail because annotations are missing)
+- [ ] **Крок 3: Запуск тестів та перевірка невдачі**
+Виконати: `./mvnw test -Dtest=SubjectTest`
+Очікується: НЕВДАЧА (тест валідації не пройде, оскільки анотації відсутні)
 
-### Task 3: Implement Validation and Refine Equals/HashCode (Green Phase)
+### Завдання 3: Впровадження валідації та вдосконалення Equals/HashCode (Зелена фаза)
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/subject/Subject.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/subject/Subject.java`
 
-- [ ] **Step 1: Add validation annotations**
-Add `@NotBlank` and `@Size` to `name` and `abbreviation`.
+- [ ] **Крок 1: Додавання анотацій валідації**
+Додати `@NotBlank` та `@Size` до `name` та `abbreviation`.
 
-- [ ] **Step 2: Refine equals and hashCode for JPA safety**
-Use only `id` for `equals`/`hashCode` if `id` is present, or a stable business key. For this task, ensure it matches the test expectations.
+- [ ] **Крок 2: Вдосконалення equals та hashCode для безпеки JPA**
+Використовувати тільки `id` для `equals`/`hashCode`, якщо `id` присутній, або стабільний бізнес-ключ. Для цього завдання переконайтеся, що це відповідає очікуванням тесту.
 
-- [ ] **Step 3: Run tests and verify pass**
-Run: `./mvnw test -Dtest=SubjectTest`
-Expected: SUCCESS
+- [ ] **Крок 3: Запуск тестів та перевірка успіху**
+Виконати: `./mvnw test -Dtest=SubjectTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 4: Commit fixes**
+- [ ] **Крок 4: Коміт виправлень**
 ```bash
 git add src/main/java/com/sergofoox/domain/subject/Subject.java src/test/java/com/sergofoox/domain/subject/SubjectTest.java
 git commit -m "feat: add validation and improve Subject entity quality"
 ```
 
-### Task 4: Final Verification
+### Завдання 4: Фінальна перевірка
 
-- [ ] **Step 1: Run all tests in project**
-Run: `./mvnw test`
-Expected: SUCCESS
+- [ ] **Крок 1: Запуск усіх тестів у проекті**
+Виконати: `./mvnw test`
+Очікується: УСПІШНО
 
-- [ ] **Step 2: Check for any remaining references to old package**
-Run: `grep -r "com.sergofoox.entity" .`
-Expected: No matches (except maybe in target/ or .git/)
+- [ ] **Крок 2: Перевірка на наявність залишкових посилань на старий пакет**
+Виконати: `grep -r "com.sergofoox.entity" .`
+Очікується: Збігів немає (крім, можливо, у target/ або .git/)

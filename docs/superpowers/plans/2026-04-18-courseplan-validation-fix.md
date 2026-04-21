@@ -1,23 +1,23 @@
-# CoursePlan Consistency Validation Implementation Plan
+# План впровадження валідації узгодженості CoursePlan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Add a validation to `CoursePlan` to ensure that `totalHours` matches the sum of `lectureHours`, `practiceHours`, and `labHours`.
+**Мета:** Додати валідацію до `CoursePlan`, щоб переконатися, що `totalHours` відповідає сумі `lectureHours`, `practiceHours` та `labHours`.
 
-**Architecture:** Use Bean Validation API (`@AssertTrue`) in the domain entity.
+**Архітектура:** Використання Bean Validation API (`@AssertTrue`) у доменній сутності.
 
-**Tech Stack:** Java 21, Spring Boot 4.0.5, Jakarta Bean Validation.
+**Технологічний стек:** Java 21, Spring Boot 4.0.5, Jakarta Bean Validation.
 
 ---
 
-### Task 1: Update CoursePlanTest.java
+### Завдання 1: Оновлення CoursePlanTest.java
 
-**Files:**
-- Modify: `src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java`
+**Файли:**
+- Змінити: `src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java`
 
-- [ ] **Step 1: Update the validation message check in `testTotalHoursValidation` to match the required message.**
+- [ ] **Крок 1: Оновлення перевірки повідомлення валідації у `testTotalHoursValidation` відповідно до вимог.**
 
-The user requested: "Total hours must equal the sum of lecture, practice, and lab hours"
+Користувач запитав: "Total hours must equal the sum of lecture, practice, and lab hours"
 
 ```java
     @Test
@@ -42,12 +42,12 @@ The user requested: "Total hours must equal the sum of lecture, practice, and la
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Крок 2: Запуск тесту для підтвердження його невдачі**
 
-Run: `./mvnw test -Dtest=CoursePlanTest`
-Expected: FAIL (still fails because validation is missing)
+Виконати: `./mvnw test -Dtest=CoursePlanTest`
+Очікується: НЕВДАЧА (все ще не вдається, оскільки валідація відсутня)
 
-- [ ] **Step 3: Commit**
+- [ ] **Крок 3: Коміт**
 
 ```bash
 git add src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java
@@ -56,35 +56,35 @@ git commit -m "test: update CoursePlanTest validation message"
 
 ---
 
-### Task 2: Implement validation in CoursePlan.java
+### Завдання 2: Впровадження валідації у CoursePlan.java
 
-**Files:**
-- Modify: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
+**Файли:**
+- Змінити: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
 
-- [ ] **Step 1: Add @AssertTrue method to CoursePlan class.**
+- [ ] **Крок 1: Додати метод @AssertTrue до класу CoursePlan.**
 
 ```java
     @jakarta.validation.constraints.AssertTrue(message = "Total hours must equal the sum of lecture, practice, and lab hours")
     public boolean isHoursConsistent() {
         if (totalHours == null || lectureHours == null || practiceHours == null || labHours == null) {
-            return true; // Let @NotNull handle nulls
+            return true; // Нехай @NotNull обробляє значення null
         }
         return totalHours == (lectureHours + practiceHours + labHours);
     }
 ```
 
-- [ ] **Step 2: Add import for AssertTrue if not already present.**
+- [ ] **Крок 2: Додати імпорт для AssertTrue, якщо він ще не присутній.**
 
 ```java
 import jakarta.validation.constraints.AssertTrue;
 ```
 
-- [ ] **Step 3: Run test to verify it passes**
+- [ ] **Крок 3: Запуск тесту для підтвердження його успіху**
 
-Run: `./mvnw test -Dtest=CoursePlanTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=CoursePlanTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 4: Commit**
+- [ ] **Крок 4: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/plan/CoursePlan.java
@@ -93,11 +93,11 @@ git commit -m "feat: add hours consistency validation to CoursePlan"
 
 ---
 
-### Task 3: Final Verification
+### Завдання 3: Фінальна перевірка
 
-- [ ] **Step 1: Run all tests in the project.**
+- [ ] **Крок 1: Запуск усіх тестів у проекті.**
 
-Run: `./mvnw test`
-Expected: ALL PASS
+Виконати: `./mvnw test`
+Очікується: ВСІ ПРОЙШЛИ
 
-- [ ] **Step 2: Summary and completion.**
+- [ ] **Крок 2: Резюме та завершення.**

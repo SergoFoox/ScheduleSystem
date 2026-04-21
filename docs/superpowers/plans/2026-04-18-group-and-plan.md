@@ -1,22 +1,22 @@
-# Group and CoursePlan Implementation Plan
+# План впровадження сутностей Group та CoursePlan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для агентних працівників:** ОБОВ'ЯЗКОВА ПІД-НАВИЧКА: Використовуйте superpowers:subagent-driven-development (рекомендовано) або superpowers:executing-plans для поетапного виконання цього плану. Кроки використовують синтаксис прапорців (`- [ ]`) для відстеження.
 
-**Goal:** Implement the `Group` entity and the `CoursePlan` entity to define student groups and their academic requirements.
+**Мета:** Впровадження сутності `Group` та сутності `CoursePlan` для визначення студентських груп та їхніх академічних вимог.
 
-**Architecture:** JPA Entities following standard POJO patterns in `com.sergofoox.domain.group` and `com.sergofoox.domain.plan`.
+**Архітектура:** JPA-сутності за стандартними шаблонами POJO у пакетах `com.sergofoox.domain.group` та `com.sergofoox.domain.plan`.
 
-**Tech Stack:** Java 21, Spring Boot 4.x (Jakarta Persistence), Jakarta Validation, JUnit 5.
+**Технологічний стек:** Java 21, Spring Boot 4.x (Jakarta Persistence), Jakarta Validation, JUnit 5.
 
 ---
 
-### Task 1: Implement `Group` Entity
+### Завдання 1: Впровадження сутності `Group`
 
-**Files:**
-- Create: `src/main/java/com/sergofoox/domain/group/Group.java`
-- Create: `src/test/java/com/sergofoox/domain/group/GroupTest.java`
+**Файли:**
+- Створити: `src/main/java/com/sergofoox/domain/group/Group.java`
+- Створити: `src/test/java/com/sergofoox/domain/group/GroupTest.java`
 
-- [x] **Step 1: Write the failing test for Group instantiation and equality**
+- [x] **Крок 1: Написання тесту для створення Group та перевірки рівності, що не проходить**
 
 ```java
 package com.sergofoox.domain.group;
@@ -44,12 +44,12 @@ class GroupTest {
 }
 ```
 
-- [x] **Step 2: Run test to verify it fails**
+- [x] **Крок 2: Запуск тесту для підтвердження невдачі**
 
-Run: `./mvnw test -Dtest=GroupTest`
-Expected: FAIL (Compilation error: Group class does not exist)
+Виконати: `./mvnw test -Dtest=GroupTest`
+Очікується: ПОМИЛКА (Помилка компіляції: клас Group не існує)
 
-- [x] **Step 3: Implement Group Entity**
+- [x] **Крок 3: Впровадження сутності Group**
 
 ```java
 package com.sergofoox.domain.group;
@@ -59,7 +59,7 @@ import jakarta.validation.constraints.*;
 import java.util.Objects;
 
 @Entity
-@Table(name = "student_group") // 'group' is a reserved keyword in SQL
+@Table(name = "student_group") // 'group' є зарезервованим ключовим словом у SQL
 public class Group {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -139,12 +139,12 @@ public class Group {
 }
 ```
 
-- [x] **Step 4: Run test to verify it passes**
+- [x] **Крок 4: Запуск тесту для підтвердження успіху**
 
-Run: `./mvnw test -Dtest=GroupTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=GroupTest`
+Очікується: УСПІШНО
 
-- [x] **Step 5: Commit**
+- [x] **Крок 5: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/group/Group.java src/test/java/com/sergofoox/domain/group/GroupTest.java
@@ -153,14 +153,14 @@ git commit -m "feat: add Group entity"
 
 ---
 
-### Task 2: Implement `CoursePlan` Entity and `RoomType` Enum
+### Завдання 2: Впровадження сутності `CoursePlan` та перерахування `RoomType`
 
-**Files:**
-- Create: `src/main/java/com/sergofoox/domain/plan/RoomType.java`
-- Create: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
-- Create: `src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java`
+**Файли:**
+- Створити: `src/main/java/com/sergofoox/domain/plan/RoomType.java`
+- Створити: `src/main/java/com/sergofoox/domain/plan/CoursePlan.java`
+- Створити: `src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java`
 
-- [ ] **Step 1: Write failing test for CoursePlan instantiation**
+- [ ] **Крок 1: Написання тесту створення CoursePlan, що не проходить**
 
 ```java
 package com.sergofoox.domain.plan;
@@ -185,12 +185,12 @@ class CoursePlanTest {
 }
 ```
 
-- [x] **Step 2: Run test to verify it fails**
+- [x] **Крок 2: Запуск тесту для підтвердження невдачі**
 
-Run: `./mvnw test -Dtest=CoursePlanTest`
-Expected: FAIL (Compilation error: RoomType and CoursePlan classes do not exist)
+Виконати: `./mvnw test -Dtest=CoursePlanTest`
+Очікується: ПОМИЛКА (Помилка компіляції: класи RoomType та CoursePlan не існують)
 
-- [ ] **Step 3: Implement RoomType Enum**
+- [ ] **Крок 3: Впровадження перерахування RoomType**
 
 ```java
 package com.sergofoox.domain.plan;
@@ -203,7 +203,7 @@ public enum RoomType {
 }
 ```
 
-- [ ] **Step 4: Implement CoursePlan Entity**
+- [ ] **Крок 4: Впровадження сутності CoursePlan**
 
 ```java
 package com.sergofoox.domain.plan;
@@ -315,12 +315,12 @@ public class CoursePlan {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [ ] **Крок 5: Запуск тесту для підтвердження успіху**
 
-Run: `./mvnw test -Dtest=CoursePlanTest`
-Expected: PASS
+Виконати: `./mvnw test -Dtest=CoursePlanTest`
+Очікується: УСПІШНО
 
-- [ ] **Step 6: Commit**
+- [ ] **Крок 6: Коміт**
 
 ```bash
 git add src/main/java/com/sergofoox/domain/plan/RoomType.java src/main/java/com/sergofoox/domain/plan/CoursePlan.java src/test/java/com/sergofoox/domain/plan/CoursePlanTest.java
