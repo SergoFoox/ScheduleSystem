@@ -10,18 +10,22 @@ export interface SelectedEntity {
 export const selectedEntity = signal<SelectedEntity | null>(null);
 
 export const scheduleData = signal<ScheduleGridDTO | null>(null);
-export const scheduleLoading = signal(true);
+export const scheduleLoading = signal(false);
 export const isPublished = signal(false);
+export const solverStatus = signal<'NOT_SOLVING' | 'SOLVING'>('NOT_SOLVING');
 
 export async function refreshSchedule() {
+
   scheduleLoading.value = true;
   try {
-    const [result, publishedStatus] = await Promise.all([
+    const [result, publishedStatus, status] = await Promise.all([
       ScheduleEndpoint.getScheduleGridData(),
-      ScheduleEndpoint.isPublished()
+      ScheduleEndpoint.isPublished(),
+      ScheduleEndpoint.getSolverStatus()
     ]);
     scheduleData.value = result;
     isPublished.value = publishedStatus;
+    solverStatus.value = status as any;
   } finally {
     scheduleLoading.value = false;
   }

@@ -10,7 +10,7 @@ import '@vaadin/vaadin-lumo-styles/vaadin-iconset.js';
 export const AnalyticsSidebar: React.FC = () => {
   const [analytics, setAnalytics] = useState<ScheduleAnalyticsDTO | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (selectedEntity.value) {
@@ -45,7 +45,7 @@ export const AnalyticsSidebar: React.FC = () => {
   }
 
   return (
-    <div className="w-300 h-full bg-[var(--aura-surface-color)] border-l flex flex-col shadow-xl transition-all duration-300 ease-in-out relative">
+    <div className="w-80 h-full bg-[var(--aura-surface-color)] border-l flex flex-col shadow-xl transition-all duration-300 ease-in-out relative">
       <div className="p-4 border-b flex justify-between items-center bg-gray-50">
         <h3 className="text-lg font-bold flex items-center gap-2">
           <Icon icon="lumo:bar-chart" className="text-blue-600" />

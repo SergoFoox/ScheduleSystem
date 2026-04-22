@@ -6,5 +6,6 @@ public record TeacherDTO(
     Long id,
     String fullName,
     String department,
-    PositionType positionType
+    PositionType positionType,
+    Integer weeklyHourLimit
 ) {}

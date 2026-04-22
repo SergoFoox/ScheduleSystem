@@ -10,6 +10,7 @@ import com.sergofoox.domain.plan.CoursePlan;
 import com.sergofoox.domain.plan.CoursePlanRepository;
 import com.sergofoox.domain.room.Room;
 import com.sergofoox.domain.room.RoomRepository;
+import com.sergofoox.domain.solver.ScheduleService;
 import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.timeslot.Timeslot;
@@ -41,6 +42,7 @@ public class ScheduleEndpoint {
     private final LessonRepository lessonRepository;
     private final CoursePlanRepository coursePlanRepository;
     private final TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository;
+    private final ScheduleService scheduleService;
 
     private boolean published = false;
 
@@ -51,7 +53,8 @@ public class ScheduleEndpoint {
             TimeslotRepository timeslotRepository,
             LessonRepository lessonRepository,
             CoursePlanRepository coursePlanRepository,
-            TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository) {
+            TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository,
+            ScheduleService scheduleService) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
         this.roomRepository = roomRepository;
@@ -59,6 +62,34 @@ public class ScheduleEndpoint {
         this.lessonRepository = lessonRepository;
         this.coursePlanRepository = coursePlanRepository;
         this.teacherCompetenceMatrixRepository = teacherCompetenceMatrixRepository;
+        this.scheduleService = scheduleService;
+    }
+
+    @RolesAllowed("DISPATCHER")
+    public void generateSchedule() {
+        if (published) {
+            throw new IllegalStateException("Неможливо згенерувати розклад: його вже опубліковано");
+        }
+        scheduleService.solve();
+    }
+
+    @RolesAllowed("DISPATCHER")
+    @Transactional
+    public void clearSchedule() {
+        if (published) {
+            throw new IllegalStateException("Неможливо очистити розклад: його вже опубліковано");
+        }
+        List<Lesson> allLessons = lessonRepository.findAll();
+        for (Lesson lesson : allLessons) {
+            lesson.setTimeslot(null);
+            lesson.setRoom(null);
+            lessonRepository.save(lesson);
+        }
+    }
+
+    @RolesAllowed({"DISPATCHER", "USER"})
+    public String getSolverStatus() {
+        return scheduleService.getSolverStatus().name();
     }
 
     @AnonymousAllowed
@@ -189,16 +220,13 @@ public class ScheduleEndpoint {
 
             List<Integer> slots = dayLessons.stream()
                     .map(l -> {
-                        // This is a bit simplified, ideally timeslots have an order index
-                        // We'll assume startTime can be used for ordering
                         return l.getTimeslot().getStartTime().getHour() * 60 + l.getTimeslot().getStartTime().getMinute();
                     })
                     .sorted()
                     .toList();
             
-            // For now, let's just count gaps if the difference is more than usual lesson duration (e.g. 100 mins)
             for (int i = 0; i < slots.size() - 1; i++) {
-                if (slots.get(i+1) - slots.get(i) > 120) { // Gap > 2 hours
+                if (slots.get(i+1) - slots.get(i) > 120) {
                     totalWindows++;
                 }
             }
@@ -310,7 +338,8 @@ public class ScheduleEndpoint {
                 teacher.getId(),
                 teacher.getFullName(),
                 teacher.getDepartment(),
-                teacher.getPositionType()
+                teacher.getPositionType(),
+                teacher.getWeeklyHourLimit()
         );
     }
 
