@@ -98,10 +98,6 @@ export default function RoomsView() {
           items={filteredRooms} 
           className="h-full" 
           theme="row-stripes"
-          onActiveItemChanged={(e) => {
-            const item = e.detail.value;
-            if (item) handleEdit(item as RoomDTO);
-          }}
         >
           <GridColumn header="Назва" path="name" autoWidth />
           <GridColumn header="Корпус" path="building" autoWidth />
@@ -127,6 +123,13 @@ export default function RoomsView() {
             frozenToEnd
             renderer={({ item }) => (
               <div className="flex gap-2 p-1">
+                <Button 
+                  theme="tertiary icon" 
+                  onClick={() => handleEdit(item as RoomDTO)}
+                  title="Редагувати"
+                >
+                  <Icon icon="vaadin:edit" />
+                </Button>
                 <Button 
                   theme="tertiary error icon" 
                   onClick={(e) => {

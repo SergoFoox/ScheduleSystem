@@ -105,10 +105,6 @@ export default function TeachersView() {
           items={filteredTeachers} 
           className="h-full" 
           theme="row-stripes"
-          onActiveItemChanged={(e) => {
-            const item = e.detail.value;
-            if (item) handleEdit(item as TeacherDTO);
-          }}
         >
           <GridColumn header="ПІБ викладача" path="fullName" autoWidth />
           <GridColumn header="Спеціалізація" path="specialization" autoWidth />
@@ -137,18 +133,21 @@ export default function TeachersView() {
               <div className="flex gap-2 p-1">
                 <Button 
                   theme="tertiary icon" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCompetence(item as TeacherDTO);
-                  }}
+                  onClick={() => handleEdit(item as TeacherDTO)}
+                  title="Редагувати"
+                >
+                  <Icon icon="vaadin:edit" />
+                </Button>
+                <Button 
+                  theme="tertiary icon" 
+                  onClick={() => handleCompetence(item as TeacherDTO)}
                   title="Компетенції (предмети)"
                 >
                   <Icon icon="vaadin:book" />
                 </Button>
                 <Button 
                   theme="tertiary error icon" 
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={() => {
                     if (item.id) openDeleteConfirm(item.id as any);
                   }}
                   title="Видалити"
