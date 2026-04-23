@@ -160,12 +160,17 @@ export default function TeachersView() {
         </Grid>
       </div>
 
-      <TeacherDialog 
-        opened={dialogOpened} 
-        teacher={selectedTeacher} 
-        onClose={() => setDialogOpened(false)}
-        onSaved={fetchTeachers}
-      />
+      {dialogOpened && (
+        <TeacherDialog 
+          opened={dialogOpened} 
+          teacher={selectedTeacher} 
+          onClose={() => {
+            setDialogOpened(false);
+            setSelectedTeacher(undefined);
+          }}
+          onSaved={fetchTeachers}
+        />
+      )}
 
       <CompetenceDialog
         opened={competenceOpened}

@@ -11,5 +11,6 @@ public record LessonDTO(
     int subgroup,
     Long groupId,
     Long subjectId,
-    Long roomId
+    Long roomId,
+    Long teacherId
 ) {}

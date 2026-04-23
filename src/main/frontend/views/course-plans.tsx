@@ -69,10 +69,6 @@ export default function CoursePlansView() {
         <Grid 
           items={plans} 
           className="h-full border rounded-lg shadow-sm"
-          onActiveItemChanged={(e) => {
-            const item = e.detail.value;
-            if (item) handleEdit(item as CoursePlanDTO);
-          }}
         >
           <GridColumn 
             header="Група" 
@@ -89,15 +85,22 @@ export default function CoursePlansView() {
             autoWidth
             frozenToEnd
             renderer={({ item }) => (
-              <Button
-                theme="error icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(item.id!);
-                }}
-              >
-                <Icon icon="vaadin:trash" />
-              </Button>
+              <div className="flex gap-2 p-1">
+                <Button 
+                  theme="tertiary icon" 
+                  onClick={() => handleEdit(item as CoursePlanDTO)}
+                  title="Редагувати"
+                >
+                  <Icon icon="vaadin:edit" />
+                </Button>
+                <Button
+                  theme="tertiary error icon"
+                  onClick={() => handleDelete(item.id!)}
+                  title="Видалити"
+                >
+                  <Icon icon="vaadin:trash" />
+                </Button>
+              </div>
             )}
           />
         </Grid>
@@ -107,9 +110,13 @@ export default function CoursePlansView() {
         <PlanDialog
           opened={dialogOpened}
           plan={selectedPlan}
-          onClose={() => setDialogOpened(false)}
+          onClose={() => {
+            setDialogOpened(false);
+            setSelectedPlan(undefined);
+          }}
           onSaved={() => {
             setDialogOpened(false);
+            setSelectedPlan(undefined);
             refreshData();
           }}
         />

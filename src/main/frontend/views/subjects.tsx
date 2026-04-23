@@ -64,10 +64,6 @@ export default function SubjectsView() {
         <Grid 
           items={subjects} 
           className="h-full border rounded-lg shadow-sm"
-          onActiveItemChanged={(e) => {
-            const item = e.detail.value;
-            if (item) handleEdit(item as Subject);
-          }}
         >
           <GridColumn path="name" header="Назва дисципліни" resizable autoWidth />
           <GridColumn path="abbreviation" header="Абревіатура" autoWidth />
@@ -80,10 +76,7 @@ export default function SubjectsView() {
                 <Button
                   theme="tertiary icon"
                   aria-label="Edit"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEdit(item as Subject);
-                  }}
+                  onClick={() => handleEdit(item as Subject)}
                   title="Редагувати"
                 >
                   <Icon icon="vaadin:edit" />
@@ -91,10 +84,7 @@ export default function SubjectsView() {
                 <Button
                   theme="error tertiary icon"
                   aria-label="Delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(item.id!);
-                  }}
+                  onClick={() => handleDelete(item.id!)}
                   title="Видалити"
                 >
                   <Icon icon="vaadin:trash" />
@@ -108,7 +98,10 @@ export default function SubjectsView() {
       <SubjectDialog
         opened={dialogOpened}
         subject={selectedSubject}
-        onClose={() => setDialogOpened(false)}
+        onClose={() => {
+          setDialogOpened(false);
+          setSelectedSubject(undefined);
+        }}
         onSaved={() => refreshSubjects()}
       />
     </div>

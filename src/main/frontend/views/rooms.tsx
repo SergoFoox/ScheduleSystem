@@ -146,12 +146,17 @@ export default function RoomsView() {
         </Grid>
       </div>
 
-      <RoomDialog 
-        opened={dialogOpened} 
-        room={selectedRoom} 
-        onClose={() => setDialogOpened(false)}
-        onSaved={fetchRooms}
-      />
+      {dialogOpened && (
+        <RoomDialog 
+          opened={dialogOpened} 
+          room={selectedRoom} 
+          onClose={() => {
+            setDialogOpened(false);
+            setSelectedRoom(undefined);
+          }}
+          onSaved={fetchRooms}
+        />
+      )}
 
       <ConfirmDialog
         header="Видалення аудиторії"

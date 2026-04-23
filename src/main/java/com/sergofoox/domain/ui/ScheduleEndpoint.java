@@ -296,6 +296,21 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     @Transactional
+    public void unassignLesson(Long lessonId) {
+        try {
+            if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
+            Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
+            lesson.setTimeslot(null);
+            lesson.setRoom(null);
+            lessonRepository.save(lesson);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    @AnonymousAllowed
+    @Transactional
     public LessonDTO assignReplacement(Long lessonId, Long teacherId, Long roomId) {
         try {
             if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
@@ -382,7 +397,8 @@ public class ScheduleEndpoint {
                 lesson.getSubgroup(),
                 lesson.getGroup() != null ? lesson.getGroup().getId() : null,
                 lesson.getSubject() != null ? lesson.getSubject().getId() : null,
-                lesson.getRoom() != null ? lesson.getRoom().getId() : null
+                lesson.getRoom() != null ? lesson.getRoom().getId() : null,
+                lesson.getTeacher() != null ? lesson.getTeacher().getId() : null
         );
     }
 

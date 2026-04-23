@@ -129,12 +129,14 @@ export default function GroupsView() {
         </Grid>
       </div>
 
-      <GroupDialog 
-        opened={dialogOpened} 
-        group={selectedGroup} 
-        onClose={handleCloseDialog}
-        onSaved={fetchGroups}
-      />
+      {dialogOpened && (
+        <GroupDialog 
+          opened={dialogOpened} 
+          group={selectedGroup} 
+          onClose={handleCloseDialog}
+          onSaved={fetchGroups}
+        />
+      )}
 
       <CoursePlanDialog
         opened={plansOpened}
