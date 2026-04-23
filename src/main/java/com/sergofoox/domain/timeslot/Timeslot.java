@@ -2,6 +2,8 @@ package com.sergofoox.domain.timeslot;
 
 import com.sergofoox.domain.plan.Periodicity;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -28,20 +30,27 @@ public class Timeslot {
     @Enumerated(EnumType.STRING)
     private Periodicity weekParity = Periodicity.WEEKLY;
 
+    @NotNull
+    @Min(1)
+    @Max(8)
+    private Integer lessonNumber;
+
     public Timeslot() {
     }
 
-    public Timeslot(DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime) {
+    public Timeslot(DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime, Integer lessonNumber) {
         this.dayOfWeek = dayOfWeek;
         this.startTime = startTime;
         this.endTime = endTime;
+        this.lessonNumber = lessonNumber;
     }
 
-    public Timeslot(DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime, Periodicity weekParity) {
+    public Timeslot(DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime, Periodicity weekParity, Integer lessonNumber) {
         this.dayOfWeek = dayOfWeek;
         this.startTime = startTime;
         this.endTime = endTime;
         this.weekParity = weekParity;
+        this.lessonNumber = lessonNumber;
     }
 
     public Long getId() {
@@ -82,6 +91,14 @@ public class Timeslot {
 
     public void setWeekParity(Periodicity weekParity) {
         this.weekParity = weekParity;
+    }
+
+    public Integer getLessonNumber() {
+        return lessonNumber;
+    }
+
+    public void setLessonNumber(Integer lessonNumber) {
+        this.lessonNumber = lessonNumber;
     }
 
     @Override

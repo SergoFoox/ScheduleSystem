@@ -1,46 +1,21 @@
-# Decision Log — ASMS V3
+# Лог рішень — ASMS V3
 
-## [2026-04-18] Optimization Engine Selection
+## 2026-04-21: Впровадження Tailwind CSS разом з Aura Theme
+- **Рішення**: Увімкнути експериментальну підтримку Tailwind CSS у Vaadin 25.
+- **Обґрунтування**: Стандартних Lumo Utility Classes в темі Aura недостатньо для створення складної, щільної академічної сітки розкладу. Tailwind надає необхідну гнучкість без написання великої кількості кастомного CSS.
+- **Наслідки**: Потрібна перекомпіляція фронтенду при додаванні нових класів. Весь проект тепер орієнтований на Tailwind для верстки.
 
-### Decision
-Use Timefold Solver 1.33.0 instead of OptaPlanner.
+## 2026-04-22: Перехід до академічної матриці (PDF Layout)
+- **Рішення**: Змінити структуру `ScheduleGrid` з гнучкого перемикання осей на жорстко задану матрицю (Групи — X, Дні/Пари — Y).
+- **Обґрунтування**: Пряма вимога замовника (на основі наданого PDF-файлу). Такий формат є стандартом для українських коледжів.
+- **Наслідки**: Спрощено логіку відображення для диспетчера, додано підтримку підгруп (спліт-комірки) та ПІБ куратора.
 
-### Reasoning
-- More active development and modern API.
-- Better performance for high-concurrency scheduling.
-- Improved Java 21 support.
+## 2026-04-22: Використання Signals для глобального стану
+- **Рішення**: Впровадити `@vaadin/hilla-react-signals` для керування статусом солвера та даними розкладу.
+- **Обґрунтування**: Це забезпечує миттєву реактивність інтерфейсу (наприклад, оновлення сітки при завершенні фонової генерації) без зайвих перерендерів.
+- **Наслідки**: Код став чистішим, синхронізація між бічною панеллю та дашбордом працює автоматично.
 
----
-
-## [2026-04-18] UI Framework Selection
-
-### Decision
-Use Vaadin Flow 25.1.2 with React integration.
-
-### Reasoning
-- Full-stack Java logic with modern React frontend flexibility.
-- Component-based structure for complex dashboards.
-- Native Spring Boot integration.
-
----
-
-## [2026-04-19] Domain Model Design
-
-### Decision
-Adopt "Domain-by-feature" packaging and stable business keys for equals/hashCode.
-
-### Reasoning
-- Prevents N+1 and Proxy issues in JPA/Timefold.
-- Improves modularity and makes the code more testable.
-- Ensures stability during Solver iterations.
-
----
-
-## [2026-04-19] Scheduling Cycles Implementation
-
-### Decision
-Implement `Periodicity` (WEEKLY, ODD_WEEKS, EVEN_WEEKS) at the `Timeslot` and `CoursePlan` level.
-
-### Reasoning
-- Fully satisfies requirement 3.1 for "Numerator/Denominator" support.
-- Allows fine-grained control over alternating week schedules.
+## 2026-04-22: Відкриті ендпоінти для етапу розробки
+- **Рішення**: Встановити `@AnonymousAllowed` на всі основні ендпоінти.
+- **Обґрунтування**: Полегшує тестування CRUD-операцій та Timefold Solver без постійної автентифікації.
+- **Наслідки**: Перед релізом необхідно повернути `@RolesAllowed` та налаштувати Login Screen.

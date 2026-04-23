@@ -84,11 +84,11 @@ export default function RoomsView() {
             className="w-96"
             clearButtonVisible
           >
-            <Icon icon="lumo:search" slot="prefix" className="text-gray-400" />
+            <Icon icon="vaadin:search" slot="prefix" className="text-gray-400" />
           </TextField>
         </div>
         <Button theme="primary" onClick={handleAdd} className="shadow-md">
-          <Icon icon="lumo:plus" slot="prefix" />
+          <Icon icon="vaadin:plus" slot="prefix" />
           Додати аудиторію
         </Button>
       </div>
@@ -117,7 +117,12 @@ export default function RoomsView() {
           />
           <GridColumn header="Обладнання" path="equipment" flexGrow={1} />
           <GridColumn
-            header="Дії"
+            header={
+              <div className="flex items-center gap-2">
+                <Icon icon="vaadin:cog" className="w-3 h-3" />
+                <span>Дії</span>
+              </div>
+            }
             autoWidth
             frozenToEnd
             renderer={({ item }) => (
@@ -130,7 +135,7 @@ export default function RoomsView() {
                   }}
                   title="Видалити"
                 >
-                  <Icon icon="lumo:trash" />
+                  <Icon icon="vaadin:trash" />
                 </Button>
               </div>
             )}

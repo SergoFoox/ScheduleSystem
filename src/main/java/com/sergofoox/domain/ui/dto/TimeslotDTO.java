@@ -9,5 +9,6 @@ public record TimeslotDTO(
     DayOfWeek dayOfWeek,
     LocalTime startTime,
     LocalTime endTime,
-    Periodicity weekParity
+    Periodicity weekParity,
+    Integer lessonNumber
 ) {}

@@ -50,6 +50,8 @@ public class Lesson {
     @ManyToOne(fetch = FetchType.LAZY)
     private Room room;
 
+    private Integer subgroup = 0; // 0 = whole group, 1 = first, 2 = second
+
     public Lesson() {
     }
 
@@ -59,6 +61,15 @@ public class Lesson {
         this.teacher = teacher;
         this.group = group;
         this.coursePlan = coursePlan;
+    }
+
+    public Lesson(Subject subject, LessonType lessonType, Teacher teacher, Group group, CoursePlan coursePlan, Integer subgroup) {
+        this.subject = subject;
+        this.lessonType = lessonType;
+        this.teacher = teacher;
+        this.group = group;
+        this.coursePlan = coursePlan;
+        this.subgroup = subgroup;
     }
 
     public Long getId() {
@@ -123,6 +134,14 @@ public class Lesson {
 
     public void setRoom(Room room) {
         this.room = room;
+    }
+
+    public Integer getSubgroup() {
+        return subgroup;
+    }
+
+    public void setSubgroup(Integer subgroup) {
+        this.subgroup = subgroup;
     }
 
     @Override

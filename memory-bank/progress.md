@@ -1,61 +1,49 @@
-# Progress — ASMS V3
+# Прогрес — ASMS V3
 
-## Current Status
-🟢 Timefold Constraints Finalized & Verified
-
----
-
-## Completed
-
-- [x] Memory Bank structure created
-- [x] Core context documents defined
-- [x] Teacher domain entity (standardized with validation, workload limits)
-- [x] Subject domain entity and LessonType enum
-- [x] TeacherCompetenceMatrix junction entity and refined Priority enum (PRIMARY, SECONDARY, SUBSTITUTE)
-- [x] Group domain entity (student_group mapping)
-- [x] CoursePlan domain entity (hours consistency validation, periodicity support, executed hours tracking)
-- [x] Room domain entity and RoomType enum
-- [x] **Timeslot** domain entity (DayOfWeek, LocalTime, weekParity/periodicity support)
-- [x] **Lesson** domain entity (Timefold **@PlanningEntity** with **@PlanningVariable** for timeslot and room)
-- [x] **Schedule** class as the Timefold **@PlanningSolution**
-- [x] **ScheduleConstraintProvider** with **All Required Constraints**:
-    - **Hard**: Teacher, Group, Room conflicts (with weekParity support)
-    - **Hard**: Room Capacity vs Group Size
-    - **Soft**: Minimization of "windows" (gaps) for Groups and Teachers
-    - **Soft**: Load balancing (preventing more than 4 lessons per day)
-    - **Soft**: Room stability for Teachers (prefer same room during the day)
-- [x] **SolverConfiguration** (Java API) with **FIRST_FIT** and **TABU_SEARCH** strategies
-- [x] Domain model standardization (JPA proxy safety, Bean Validation, Timefold-safe toString)
-- [x] **100% Test Coverage for Domain & Solver** (27 tests passing, including Solver Integration)
+## Поточний статус
+🟢 **Фаза 2: Інтерфейс та База Даних завершена**
+Система має повноцінний сучасний UI, підключену базу даних та інтегрований алгоритм оптимізації розкладу.
 
 ---
 
-## In Progress
+## Завершено
 
-- [ ] JPA Repositories for all domain entities
-- [ ] Service layer for schedule generation orchestration
+- [x] **Структура проекту**: Створено Memory Bank та специфікації.
+- [x] **Доменна модель**: Впроваджено всі сутності (Вчителі, Групи, Аудиторії, Заняття, Таймслоти) з валідацією.
+- [x] **Алгоритм оптимізації (Timefold)**:
+    - Налаштовано Hard/Soft обмеження.
+    - Впроваджено `ScheduleConstraintProvider`.
+    - Реалізовано `ScheduleService` для керування життєвим циклом солвера.
+- [x] **База даних**:
+    - Підключено **H2 Database** з файловим збереженням (`schedule.mv.db`).
+    - Налаштовано автоматичне наповнення тестовими даними (`DataInitializer`).
+- [x] **Бекенд (Hilla Endpoints)**:
+    - Створено ендпоінти для всіх розділів (Schedule, Teacher, Group, Room, CoursePlan).
+    - Впроваджено CRUD-операції з підтримкою каскадного видалення.
+- [x] **Користувацький інтерфейс (Hilla/React)**:
+    - Впроваджено тему **Aura** та **Tailwind CSS**.
+    - **Головний дашборд**: Академічна матриця розкладу (точно як у PDF), підтримка Drag-and-Drop.
+    - **Управління**: Повноцінні вкладки для Викладачів, Груп та Аудиторій.
+    - **Навчальні плани**: Окремий розділ для налаштування годин та дисциплін.
+    - **Реактивність**: Використання **Signals** для миттєвого оновлення аналітики та статусу солвера.
 
 ---
 
-## Next Steps
+## У процесі
 
-1. Create JPA Repositories for CRUD operations on domain entities.
-2. Implement `ScheduleService` to load data into the `Schedule` object and trigger solving.
-3. Implement basic Vaadin dashboard for schedule visualization and management.
-
----
-
-## Risks
-
-- High complexity of advanced constraint logic (e.g., travel time between buildings)
-- Performance tuning for large-scale datasets
-- Vaadin UI state management during asynchronous solving
+- [x] **Розділ «Предмети»**: Створення довідника всіх дисциплін.
+- [x] **Матриця компетенцій**: Інтерфейс для прив'язки викладачів до предметів.
 
 ---
 
-## Notes
+## Наступні кроки
 
-- Timefold chosen over OptaPlanner (version 1.33.0)
-- Solver configured with 2-minute termination limit for initial testing
-- Constraint Streams API used for better readability and performance
-- `ScheduleSolverTest` verifies that the solver can successfully resolve teacher overlaps and apply soft constraints
+1. Впровадити реальний експорт у **PDF/HTML** (п. 5.3 ТЗ).
+2. Додати систему автентифікації (Login Screen) з розмежуванням ролей.
+
+---
+
+## Ризики та нотатки
+
+- **Продуктивність**: При дуже великій кількості груп (більше 100) може знадобитися оптимізація рендерингу великої матриці розкладу.
+- **Vite/Build**: Оскільки ми використовуємо новітні версії Vite та Tailwind, потрібно стежити за сумісністю плагінів у `vite.generated.ts`.

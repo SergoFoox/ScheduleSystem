@@ -9,12 +9,14 @@ import { ConfirmDialog } from '@vaadin/react-components/ConfirmDialog.js';
 import { TeacherEndpoint } from '../generated/endpoints';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import { TeacherDialog } from '../components/TeacherDialog';
+import { CompetenceDialog } from '../components/CompetenceDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 
 export default function TeachersView() {
   const [teachers, setTeachers] = useState<TeacherDTO[]>([]);
   const [filter, setFilter] = useState('');
   const [dialogOpened, setDialogOpened] = useState(false);
+  const [competenceOpened, setCompetenceOpened] = useState(false);
   const [confirmOpened, setConfirmOpened] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherDTO | undefined>(undefined);
   const [teacherToDelete, setTeacherToDelete] = useState<number | undefined>(undefined);
@@ -52,6 +54,11 @@ export default function TeachersView() {
     setDialogOpened(true);
   };
 
+  const handleCompetence = (teacher: TeacherDTO) => {
+    setSelectedTeacher(teacher);
+    setCompetenceOpened(true);
+  };
+
   const openDeleteConfirm = (id: number) => {
     setTeacherToDelete(id);
     setConfirmOpened(true);
@@ -84,11 +91,11 @@ export default function TeachersView() {
             className="w-96"
             clearButtonVisible
           >
-            <Icon icon="lumo:search" slot="prefix" className="text-gray-400" />
+            <Icon icon="vaadin:search" slot="prefix" className="text-gray-400" />
           </TextField>
         </div>
         <Button theme="primary" onClick={handleAdd} className="shadow-md">
-          <Icon icon="lumo:plus" slot="prefix" />
+          <Icon icon="vaadin:plus" slot="prefix" />
           Додати викладача
         </Button>
       </div>
@@ -104,6 +111,7 @@ export default function TeachersView() {
           }}
         >
           <GridColumn header="ПІБ викладача" path="fullName" autoWidth />
+          <GridColumn header="Спеціалізація" path="specialization" autoWidth />
           <GridColumn header="Кафедра" path="department" autoWidth />
           <GridColumn 
             header="Посада" 
@@ -115,12 +123,28 @@ export default function TeachersView() {
             )}
           />
           <GridColumn header="Ліміт год/тиждень" path="weeklyHourLimit" autoWidth textAlign="end" />
+          <GridColumn header="Макс. робочих днів" path="maxWorkingDaysPerWeek" autoWidth textAlign="end" />
           <GridColumn
-            header="Дії"
+            header={
+              <div className="flex items-center gap-2">
+                <Icon icon="vaadin:cog" className="w-3 h-3" />
+                <span>Дії</span>
+              </div>
+            }
             autoWidth
             frozenToEnd
             renderer={({ item }) => (
               <div className="flex gap-2 p-1">
+                <Button 
+                  theme="tertiary icon" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCompetence(item as TeacherDTO);
+                  }}
+                  title="Компетенції (предмети)"
+                >
+                  <Icon icon="vaadin:book" />
+                </Button>
                 <Button 
                   theme="tertiary error icon" 
                   onClick={(e) => {
@@ -129,7 +153,7 @@ export default function TeachersView() {
                   }}
                   title="Видалити"
                 >
-                  <Icon icon="lumo:trash" />
+                  <Icon icon="vaadin:trash" />
                 </Button>
               </div>
             )}
@@ -142,6 +166,12 @@ export default function TeachersView() {
         teacher={selectedTeacher} 
         onClose={() => setDialogOpened(false)}
         onSaved={fetchTeachers}
+      />
+
+      <CompetenceDialog
+        opened={competenceOpened}
+        teacher={selectedTeacher}
+        onClose={() => setCompetenceOpened(false)}
       />
 
       <ConfirmDialog

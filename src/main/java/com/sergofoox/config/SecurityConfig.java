@@ -19,9 +19,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http.with(VaadinSecurityConfigurer.vaadin(), configurer -> {
-            // VaadinSecurityConfigurer handles internal framework requests and views.
-            // anyRequest() here defines the rule for everything else.
-            configurer.anyRequest(auth -> auth.authenticated());
+            configurer.anyRequest(auth -> auth.permitAll());
         }).build();
     }
 

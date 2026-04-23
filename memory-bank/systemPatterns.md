@@ -1,74 +1,18 @@
-# System Patterns — ASMS V3
+# Системні патерни — ASMS V3
 
-## Architecture Style
+## Архітектура
+Система побудована як сучасний моноліт на **Spring Boot 4**, де фронтенд інтегрований за допомогою **Vaadin Hilla**.
 
-### Clean Architecture + Domain-Driven Design (DDD)
+### Фронтенд-патерни
+- **Hilla File Router**: Використання файлової маршрутизації (папка `views/`) для автоматичної генерації маршрутів React.
+- **Signals (Preact/Hilla)**: Патерн реактивного стану. Замість складних пропсів, дані розкладу та статус солвера зберігаються в глобальних сигналах (`app-state.ts`). Це дозволяє компонентам (`ScheduleGrid`, `AnalyticsSidebar`) автоматично оновлюватися при зміні даних на сервері.
+- **Tailwind Utility First**: Основний підхід до стилізації. Дозволяє створювати складні інтерфейси (академічна матриця) без написання кастомного CSS.
 
-The system follows:
-- Separation of concerns
-- Independent domain logic
-- Explicit business rules
+### Бекенд-патерни
+- **Planning Solution (Timefold)**: Клас `Schedule` виступає як повноцінна модель рішення, що містить усі сутності та змінні планування.
+- **Service Orchestration**: `ScheduleService` відповідає за завантаження даних, ініціалізацію солвера та асинхронне збереження найкращого рішення.
+- **DTO Records**: Використання Java Records для передачі даних між бекендом та фронтендом. Це гарантує незмінність даних та легку TypeScript-генерацію.
 
----
-
-## Layers
-
-### 1. Domain Layer
-- Entities (Teacher, Subject, Lesson, Schedule)
-- Business rules
-- Constraints
-
-### 2. Application Layer
-- Use cases (GenerateSchedule, ReplaceTeacher)
-- Orchestration of domain logic
-
-### 3. Infrastructure Layer
-- Database
-- External integrations
-- Timefold solver integration
-
-### 4. Presentation Layer
-- Vaadin UI
-- Dashboards
-
----
-
-## Architectural Patterns
-
-### Hexagonal Architecture (Ports & Adapters)
-- Isolates domain from infrastructure
-- Improves testability
-
----
-
-## UI Approach
-
-### Vaadin Flow
-- Server-side UI in Java
-- Component-based structure
-- Reactive updates (optional via signals/events)
-
----
-
-## Optimization Engine
-
-### Timefold Solver
-- Constraint-based optimization
-- Supports Hard and Soft constraints
-
----
-
-## Key Patterns
-
-- Partial CQRS
-- Factory (schedule creation)
-- Strategy (constraint logic)
-- Builder (complex object construction)
-
----
-
-## Principles
-
-- Single Source of Truth (Memory Bank)
-- Explicit business logic
-- Minimal side effects
+### Патерни Бази Даних
+- **JPA Entity Graph**: Використовується для вирішення проблеми N+1. Наприклад, у `LessonRepository` ми завантажуємо всі зв’язки (Teacher, Group, Room) одним запитом для швидкого рендерингу сітки розкладу.
+- **Каскадне керування**: Впроваджено логіку «м'якого видалення» для аудиторій (очищення посилань) та повного каскадного видалення для груп/викладачів.

@@ -21,6 +21,8 @@ public class Teacher {
     @Column(nullable = false)
     private String department;
 
+    private String specialization;
+
     @NotNull(message = "Position type is required")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -56,6 +58,8 @@ public class Teacher {
     public void setFullName(String fullName) { this.fullName = fullName; }
     public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
+    public String getSpecialization() { return specialization; }
+    public void setSpecialization(String specialization) { this.specialization = specialization; }
     public PositionType getPositionType() { return positionType; }
     public void setPositionType(PositionType positionType) { this.positionType = positionType; }
     public Integer getWeeklyHourLimit() { return weeklyHourLimit; }

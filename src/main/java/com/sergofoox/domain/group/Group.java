@@ -30,6 +30,8 @@ public class Group {
     @Column(nullable = false)
     private String department;
 
+    private Long curatorId;
+
     public Group() {}
 
     public Group(String name, Integer size, Integer course, String department) {
@@ -39,12 +41,29 @@ public class Group {
         this.department = department;
     }
 
+    public Group(String name, Integer size, Integer course, String department, Long curatorId) {
+        this.name = name;
+        this.size = size;
+        this.course = course;
+        this.department = department;
+        this.curatorId = curatorId;
+    }
+
     public Group(Long id, String name, Integer size, Integer course, String department) {
         this.id = id;
         this.name = name;
         this.size = size;
         this.course = course;
         this.department = department;
+    }
+
+    public Group(Long id, String name, Integer size, Integer course, String department, Long curatorId) {
+        this.id = id;
+        this.name = name;
+        this.size = size;
+        this.course = course;
+        this.department = department;
+        this.curatorId = curatorId;
     }
 
     public Long getId() { return id; }
@@ -57,6 +76,8 @@ public class Group {
     public void setCourse(Integer course) { this.course = course; }
     public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
+    public Long getCuratorId() { return curatorId; }
+    public void setCuratorId(Long curatorId) { this.curatorId = curatorId; }
 
     @Override
     public boolean equals(Object o) {
@@ -79,6 +100,7 @@ public class Group {
                 ", size=" + size +
                 ", course=" + course +
                 ", department='" + department + '\'' +
+                ", curatorId=" + curatorId +
                 '}';
     }
 }

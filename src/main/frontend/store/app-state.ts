@@ -1,5 +1,4 @@
 import { signal } from '@vaadin/hilla-react-signals';
-import type ScheduleGridDTO from '../generated/com/sergofoox/domain/ui/dto/ScheduleGridDTO';
 import { ScheduleEndpoint } from '../generated/endpoints';
 
 export interface SelectedEntity {
@@ -9,7 +8,7 @@ export interface SelectedEntity {
 
 export const selectedEntity = signal<SelectedEntity | null>(null);
 
-export const scheduleData = signal<ScheduleGridDTO | null>(null);
+export const scheduleData = signal<any | null>(null);
 export const scheduleLoading = signal(false);
 export const isPublished = signal(false);
 export const solverStatus = signal<'NOT_SOLVING' | 'SOLVING'>('NOT_SOLVING');

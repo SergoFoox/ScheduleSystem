@@ -5,5 +5,7 @@ public record GroupDTO(
     String name,
     Integer size,
     Integer course,
-    String department
+    String department,
+    Long curatorId,
+    String curatorName
 ) {}

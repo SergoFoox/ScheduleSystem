@@ -1,8 +1,10 @@
 package com.sergofoox.domain.room;
 
 import com.sergofoox.domain.ui.dto.RoomDTO;
+import com.sergofoox.domain.lesson.Lesson;
+import com.sergofoox.domain.lesson.LessonRepository;
+import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
-import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,42 +12,71 @@ import java.util.List;
 
 @BrowserCallable
 @Service
-@RolesAllowed("DISPATCHER")
+@AnonymousAllowed
 public class RoomEndpoint {
 
     private final RoomRepository roomRepository;
+    private final LessonRepository lessonRepository;
 
-    public RoomEndpoint(RoomRepository roomRepository) {
+    public RoomEndpoint(RoomRepository roomRepository, LessonRepository lessonRepository) {
         this.roomRepository = roomRepository;
+        this.lessonRepository = lessonRepository;
     }
 
     public List<RoomDTO> getAllRooms() {
-        return roomRepository.findAll().stream()
-                .map(this::mapToDTO)
-                .toList();
+        try {
+            return roomRepository.findAll().stream()
+                    .map(this::mapToDTO)
+                    .toList();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @Transactional
     public void saveRoom(RoomDTO dto) {
-        Room room;
-        if (dto.id() != null) {
-            room = roomRepository.findById(dto.id()).orElseThrow();
-        } else {
-            room = new Room();
+        System.out.println("Attempting to save room: " + dto.name());
+        try {
+            Room room;
+            if (dto.id() != null) {
+                room = roomRepository.findById(dto.id()).orElseThrow();
+            } else {
+                room = new Room();
+            }
+            
+            room.setName(dto.name());
+            room.setCapacity(dto.capacity());
+            room.setBuilding(dto.building());
+            room.setEquipment(dto.equipment());
+            room.setType(dto.type());
+            
+            roomRepository.save(room);
+            System.out.println("Room saved successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
         }
-        
-        room.setName(dto.name());
-        room.setCapacity(dto.capacity());
-        room.setBuilding(dto.building());
-        room.setEquipment(dto.equipment());
-        room.setType(dto.type());
-        
-        roomRepository.save(room);
     }
 
     @Transactional
     public void deleteRoom(Long id) {
-        roomRepository.deleteById(id);
+        try {
+            Room room = roomRepository.findById(id).orElseThrow();
+            
+            // Замість видалення занять, ми просто "виписуємо" їх з цієї аудиторії
+            List<Lesson> lessonsInRoom = lessonRepository.findByRoom(room);
+            for (Lesson lesson : lessonsInRoom) {
+                lesson.setRoom(null);
+                lessonRepository.save(lesson);
+            }
+            
+            roomRepository.delete(room);
+            System.out.println("Room deleted successfully, lessons updated");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     private RoomDTO mapToDTO(Room room) {

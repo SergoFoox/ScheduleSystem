@@ -52,8 +52,12 @@ export default function MainLayout() {
             Розклад
           </SideNavItem>
           <SideNavItem path="/teachers">
-            <Icon icon="vaadin:user" slot="prefix" />
+            <Icon icon="vaadin:user-card" slot="prefix" />
             Викладачі
+          </SideNavItem>
+          <SideNavItem path="/subjects">
+            <Icon icon="vaadin:book" slot="prefix" />
+            Дисципліни
           </SideNavItem>
           <SideNavItem path="/groups">
             <Icon icon="vaadin:users" slot="prefix" />
@@ -62,6 +66,10 @@ export default function MainLayout() {
           <SideNavItem path="/rooms">
             <Icon icon="vaadin:home" slot="prefix" />
             Аудиторії
+          </SideNavItem>
+          <SideNavItem path="/course-plans">
+            <Icon icon="vaadin:list" slot="prefix" />
+            Навчальні плани
           </SideNavItem>
         </SideNav>
       </Scroller>

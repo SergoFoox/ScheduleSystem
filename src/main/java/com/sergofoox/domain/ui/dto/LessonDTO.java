@@ -7,5 +7,9 @@ public record LessonDTO(
     String groupName,
     String roomName,
     Long timeslotId,
-    boolean hasConflict
+    boolean hasConflict,
+    int subgroup,
+    Long groupId,
+    Long subjectId,
+    Long roomId
 ) {}

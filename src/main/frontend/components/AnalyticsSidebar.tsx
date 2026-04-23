@@ -5,6 +5,7 @@ import { selectedEntity } from '../store/app-state';
 import { ProgressBar } from '@vaadin/react-components/ProgressBar.js';
 import { Icon } from '@vaadin/react-components/Icon.js';
 import { Button } from '@vaadin/react-components/Button.js';
+import { Notification } from '@vaadin/react-components/Notification.js';
 import '@vaadin/vaadin-lumo-styles/vaadin-iconset.js';
 
 export const AnalyticsSidebar: React.FC = () => {
@@ -38,7 +39,7 @@ export const AnalyticsSidebar: React.FC = () => {
           onClick={() => setIsOpen(true)}
           style={{ borderRadius: '50% 0 0 50%', height: '60px', width: '40px' }}
         >
-          <Icon icon="lumo:bar-chart" />
+          <Icon icon="vaadin:bar-chart" />
         </Button>
       </div>
     );
@@ -48,18 +49,18 @@ export const AnalyticsSidebar: React.FC = () => {
     <div className="w-80 h-full bg-[var(--aura-surface-color)] border-l flex flex-col shadow-xl transition-all duration-300 ease-in-out relative">
       <div className="p-4 border-b flex justify-between items-center bg-gray-50">
         <h3 className="text-lg font-bold flex items-center gap-2">
-          <Icon icon="lumo:bar-chart" className="text-blue-600" />
+          <Icon icon="vaadin:bar-chart" className="text-blue-600" />
           Аналітика
         </h3>
         <Button theme="tertiary icon" onClick={() => setIsOpen(false)}>
-          <Icon icon="lumo:cross" />
+          <Icon icon="vaadin:close" />
         </Button>
       </div>
 
       <div className="flex-grow overflow-y-auto p-4">
         {!selectedEntity.value ? (
           <div className="text-center text-gray-500 py-8 flex flex-col items-center gap-4">
-            <Icon icon="lumo:search" style={{ fontSize: '48px', opacity: 0.3 }} />
+            <Icon icon="vaadin:search" style={{ fontSize: '48px', opacity: 0.3 }} />
             <p>Оберіть групу, викладача або аудиторію для перегляду аналітики</p>
           </div>
         ) : loading ? (
@@ -116,7 +117,7 @@ export const AnalyticsSidebar: React.FC = () => {
               </div>
               {analytics.totalWindows > 0 && (
                 <div className="text-xs text-red-500 flex items-center gap-1">
-                  <Icon icon="lumo:error" style={{ fontSize: '12px' }} />
+                  <Icon icon="vaadin:exclamation-circle" style={{ fontSize: '12px' }} />
                   <span>Виявлено небажані перерви в розкладі</span>
                 </div>
               )}
@@ -127,8 +128,18 @@ export const AnalyticsSidebar: React.FC = () => {
         )}
       </div>
       
-      <div className="p-4 border-t bg-gray-50 text-[10px] text-gray-500 text-center">
-        ASMS v3.0 | Система управління розкладом
+      <div className="p-4 border-t bg-gray-50 flex flex-col gap-2">
+        <Button 
+          theme="secondary small" 
+          onClick={() => Notification.show('Звіт 2-П у розробці', { position: 'bottom-center' })}
+          className="w-full"
+        >
+          <Icon icon="vaadin:download" slot="prefix" />
+          Завантажити звіт 2-П
+        </Button>
+        <div className="text-[10px] text-gray-500 text-center">
+          ASMS v3.0 | Система управління розкладом
+        </div>
       </div>
     </div>
   );

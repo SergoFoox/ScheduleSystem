@@ -5,19 +5,19 @@ import { TextField } from '@vaadin/react-components/TextField.js';
 import { Button } from '@vaadin/react-components/Button.js';
 import { Icon } from '@vaadin/react-components/Icon.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
-import { ConfirmDialog } from '@vaadin/react-components/ConfirmDialog.js';
 import { GroupEndpoint } from '../generated/endpoints';
 import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import { GroupDialog } from '../components/GroupDialog';
+import { CoursePlanDialog } from '../components/CoursePlanDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 
 export default function GroupsView() {
   const [groups, setGroups] = useState<GroupDTO[]>([]);
   const [filter, setFilter] = useState('');
   const [dialogOpened, setDialogOpened] = useState(false);
-  const [confirmOpened, setConfirmOpened] = useState(false);
+  const [plansOpened, setPlansOpened] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GroupDTO | undefined>(undefined);
-  const [groupToDelete, setGroupToDelete] = useState<number | undefined>(undefined);
+  const [activeItem, setActiveItem] = useState<GroupDTO | null>(null);
   const loading = useSignal(true);
 
   const fetchGroups = async () => {
@@ -44,30 +44,25 @@ export default function GroupsView() {
 
   const handleAdd = () => {
     setSelectedGroup(undefined);
+    setActiveItem(null);
     setDialogOpened(true);
   };
 
   const handleEdit = (group: GroupDTO) => {
     setSelectedGroup(group);
+    setActiveItem(group);
     setDialogOpened(true);
   };
 
-  const openDeleteConfirm = (id: number) => {
-    setGroupToDelete(id);
-    setConfirmOpened(true);
+  const handleCloseDialog = () => {
+    setDialogOpened(false);
+    setActiveItem(null);
+    setSelectedGroup(undefined);
   };
 
-  const handleDelete = async () => {
-    if (groupToDelete === undefined) return;
-    try {
-      await GroupEndpoint.deleteGroup(groupToDelete as any);
-      Notification.show('Групу видалено', { theme: 'success', position: 'bottom-end' });
-      setConfirmOpened(false);
-      fetchGroups();
-    } catch (err) {
-      console.error('Failed to delete group:', err);
-      Notification.show('Помилка при видаленні', { theme: 'error', position: 'bottom-end' });
-    }
+  const handleOpenPlans = (group: GroupDTO) => {
+    setSelectedGroup(group);
+    setPlansOpened(true);
   };
 
   return (
@@ -84,11 +79,11 @@ export default function GroupsView() {
             className="w-96"
             clearButtonVisible
           >
-            <Icon icon="lumo:search" slot="prefix" className="text-gray-400" />
+            <Icon icon="vaadin:search" slot="prefix" className="text-gray-400" />
           </TextField>
         </div>
         <Button theme="primary" onClick={handleAdd} className="shadow-md">
-          <Icon icon="lumo:plus" slot="prefix" />
+          <Icon icon="vaadin:plus" slot="prefix" />
           Додати групу
         </Button>
       </div>
@@ -98,30 +93,35 @@ export default function GroupsView() {
           items={filteredGroups} 
           className="h-full" 
           theme="row-stripes"
-          onActiveItemChanged={(e) => {
-            const item = e.detail.value;
-            if (item) handleEdit(item as GroupDTO);
-          }}
         >
           <GridColumn header="Назва групи" path="name" autoWidth />
           <GridColumn header="Курс" path="course" autoWidth textAlign="center" />
           <GridColumn header="Кількість студентів" path="size" autoWidth textAlign="end" />
           <GridColumn header="Кафедра" path="department" flexGrow={1} />
           <GridColumn
-            header="Дії"
+            header={
+              <div className="flex items-center gap-2">
+                <Icon icon="vaadin:cog" className="w-3 h-3" />
+                <span>Дії</span>
+              </div>
+            }
             autoWidth
             frozenToEnd
             renderer={({ item }) => (
               <div className="flex gap-2 p-1">
                 <Button 
-                  theme="tertiary error icon" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (item.id) openDeleteConfirm(item.id as any);
-                  }}
-                  title="Видалити"
+                  theme="tertiary icon" 
+                  onClick={() => handleEdit(item as GroupDTO)}
+                  title="Редагувати"
                 >
-                  <Icon icon="lumo:trash" />
+                  <Icon icon="vaadin:edit" />
+                </Button>
+                <Button 
+                  theme="tertiary icon" 
+                  onClick={() => handleOpenPlans(item as GroupDTO)}
+                  title="Навчальні плани"
+                >
+                  <Icon icon="vaadin:list" />
                 </Button>
               </div>
             )}
@@ -132,22 +132,15 @@ export default function GroupsView() {
       <GroupDialog 
         opened={dialogOpened} 
         group={selectedGroup} 
-        onClose={() => setDialogOpened(false)}
+        onClose={handleCloseDialog}
         onSaved={fetchGroups}
       />
 
-      <ConfirmDialog
-        header="Видалення групи"
-        cancelButtonVisible
-        confirmText="Видалити"
-        cancelText="Скасувати"
-        confirmTheme="error primary"
-        opened={confirmOpened}
-        onOpenedChanged={(e) => setConfirmOpened(e.detail.value)}
-        onConfirm={handleDelete}
-      >
-        Ви впевнені, що хочете видалити цю групу? Це може вплинути на існуючий розклад.
-      </ConfirmDialog>
+      <CoursePlanDialog
+        opened={plansOpened}
+        group={selectedGroup}
+        onClose={() => setPlansOpened(false)}
+      />
     </div>
   );
 }

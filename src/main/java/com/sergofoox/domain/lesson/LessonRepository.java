@@ -15,4 +15,10 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     @EntityGraph(attributePaths = {"subject", "teacher", "group", "timeslot", "room"})
     List<Lesson> findByTimeslotId(Long timeslotId);
+
+    void deleteByTeacher(com.sergofoox.domain.teacher.Teacher teacher);
+    void deleteByGroup(com.sergofoox.domain.group.Group group);
+    void deleteByCoursePlan(com.sergofoox.domain.plan.CoursePlan coursePlan);
+    void deleteBySubject(com.sergofoox.domain.subject.Subject subject);
+    List<Lesson> findByRoom(com.sergofoox.domain.room.Room room);
 }

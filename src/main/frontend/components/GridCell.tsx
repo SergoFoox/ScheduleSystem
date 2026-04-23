@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import type LessonDTO from '../generated/com/sergofoox/domain/ui/dto/LessonDTO';
-import { ReplacementDialog } from './ReplacementDialog';
 import { Button } from '@vaadin/react-components/Button.js';
+import { Icon } from '@vaadin/react-components/Icon.js';
+import { ReplacementDialog } from './ReplacementDialog';
 import { isPublished } from '../store/app-state';
 
 interface GridCellProps {
-  lesson?: LessonDTO;
+  lesson?: any;
   mode: 'GROUP' | 'TEACHER' | 'ROOM';
-  onDragStart?: (e: React.DragEvent, lessonId: number) => void;
+  onDragStart?: (e: React.DragEvent, id: number) => void;
   onDrop?: (e: React.DragEvent) => void;
   onDragOver?: (e: React.DragEvent) => void;
 }
@@ -17,62 +17,63 @@ export const GridCell: React.FC<GridCellProps> = ({ lesson, mode, onDragStart, o
   const isConflict = lesson?.hasConflict;
   const published = isPublished.value;
 
-  if (!lesson) {
-    return (
-      <div 
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        className="p-2 text-gray-500 text-xs flex items-center justify-center h-full w-full transition-colors hover:bg-gray-50" 
-        style={{ 
-          minHeight: '60px', 
-          border: '1px dashed var(--aura-contrast-10)', 
-          borderRadius: 'var(--aura-border-radius)' 
-        }}
-      >
-        -
-      </div>
-    );
-  }
+  if (!lesson) return null;
 
   return (
     <>
       <div 
         draggable={!published}
-        onDragStart={(e) => onDragStart?.(e, lesson.id as any)}
+        onDragStart={(e) => onDragStart?.(e, lesson.id)}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        className={`p-2 shadow-sm border rounded-md flex flex-col gap-1 h-full w-full ${published ? '' : 'cursor-move'} transition-all group ${isConflict ? 'animate-pulse' : ''}`}
-        style={{ 
-          minHeight: '60px', 
-          border: `1px solid ${isConflict ? 'var(--aura-error-color)' : 'var(--aura-accent-border-color)'}`,
-          backgroundColor: isConflict ? 'rgba(var(--aura-error-color-rgb), 0.05)' : 'var(--aura-surface-color)',
-          boxShadow: isConflict ? '0 0 0 1px var(--aura-error-color)' : 'var(--aura-box-shadow-s)'
-        }}
+        className={`h-full w-full p-1 flex flex-col justify-center items-center text-center relative group ${isConflict ? 'bg-red-50' : 'bg-transparent'}`}
       >
-        <div className="flex justify-between items-start gap-1">
-          <div className="font-bold text-s" style={{ color: isConflict ? 'var(--aura-error-color)' : 'var(--aura-primary-text-color)' }}>
-            {lesson.subjectName}
-            {isConflict && <span className="ml-1" title="Конфлікт! Перевірте накладки викладача/групи/аудиторії">⚠️</span>}
+        {lesson.subgroup > 0 && (
+          <div className="absolute top-0 left-0 border-r border-b border-black px-1 text-[10px] font-black bg-white">
+            {lesson.subgroup}
           </div>
-          {!published && (
-            <Button 
-              theme="tertiary-inline small" 
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDialogOpened(true);
-              }}
-              title="Замінити викладача"
-            >
-              🔄
-            </Button>
-          )}
+        )}
+
+        <div className="flex flex-col gap-0 items-center justify-center w-full">
+          <div className="flex items-center justify-center gap-1 w-full relative">
+            <span className={`text-base font-black leading-tight uppercase underline decoration-2 underline-offset-2 ${isConflict ? 'text-red-700' : 'text-black'}`} title={lesson.subjectName}>
+              {lesson.subjectName}
+            </span>
+          </div>
+          
+          <span className="text-[12px] font-bold text-black leading-tight mt-1" title={lesson.teacherName}>
+            {lesson.teacherName}
+          </span>
+          
+          <div className="flex items-center justify-center gap-1 mt-1 text-[11px] text-black font-bold italic">
+            <span className="font-bold">
+              {lesson.roomName ? `ауд.№${lesson.roomName}` : '—'}
+            </span>
+          </div>
         </div>
-        <div className="text-xs text-gray-500" style={{ color: 'var(--aura-secondary-text-color)' }}>
-          {mode === 'GROUP' && <span>{lesson.teacherName} • {lesson.roomName}</span>}
-          {mode === 'TEACHER' && <span>{lesson.groupName} • {lesson.roomName}</span>}
-          {mode === 'ROOM' && <span>{lesson.groupName} • {lesson.teacherName}</span>}
-        </div>
+
+        {!published && (
+          <Button 
+            theme="tertiary-inline small" 
+            className="absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 p-0 h-4 w-4 min-w-0 transition-opacity m-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDialogOpened(true);
+            }}
+            title="Замінити"
+          >
+            <Icon icon="vaadin:refresh" className="w-3 h-3 text-gray-500" />
+          </Button>
+        )}
+        
+        {isConflict && (
+          <div className="absolute top-0 right-0 -mt-1 -mr-1">
+             <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-[8px] text-white items-center justify-center font-bold">!</span>
+            </span>
+          </div>
+        )}
       </div>
 
       <ReplacementDialog 
