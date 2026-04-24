@@ -94,12 +94,12 @@ export const ScheduleGrid: React.FC = () => {
       <table className="border-collapse w-full border-[2.5px] border-black text-black bg-white">
         <thead>
           <tr>
-            <th rowSpan={2} className="w-12 border-r-[2.5px] border-b border-black"></th>
-            <th rowSpan={2} className="w-10 border-r-[2.5px] border-b border-black"></th>
+            {/* Об'єднаний нерозділений квадрат у лівому куті */}
+            <th colSpan={2} rowSpan={2} className="border-[2.5px] border-black bg-white"></th>
             {groups.map((group) => (
               <th 
                 key={`group-${group.id}`} 
-                className="border border-black p-2 font-sans font-bold text-xl uppercase whitespace-nowrap text-center align-middle bg-white min-w-[140px]"
+                className="border-[2.5px] border-black p-2 font-sans font-bold text-xl uppercase whitespace-nowrap text-center align-middle bg-white min-w-[140px]"
               >
                 {group.name}
               </th>
@@ -109,7 +109,7 @@ export const ScheduleGrid: React.FC = () => {
             {groups.map((group) => (
               <th 
                 key={`curator-${group.id}`} 
-                className="border border-black border-b-[2.5px] p-1 text-[13px] font-normal text-center align-middle whitespace-nowrap"
+                className="border-[2.5px] border-black p-1 text-[13px] font-normal text-center align-middle whitespace-nowrap"
               >
                 {group.curatorName || '—'}
               </th>
@@ -124,7 +124,7 @@ export const ScheduleGrid: React.FC = () => {
                   {idx === 0 && (
                     <td 
                       rowSpan={lessonNumbers.length} 
-                      className="border-r-[2.5px] border-b-[2.5px] border-black p-0 text-center align-middle bg-white w-12"
+                      className="border-[2.5px] border-black p-0 text-center align-middle bg-white w-12"
                     >
                       <div className="flex items-center justify-center h-full w-full" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
                         <span className="text-[18px] font-bold lowercase py-2">{dayNames[day]}</span>
@@ -132,7 +132,7 @@ export const ScheduleGrid: React.FC = () => {
                     </td>
                   )}
 
-                  <td className={`border border-black p-1 text-center align-middle font-bold text-2xl w-10 border-r-[2.5px] ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''}`}>
+                  <td className="border-[2.5px] border-black p-1 text-center align-middle font-bold text-2xl w-10">
                     {num}
                   </td>
                   {groups.map((group) => {
@@ -145,7 +145,7 @@ export const ScheduleGrid: React.FC = () => {
                     return (
                       <td 
                         key={`${day}-${num}-${group.id}`} 
-                        className={`border border-black p-1 align-middle h-[100px] relative cursor-pointer hover:bg-gray-50 ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''}`}
+                        className="border-[2.5px] border-black p-1 align-middle h-[100px] relative cursor-pointer hover:bg-gray-50"
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, day, num)}
                         onClick={(e) => {
@@ -167,7 +167,7 @@ export const ScheduleGrid: React.FC = () => {
                                     onDragStart={handleDragStart}
                                   />
                                   {slotLessons.length > 1 && i === 0 && (
-                                    <div className="border-b border-black w-full" />
+                                    <div className="border-b-[2.5px] border-black w-full" />
                                   )}
                                 </React.Fragment>
                               ))}
