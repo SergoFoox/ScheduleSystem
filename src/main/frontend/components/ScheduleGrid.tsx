@@ -5,13 +5,13 @@ import { ScheduleEndpoint } from '../generated/endpoints';
 import { AssignLessonDialog } from './AssignLessonDialog';
 
 const dayNames: Record<string, string> = {
-  MONDAY: 'Понеділок',
-  TUESDAY: 'Вівторок',
-  WEDNESDAY: 'Середа',
-  THURSDAY: 'Четвер',
-  FRIDAY: 'П\'ятниця',
-  SATURDAY: 'Субота',
-  SUNDAY: 'Неділя'
+  MONDAY: 'понеділок',
+  TUESDAY: 'вівторок',
+  WEDNESDAY: 'середа',
+  THURSDAY: 'четвер',
+  FRIDAY: 'п\'ятниця',
+  SATURDAY: 'субота',
+  SUNDAY: 'неділя'
 };
 
 export const ScheduleGrid: React.FC = () => {
@@ -91,24 +91,26 @@ export const ScheduleGrid: React.FC = () => {
 
   return (
     <div className="overflow-auto max-w-full h-full bg-white p-4" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-      <table className="border-collapse table-fixed w-full min-w-[1000px] border-2 border-black text-black">
-        <thead className="bg-white">
+      <table className="border-collapse w-full border-[2.5px] border-black text-black bg-white">
+        <thead>
           <tr>
-            <th rowSpan={2} className="w-12 border-r-2 border-b-2 border-black p-1 text-base font-black uppercase text-center align-middle">
-              День
-            </th>
-            <th rowSpan={2} className="w-8 border-r-2 border-b-2 border-black p-1 text-lg font-black uppercase text-center align-middle">
-              №
-            </th>
+            <th rowSpan={2} className="w-12 border-r-[2.5px] border-b border-black"></th>
+            <th rowSpan={2} className="w-10 border-r-[2.5px] border-b border-black"></th>
             {groups.map((group) => (
-              <th key={`group-${group.id}`} className="border-r-2 border-b border-black p-1 font-black text-center text-2xl uppercase tracking-tighter bg-gray-50/20">
+              <th 
+                key={`group-${group.id}`} 
+                className="border border-black p-2 font-sans font-bold text-xl uppercase whitespace-nowrap text-center align-middle bg-white min-w-[140px]"
+              >
                 {group.name}
               </th>
             ))}
           </tr>
           <tr>
             {groups.map((group) => (
-              <th key={`curator-${group.id}`} className="border-r-2 border-b-2 border-black p-0.5 text-[12px] text-center font-normal">
+              <th 
+                key={`curator-${group.id}`} 
+                className="border border-black border-b-[2.5px] p-1 text-[13px] font-normal text-center align-middle whitespace-nowrap"
+              >
                 {group.curatorName || '—'}
               </th>
             ))}
@@ -118,18 +120,19 @@ export const ScheduleGrid: React.FC = () => {
           {days.map((day) => (
             <React.Fragment key={day}>
               {lessonNumbers.map((num, idx) => (
-                <tr key={`${day}-${num}`} className="hover:bg-gray-50/10 transition-colors">
+                <tr key={`${day}-${num}`}>
                   {idx === 0 && (
                     <td 
                       rowSpan={lessonNumbers.length} 
-                      className="border-r-2 border-b-2 border-black p-0.5 font-bold text-center align-middle"
+                      className="border-r-[2.5px] border-b-[2.5px] border-black p-0 text-center align-middle bg-white w-12"
                     >
                       <div className="flex items-center justify-center h-full w-full" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                        <span className="text-xs uppercase tracking-widest font-black">{dayNames[day]}</span>
+                        <span className="text-[18px] font-bold lowercase py-2">{dayNames[day]}</span>
                       </div>
                     </td>
                   )}
-                  <td className="border-r-2 border-b-2 border-black p-0.5 text-center font-black text-xl">
+
+                  <td className={`border border-black p-1 text-center align-middle font-bold text-2xl w-10 border-r-[2.5px] ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''}`}>
                     {num}
                   </td>
                   {groups.map((group) => {
@@ -142,7 +145,7 @@ export const ScheduleGrid: React.FC = () => {
                     return (
                       <td 
                         key={`${day}-${num}-${group.id}`} 
-                        className="border-r-2 border-b-2 border-black p-0.5 align-top h-[80px] relative cursor-pointer"
+                        className={`border border-black p-1 align-middle h-[100px] relative cursor-pointer hover:bg-gray-50 ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''}`}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, day, num)}
                         onClick={(e) => {
@@ -151,11 +154,11 @@ export const ScheduleGrid: React.FC = () => {
                            }
                         }}
                       >
-                        <div className="flex flex-col h-full w-full">
+                        <div className="flex flex-col h-full w-full justify-center">
                           {slotLessons.length === 0 ? (
-                            <div className="h-full w-full opacity-0 hover:opacity-10 transition-opacity bg-blue-500"></div>
+                            <div className="h-full w-full opacity-0 hover:opacity-5 bg-blue-500"></div>
                           ) : (
-                            <div className={`h-full grid ${slotLessons.length > 1 ? 'grid-rows-2' : 'grid-rows-1'} gap-[2px]`}>
+                            <div className={`h-full grid ${slotLessons.length > 1 ? 'grid-rows-2' : 'grid-rows-1'} gap-0`}>
                               {slotLessons.map((lesson: any, i: number) => (
                                 <React.Fragment key={lesson.id}>
                                   <GridCell 

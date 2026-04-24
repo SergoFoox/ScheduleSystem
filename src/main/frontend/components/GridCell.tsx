@@ -36,16 +36,16 @@ export const GridCell: React.FC<GridCellProps> = ({ lesson, mode, onDragStart, o
 
         <div className="flex flex-col gap-0 items-center justify-center w-full">
           <div className="flex items-center justify-center gap-1 w-full relative">
-            <span className={`text-base font-black leading-tight uppercase underline decoration-2 underline-offset-2 ${isConflict ? 'text-red-700' : 'text-black'}`} title={lesson.subjectName}>
+            <span className={`text-[16px] font-black leading-tight uppercase underline decoration-2 underline-offset-2 ${isConflict ? 'text-red-700' : 'text-black'}`} title={lesson.subjectName}>
               {lesson.subjectName}
             </span>
           </div>
           
-          <span className="text-[12px] font-bold text-black leading-tight mt-1" title={lesson.teacherName}>
+          <span className="text-[14px] font-bold text-black leading-tight mt-1" title={lesson.teacherName}>
             {lesson.teacherName}
           </span>
           
-          <div className="flex items-center justify-center gap-1 mt-1 text-[11px] text-black font-bold italic">
+          <div className="flex items-center justify-center gap-1 mt-1 text-[13px] text-black font-bold">
             <span className="font-bold">
               {lesson.roomName ? `ауд.№${lesson.roomName}` : '—'}
             </span>
