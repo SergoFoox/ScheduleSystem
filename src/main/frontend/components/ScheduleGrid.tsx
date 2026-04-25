@@ -160,7 +160,7 @@ const isFull = hasWeekly || (hasNumerator && hasDenominator);
 return (
   <td 
     key={`${day}-${num}-${group.id}`} 
-    className={`border-[2.5px] border-black p-0 align-middle h-[110px] relative ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''} ${isFull ? 'cursor-default' : 'cursor-pointer'}`}
+    className={`border-r p-0 align-top h-[90px] relative border-black ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : 'border-b'} ${isFull ? 'cursor-default' : 'cursor-pointer'}`}
     style={isDiagonal ? {
       background: 'linear-gradient(to bottom right, white calc(50% - 1px), black 50%, white calc(50% + 1px))'
     } : {}}
@@ -209,21 +209,23 @@ return (
         </>
       ) : (
         <div 
-          className="flex flex-col gap-0 w-full p-1 justify-center h-full"
+          className="flex flex-col gap-0 w-full p-1 justify-start h-full items-center"
           onClick={() => !hasWeekly && handleCellClick(day, num, group.id!)}
         >
           {groupedBySubject.map(([subject, groupLessons], groupIdx) => (
             <React.Fragment key={subject}>
-              {groupIdx > 0 && <div className="border-t-[2.5px] border-black w-full my-1" />}
+              {groupIdx > 0 && <div className="border-t border-black w-full my-0.5" />}
               <GridCell 
                 lessons={groupLessons}
                 mode="GROUP"
                 onDragStart={handleDragStart}
+                align="center"
               />
             </React.Fragment>
           ))}
         </div>
       )}
+
     </div>
   </td>
 );

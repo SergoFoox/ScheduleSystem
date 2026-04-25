@@ -28,13 +28,16 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
     setDialogOpened(true);
   };
 
-  const subjectFontSize = compact ? 'text-[12px]' : 'text-[16px]';
-  const teacherFontSize = compact ? 'text-[11px]' : 'text-[14px]';
-  const roomFontSize = compact ? 'text-[10px]' : 'text-[13px]';
+  const subjectFontSize = compact ? 'text-[12px]' : 'text-[14px]';
+  const teacherFontSize = compact ? 'text-[11px]' : 'text-[13px]';
+  const roomFontSize = compact ? 'text-[10px]' : 'text-[12px]';
 
   const alignClasses = align === 'left' ? 'items-start text-left' : 
                        align === 'right' ? 'items-end text-right' : 
                        'items-center text-center';
+
+  // Збираємо унікальні номери аудиторій
+  const uniqueRooms = Array.from(new Set(lessons.map(l => l.roomName || '—'))).join(', ');
 
   return (
     <>
@@ -42,17 +45,17 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
         draggable={!published && !compact}
         onDragStart={(e) => !published && !compact && onDragStart?.(e, first.id)}
         onClick={(e) => handleReplacement(e, first)}
-        className={`w-full p-0.5 flex flex-col justify-center relative group cursor-pointer hover:bg-black/5 rounded transition-colors ${hasRealConflict ? 'bg-red-50' : 'bg-transparent'} ${alignClasses}`}
+        className={`w-full flex flex-col justify-center relative group cursor-pointer hover:bg-black/5 rounded transition-colors ${hasRealConflict ? 'bg-red-50' : 'bg-transparent'} ${alignClasses} p-1.5 leading-[1.1]`}
       >
-        <div className={`flex flex-col gap-0 w-full ${alignClasses}`}>
+        <div className={`flex flex-col gap-0.5 w-full ${alignClasses}`}>
           {/* Subject */}
           <div className={`flex items-center gap-1 w-full relative mb-0.5 ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'}`}>
-            <span className={`${subjectFontSize} font-black font-serif leading-tight uppercase underline decoration-1 underline-offset-2 ${hasRealConflict ? 'text-red-700' : 'text-black'}`} title={first.subjectName}>
+            <span className={`${subjectFontSize} font-black font-serif uppercase underline decoration-1 underline-offset-1 ${hasRealConflict ? 'text-red-700' : 'text-black'}`} title={first.subjectName}>
               {first.subjectName}
             </span>
           </div>
           
-          {/* Teachers */}
+          {/* Teachers List */}
           <div className={`flex flex-col gap-0 w-full ${alignClasses}`}>
             {lessons.map((l) => (
               <div key={l.id} className={`relative group/teacher flex items-center w-full px-1 ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'}`}>
@@ -66,7 +69,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
                   </Button>
                 )}
                 
-                <span className={`${teacherFontSize} font-bold font-serif text-black leading-tight truncate`}>
+                <span className={`${teacherFontSize} font-normal font-serif text-black truncate`}>
                   {l.teacherName || '—'}
                 </span>
                 
@@ -83,23 +86,22 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
             ))}
           </div>
           
-          {/* Rooms and Subgroups (Vertical) */}
-          <div className={`mt-0.5 ${roomFontSize} text-black font-bold font-serif flex flex-col ${alignClasses} gap-0`}>
-            {lessons.map((l) => (
-              <div key={l.id} className={`flex flex-col ${alignClasses} leading-tight`}>
-                <span>ауд.№{l.roomName || '—'}</span>
-                {l.subgroup > 0 && (
-                  <span className="text-[0.85em] font-normal leading-none mt-0.5 italic">
-                    {l.subgroup}-а підгр
-                  </span>
-                )}
-              </div>
-            ))}
+          {/* Combined Rooms and Conditional Subgroup label */}
+          <div className={`${roomFontSize} text-black font-bold font-serif flex flex-col ${alignClasses} gap-0 mt-0.5`}>
+            <div className={`flex flex-wrap ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'} leading-tight`}>
+               <span>ауд.№{uniqueRooms}</span>
+               {/* Показуємо підгрупу тільки якщо вона ОДНА у клітинці */}
+               {lessons.length === 1 && first.subgroup > 0 && (
+                 <span className="ml-1 italic font-normal text-[0.9em] whitespace-nowrap">
+                   {first.subgroup}-а підгр
+                 </span>
+               )}
+            </div>
           </div>
         </div>
         
         {hasRealConflict && (
-          <div className="absolute top-0 right-0 -mt-1 -mr-1">
+          <div className="absolute top-0 right-0 -mt-1 -mr-1 z-30">
              <span className="flex h-3 w-3 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-[8px] text-white items-center justify-center font-bold">!</span>
