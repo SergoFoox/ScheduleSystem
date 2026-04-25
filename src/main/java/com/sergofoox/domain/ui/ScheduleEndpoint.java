@@ -234,18 +234,29 @@ public class ScheduleEndpoint {
             if (published) {
                 throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
             }
-            Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
-            Timeslot timeslot = timeslotRepository.findById(timeslotId).orElseThrow();
+            Lesson primaryLesson = lessonRepository.findById(lessonId).orElseThrow();
+            Timeslot newTimeslot = timeslotRepository.findById(timeslotId).orElseThrow();
             
-            if (roomName == null || roomName.isBlank()) {
-                lesson.setRoom(null);
-            } else {
-                Room room = roomRepository.findByName(roomName).orElseThrow();
-                lesson.setRoom(room);
-            }
+            Timeslot oldTimeslot = primaryLesson.getTimeslot();
+            Group group = primaryLesson.getGroup();
+            Subject subject = primaryLesson.getSubject();
+            
+            // Знаходимо всі частини цього заняття (всі підгрупи), щоб перенести їх разом
+            List<Lesson> lessonsToMove = lessonRepository.findAll().stream()
+                    .filter(l -> l.getGroup() != null && l.getGroup().getId().equals(group.getId()))
+                    .filter(l -> l.getSubject() != null && l.getSubject().getId().equals(subject.getId()))
+                    .filter(l -> l.getTimeslot() != null && oldTimeslot != null && l.getTimeslot().getId().equals(oldTimeslot.getId()))
+                    .toList();
 
-            lesson.setTimeslot(timeslot);
-            lessonRepository.save(lesson);
+            for (Lesson lesson : lessonsToMove) {
+                lesson.setTimeslot(newTimeslot);
+                // Якщо кімната вказана явно - змінюємо, інакше залишаємо поточну
+                if (roomName != null && !roomName.isBlank()) {
+                    Room room = roomRepository.findByName(roomName).orElse(null);
+                    lesson.setRoom(room);
+                }
+                lessonRepository.save(lesson);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             throw e;
@@ -336,7 +347,7 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     @Transactional
-    public void assignManualLesson(Long groupId, Long subjectId, Long timeslotId, Long roomId, Long teacherId) {
+    public void assignManualLesson(Long groupId, Long subjectId, Long timeslotId, Long roomId, Long teacherId, Integer subgroup) {
         try {
             if (published) throw new IllegalStateException("Розклад опубліковано");
             
@@ -355,6 +366,7 @@ public class ScheduleEndpoint {
             lesson.setTimeslot(timeslot);
             lesson.setCoursePlan(plan);
             lesson.setLessonType(LessonType.LECTURE);
+            lesson.setSubgroup(subgroup != null ? subgroup : 0);
             
             if (teacherId != null) {
                 Teacher teacher = teacherRepository.findById(teacherId).orElseThrow();
@@ -375,15 +387,34 @@ public class ScheduleEndpoint {
 
     private LessonDTO mapToLessonDTO(Lesson lesson, List<Lesson> allLessons) {
         boolean hasConflict = false;
-        if (lesson.getTimeslot() != null) {
+        if (lesson.getTimeslot() != null && lesson.getId() != null) {
             hasConflict = allLessons.stream()
-                    .filter(l -> !l.getId().equals(lesson.getId()))
+                    // Обов'язково ігноруємо САМЕ ЦЕ заняття за ID
+                    .filter(l -> l.getId() != null && !l.getId().equals(lesson.getId()))
+                    // Шукаємо лише ті, що в той самий час
                     .filter(l -> l.getTimeslot() != null && l.getTimeslot().getId().equals(lesson.getTimeslot().getId()))
-                    .anyMatch(l -> 
-                        (l.getTeacher() != null && lesson.getTeacher() != null && l.getTeacher().getId().equals(lesson.getTeacher().getId())) ||
-                        (l.getGroup() != null && lesson.getGroup() != null && l.getGroup().getId().equals(lesson.getGroup().getId())) ||
-                        (l.getRoom() != null && lesson.getRoom() != null && l.getRoom().getId().equals(lesson.getRoom().getId()))
-                    );
+                    .anyMatch(l -> {
+                        // 1. Конфлікт викладача (той самий вчитель у двох місцях)
+                        boolean teacherConflict = l.getTeacher() != null && lesson.getTeacher() != null && 
+                                                 l.getTeacher().getId().equals(lesson.getTeacher().getId());
+                        
+                        // 2. Конфлікт аудиторії (той самий кабінет зайнятий іншими)
+                        boolean roomConflict = l.getRoom() != null && lesson.getRoom() != null && 
+                                              l.getRoom().getId().equals(lesson.getRoom().getId());
+                        
+                        // 3. Конфлікт групи
+                        boolean groupConflict = false;
+                        if (l.getGroup() != null && lesson.getGroup() != null && l.getGroup().getId().equals(lesson.getGroup().getId())) {
+                            int s1 = l.getSubgroup() != null ? l.getSubgroup() : 0;
+                            int s2 = lesson.getSubgroup() != null ? lesson.getSubgroup() : 0;
+                            // Конфлікт лише якщо підгрупи однакові АБО одна з них - "Вся група" (0)
+                            if (s1 == 0 || s2 == 0 || s1 == s2) {
+                                groupConflict = true;
+                            }
+                        }
+                        
+                        return teacherConflict || roomConflict || groupConflict;
+                    });
         }
 
         return new LessonDTO(

@@ -69,7 +69,7 @@ export const ScheduleGrid: React.FC = () => {
     if (!targetTimeslot) return;
 
     try {
-      await ScheduleEndpoint.moveLesson(lessonId as any, targetTimeslot.id as any, "");
+      await (ScheduleEndpoint as any).moveLesson(lessonId as any, targetTimeslot.id as any, "");
       await refreshSchedule();
     } catch (err) {
       console.error('Failed to move lesson:', err);
@@ -91,10 +91,9 @@ export const ScheduleGrid: React.FC = () => {
 
   return (
     <div className="overflow-auto max-w-full h-full bg-white p-4" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-      <table className="border-collapse w-full border-[2.5px] border-black text-black bg-white">
+      <table className="border-collapse w-full border-[2.5px] border-black text-black bg-white font-serif">
         <thead>
           <tr>
-            {/* Об'єднаний нерозділений квадрат у лівому куті */}
             <th colSpan={2} rowSpan={2} className="border-[2.5px] border-black bg-white"></th>
             {groups.map((group) => (
               <th 
@@ -142,33 +141,36 @@ export const ScheduleGrid: React.FC = () => {
                       data.timeslots?.find((ts: any) => ts.id === l.timeslotId)?.lessonNumber === num
                     ) || [];
 
+                    const groupedBySubject: Array<[string, any[]]> = Array.from(
+                      slotLessons.reduce((map: Map<string, any[]>, lesson: any) => {
+                        const key = lesson.subjectName || 'Невідомий предмет';
+                        if (!map.has(key)) map.set(key, []);
+                        map.get(key)!.push(lesson);
+                        return map;
+                      }, new Map<string, any[]>())
+                    );
+
                     return (
                       <td 
                         key={`${day}-${num}-${group.id}`} 
-                        className="border-[2.5px] border-black p-1 align-middle h-[100px] relative cursor-pointer hover:bg-gray-50"
+                        className={`border-[2.5px] border-black p-1 align-middle h-[100px] relative cursor-pointer hover:bg-gray-50 ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''}`}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, day, num)}
-                        onClick={(e) => {
-                           if (slotLessons.length === 0) {
-                             handleCellClick(day, num, group.id!);
-                           }
-                        }}
+                        onClick={() => handleCellClick(day, num, group.id!)}
                       >
                         <div className="flex flex-col h-full w-full justify-center">
                           {slotLessons.length === 0 ? (
                             <div className="h-full w-full opacity-0 hover:opacity-5 bg-blue-500"></div>
                           ) : (
-                            <div className={`h-full grid ${slotLessons.length > 1 ? 'grid-rows-2' : 'grid-rows-1'} gap-0`}>
-                              {slotLessons.map((lesson: any, i: number) => (
-                                <React.Fragment key={lesson.id}>
+                            <div className="flex flex-col gap-0 w-full">
+                              {groupedBySubject.map(([subject, groupLessons], groupIdx) => (
+                                <React.Fragment key={subject}>
+                                  {groupIdx > 0 && <div className="border-t-[2.5px] border-black w-full my-1" />}
                                   <GridCell 
-                                    lesson={lesson}
+                                    lessons={groupLessons}
                                     mode="GROUP"
                                     onDragStart={handleDragStart}
                                   />
-                                  {slotLessons.length > 1 && i === 0 && (
-                                    <div className="border-b-[2.5px] border-black w-full" />
-                                  )}
                                 </React.Fragment>
                               ))}
                             </div>
