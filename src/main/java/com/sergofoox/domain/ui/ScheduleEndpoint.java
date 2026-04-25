@@ -322,14 +322,28 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     @Transactional
-    public LessonDTO assignReplacement(Long lessonId, Long teacherId, Long roomId) {
+    public LessonDTO assignReplacement(Long lessonId, Long teacherId, Long roomId, Long subjectId) {
         try {
             if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
             Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
-            Teacher teacher = teacherRepository.findById(teacherId).orElseThrow();
-
-            lesson.setTeacher(teacher);
             
+            if (subjectId != null) {
+                Subject subject = subjectRepository.findById(subjectId).orElseThrow();
+                lesson.setSubject(subject);
+                
+                // Обов'язково оновлюємо навчальний план, бо Lesson прив'язаний до нього
+                CoursePlan plan = coursePlanRepository.findByGroup(lesson.getGroup()).stream()
+                        .filter(p -> p.getSubject().getId().equals(subjectId))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Ця дисципліна не входить до плану групи"));
+                lesson.setCoursePlan(plan);
+            }
+
+            if (teacherId != null) {
+                Teacher teacher = teacherRepository.findById(teacherId).orElseThrow();
+                lesson.setTeacher(teacher);
+            }
+
             if (roomId != null) {
                 Room room = roomRepository.findById(roomId).orElse(null);
                 lesson.setRoom(room);

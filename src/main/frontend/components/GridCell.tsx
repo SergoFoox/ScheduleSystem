@@ -23,7 +23,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
   const published = isPublished.value;
 
   const handleReplacement = (e: React.MouseEvent, lesson: any) => {
-    e.stopPropagation();
+    e.stopPropagation(); 
     setActiveLesson(lesson);
     setDialogOpened(true);
   };
@@ -41,18 +41,13 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
       <div 
         draggable={!published && !compact}
         onDragStart={(e) => !published && !compact && onDragStart?.(e, first.id)}
-        className={`w-full p-0.5 flex flex-col justify-center relative group ${hasRealConflict ? 'bg-red-50' : 'bg-transparent'} ${alignClasses}`}
+        onClick={(e) => handleReplacement(e, first)}
+        className={`w-full p-0.5 flex flex-col justify-center relative group cursor-pointer hover:bg-black/5 rounded transition-colors ${hasRealConflict ? 'bg-red-50' : 'bg-transparent'} ${alignClasses}`}
       >
-        {!compact && lessons.length === 1 && first.subgroup > 0 && (
-          <div className="absolute top-0 left-0 border-r border-b border-black px-1 text-[10px] font-black bg-white z-10">
-            {first.subgroup}
-          </div>
-        )}
-
         <div className={`flex flex-col gap-0 w-full ${alignClasses}`}>
           {/* Subject */}
           <div className={`flex items-center gap-1 w-full relative mb-0.5 ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'}`}>
-            <span className={`${subjectFontSize} font-black leading-tight uppercase underline decoration-1 underline-offset-2 ${hasRealConflict ? 'text-red-700' : 'text-black'}`} title={first.subjectName}>
+            <span className={`${subjectFontSize} font-black font-serif leading-tight uppercase underline decoration-1 underline-offset-2 ${hasRealConflict ? 'text-red-700' : 'text-black'}`} title={first.subjectName}>
               {first.subjectName}
             </span>
           </div>
@@ -71,7 +66,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
                   </Button>
                 )}
                 
-                <span className={`${teacherFontSize} font-bold text-black leading-tight truncate`}>
+                <span className={`${teacherFontSize} font-bold font-serif text-black leading-tight truncate`}>
                   {l.teacherName || '—'}
                 </span>
                 
@@ -88,11 +83,18 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
             ))}
           </div>
           
-          {/* Rooms */}
-          <div className={`mt-0.5 ${roomFontSize} text-black font-bold`}>
-            <span>
-              ауд.№{lessons.map(l => l.roomName || '—').filter((v, i, a) => a.indexOf(v) === i).join(', ')}
-            </span>
+          {/* Rooms and Subgroups (Vertical) */}
+          <div className={`mt-0.5 ${roomFontSize} text-black font-bold font-serif flex flex-col ${alignClasses} gap-0`}>
+            {lessons.map((l) => (
+              <div key={l.id} className={`flex flex-col ${alignClasses} leading-tight`}>
+                <span>ауд.№{l.roomName || '—'}</span>
+                {l.subgroup > 0 && (
+                  <span className="text-[0.85em] font-normal leading-none mt-0.5 italic">
+                    {l.subgroup}-а підгр
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
         
