@@ -50,6 +50,10 @@ public class Lesson {
     @ManyToOne(fetch = FetchType.LAZY)
     private Room room;
 
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    private com.sergofoox.domain.plan.Periodicity periodicity = com.sergofoox.domain.plan.Periodicity.WEEKLY;
+
     private Integer subgroup = 0; // 0 = whole group, 1 = first, 2 = second
 
     public Lesson() {
@@ -70,6 +74,14 @@ public class Lesson {
         this.group = group;
         this.coursePlan = coursePlan;
         this.subgroup = subgroup;
+    }
+
+    public com.sergofoox.domain.plan.Periodicity getPeriodicity() {
+        return periodicity;
+    }
+
+    public void setPeriodicity(com.sergofoox.domain.plan.Periodicity periodicity) {
+        this.periodicity = periodicity;
     }
 
     public Long getId() {

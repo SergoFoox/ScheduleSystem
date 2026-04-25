@@ -22,16 +22,17 @@ interface AssignmentRow {
   teacherId: string | undefined;
   roomId: string | undefined;
   subgroup: string;
+  periodicity: string;
 }
 
-export const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, day, lessonNum, groupId, timeslotId, onClose }) => {
+const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, day, lessonNum, groupId, timeslotId, onClose }) => {
   const [plans, setPlans] = useState<CoursePlanDTO[]>([]);
   const [rooms, setRooms] = useState<RoomDTO[]>([]);
   const [availableTeachers, setAvailableTeachers] = useState<any[]>([]);
   
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | undefined>(undefined);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([
-    { teacherId: undefined, roomId: undefined, subgroup: '0' }
+    { teacherId: undefined, roomId: undefined, subgroup: '0', periodicity: 'WEEKLY' }
   ]);
   
   const [saving, setSaving] = useState(false);
@@ -66,10 +67,10 @@ export const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, 
       if (prev.length === 1 && prev[0].subgroup === '0') {
         return [
           { ...prev[0], subgroup: '1' },
-          { teacherId: undefined, roomId: undefined, subgroup: '2' }
+          { teacherId: undefined, roomId: undefined, subgroup: '2', periodicity: prev[0].periodicity }
         ];
       }
-      return [...prev, { teacherId: undefined, roomId: undefined, subgroup: (prev.length + 1).toString() }];
+      return [...prev, { teacherId: undefined, roomId: undefined, subgroup: (prev.length + 1).toString(), periodicity: prev[0].periodicity }];
     });
   };
 
@@ -83,7 +84,7 @@ export const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, 
 
   const updateRow = (index: number, field: keyof AssignmentRow, value: string | undefined) => {
     const newRows = [...assignments];
-    newRows[index] = { ...newRows[index], [field]: value };
+    newRows[index] = { ...newRows[index], [field]: value } as AssignmentRow;
     setAssignments(newRows);
   };
 
@@ -105,7 +106,8 @@ export const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, 
           timeslotId as any,
           row.roomId ? parseInt(row.roomId) as any : undefined,
           row.teacherId ? parseInt(row.teacherId) as any : undefined,
-          parseInt(row.subgroup)
+          parseInt(row.subgroup),
+          row.periodicity
         );
       }
       
@@ -162,49 +164,67 @@ export const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, 
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Призначення викладачів та аудиторій:</h3>
               
               {assignments.map((row, index) => (
-                <div key={index} className="flex items-end gap-s bg-white p-3 rounded-lg border shadow-sm">
-                   <Select
-                    label="Склад"
-                    items={[
-                      { label: 'Вся група', value: '0' },
-                      { label: '1 підгр.', value: '1' },
-                      { label: '2 підгр.', value: '2' },
-                      { label: '3 підгр.', value: '3' },
-                    ]}
-                    value={row.subgroup}
-                    onValueChanged={e => updateRow(index, 'subgroup', e.detail.value)}
-                    className="w-32"
-                  />
+                <div key={index} className="flex flex-col gap-2 bg-white p-3 rounded-lg border shadow-sm">
+                  <div className="flex items-end gap-s w-full">
+                    <Select
+                      label="Склад"
+                      items={[
+                        { label: 'Вся група', value: '0' },
+                        { label: '1 підгр.', value: '1' },
+                        { label: '2 підгр.', value: '2' },
+                        { label: '3 підгр.', value: '3' },
+                      ]}
+                      value={row.subgroup}
+                      onValueChanged={e => updateRow(index, 'subgroup', e.detail.value)}
+                      className="w-32"
+                    />
 
-                  <Select
-                    label="Викладач"
-                    items={availableTeachers.map((t: any) => ({
-                      label: t.fullName,
-                      value: t.id.toString()
-                    }))}
-                    value={row.teacherId}
-                    onValueChanged={e => updateRow(index, 'teacherId', e.detail.value)}
-                    className="flex-grow"
-                    disabled={!selectedSubjectId}
-                  />
+                    <Select
+                      label="Цикл (Ч/З)"
+                      items={[
+                        { label: 'Щотижня', value: 'WEEKLY' },
+                        { label: 'Чисельник', value: 'ODD_WEEKS' },
+                        { label: 'Знаменник', value: 'EVEN_WEEKS' },
+                      ]}
+                      value={row.periodicity}
+                      onValueChanged={e => updateRow(index, 'periodicity', e.detail.value)}
+                      className="w-40"
+                    />
 
-                  <Select
-                    label="Аудиторія"
-                    items={rooms.map((r: any) => ({
-                      label: `${r.name}`,
-                      value: r.id.toString()
-                    }))}
-                    value={row.roomId}
-                    onValueChanged={e => updateRow(index, 'roomId', e.detail.value)}
-                    className="w-24"
-                    disabled={!selectedSubjectId}
-                  />
+                    <div className="flex-grow" />
 
-                  {assignments.length > 1 && (
-                    <Button theme="error icon tertiary" onClick={() => removeAssignmentRow(index)}>
-                      <Icon icon="vaadin:trash" />
-                    </Button>
-                  )}
+                    {assignments.length > 1 && (
+                      <Button theme="error icon tertiary" onClick={() => removeAssignmentRow(index)}>
+                        <Icon icon="vaadin:trash" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-end gap-s w-full">
+                    <Select
+                      label="Викладач"
+                      items={availableTeachers.map((t: any) => ({
+                        label: t.fullName,
+                        value: t.id.toString()
+                      }))}
+                      value={row.teacherId}
+                      onValueChanged={e => updateRow(index, 'teacherId', e.detail.value)}
+                      className="flex-grow"
+                      disabled={!selectedSubjectId}
+                    />
+
+                    <Select
+                      label="Аудиторія"
+                      items={rooms.map((r: any) => ({
+                        label: `${r.name}`,
+                        value: r.id.toString()
+                      }))}
+                      value={row.roomId}
+                      onValueChanged={e => updateRow(index, 'roomId', e.detail.value)}
+                      className="w-24"
+                      disabled={!selectedSubjectId}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -214,3 +234,5 @@ export const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, 
     </Dialog>
   );
 };
+
+export default AssignLessonDialog;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { GridCell } from './GridCell';
 import { scheduleData, scheduleLoading, refreshSchedule, isPublished } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
-import { AssignLessonDialog } from './AssignLessonDialog';
+import AssignLessonDialog from './AssignLessonDialog';
 
 const dayNames: Record<string, string> = {
   MONDAY: 'понеділок',
@@ -150,19 +150,45 @@ export const ScheduleGrid: React.FC = () => {
                       }, new Map<string, any[]>())
                     );
 
+                    const hasNumerator = slotLessons.some((l: any) => l.periodicity === 'ODD_WEEKS');
+                    const hasDenominator = slotLessons.some((l: any) => l.periodicity === 'EVEN_WEEKS');
+                    const isSplit = hasNumerator && hasDenominator;
+
                     return (
                       <td 
                         key={`${day}-${num}-${group.id}`} 
-                        className={`border-[2.5px] border-black p-1 align-middle h-[100px] relative cursor-pointer hover:bg-gray-50 ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''}`}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, day, num)}
+                        className={`border-[2.5px] border-black p-0 align-middle h-[110px] relative cursor-pointer hover:bg-gray-50 ${idx === lessonNumbers.length - 1 ? 'border-b-[2.5px]' : ''}`}
+                        style={isSplit ? {
+                          background: 'linear-gradient(to bottom right, white calc(50% - 1px), black 50%, white calc(50% + 1px))'
+                        } : {}}
                         onClick={() => handleCellClick(day, num, group.id!)}
                       >
-                        <div className="flex flex-col h-full w-full justify-center">
+                        <div className="relative w-full h-full">
                           {slotLessons.length === 0 ? (
                             <div className="h-full w-full opacity-0 hover:opacity-5 bg-blue-500"></div>
+                          ) : isSplit ? (
+                            <>
+                              {/* Numerator (Odd) - Top Left */}
+                              <div className="absolute top-1 left-1 w-[70%] text-left">
+                                <GridCell 
+                                  lessons={slotLessons.filter((l: any) => l.periodicity === 'ODD_WEEKS')}
+                                  mode="GROUP"
+                                  compact={true}
+                                  align="left"
+                                />
+                              </div>
+                              {/* Denominator (Even) - Bottom Right */}
+                              <div className="absolute bottom-1 right-1 w-[70%] text-right">
+                                <GridCell 
+                                  lessons={slotLessons.filter((l: any) => l.periodicity === 'EVEN_WEEKS')}
+                                  mode="GROUP"
+                                  compact={true}
+                                  align="right"
+                                />
+                              </div>
+                            </>
                           ) : (
-                            <div className="flex flex-col gap-0 w-full">
+                            <div className="flex flex-col gap-0 w-full p-1 justify-center h-full">
                               {groupedBySubject.map(([subject, groupLessons], groupIdx) => (
                                 <React.Fragment key={subject}>
                                   {groupIdx > 0 && <div className="border-t-[2.5px] border-black w-full my-1" />}

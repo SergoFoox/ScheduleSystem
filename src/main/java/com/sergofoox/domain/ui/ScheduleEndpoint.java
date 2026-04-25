@@ -347,7 +347,7 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     @Transactional
-    public void assignManualLesson(Long groupId, Long subjectId, Long timeslotId, Long roomId, Long teacherId, Integer subgroup) {
+    public void assignManualLesson(Long groupId, Long subjectId, Long timeslotId, Long roomId, Long teacherId, Integer subgroup, com.sergofoox.domain.plan.Periodicity periodicity) {
         try {
             if (published) throw new IllegalStateException("Розклад опубліковано");
             
@@ -367,6 +367,7 @@ public class ScheduleEndpoint {
             lesson.setCoursePlan(plan);
             lesson.setLessonType(LessonType.LECTURE);
             lesson.setSubgroup(subgroup != null ? subgroup : 0);
+            lesson.setPeriodicity(periodicity != null ? periodicity : com.sergofoox.domain.plan.Periodicity.WEEKLY);
             
             if (teacherId != null) {
                 Teacher teacher = teacherRepository.findById(teacherId).orElseThrow();
@@ -389,16 +390,21 @@ public class ScheduleEndpoint {
         boolean hasConflict = false;
         if (lesson.getTimeslot() != null && lesson.getId() != null) {
             hasConflict = allLessons.stream()
-                    // Обов'язково ігноруємо САМЕ ЦЕ заняття за ID
                     .filter(l -> l.getId() != null && !l.getId().equals(lesson.getId()))
-                    // Шукаємо лише ті, що в той самий час
                     .filter(l -> l.getTimeslot() != null && l.getTimeslot().getId().equals(lesson.getTimeslot().getId()))
                     .anyMatch(l -> {
-                        // 1. Конфлікт викладача (той самий вчитель у двох місцях)
+                        // Конфлікт лише якщо ТИЖНІ ПЕРЕТИНАЮТЬСЯ
+                        boolean weekOverlap = l.getPeriodicity() == com.sergofoox.domain.plan.Periodicity.WEEKLY || 
+                                             lesson.getPeriodicity() == com.sergofoox.domain.plan.Periodicity.WEEKLY ||
+                                             l.getPeriodicity() == lesson.getPeriodicity();
+                        
+                        if (!weekOverlap) return false;
+
+                        // 1. Конфлікт викладача
                         boolean teacherConflict = l.getTeacher() != null && lesson.getTeacher() != null && 
                                                  l.getTeacher().getId().equals(lesson.getTeacher().getId());
                         
-                        // 2. Конфлікт аудиторії (той самий кабінет зайнятий іншими)
+                        // 2. Конфлікт аудиторії
                         boolean roomConflict = l.getRoom() != null && lesson.getRoom() != null && 
                                               l.getRoom().getId().equals(lesson.getRoom().getId());
                         
@@ -407,7 +413,6 @@ public class ScheduleEndpoint {
                         if (l.getGroup() != null && lesson.getGroup() != null && l.getGroup().getId().equals(lesson.getGroup().getId())) {
                             int s1 = l.getSubgroup() != null ? l.getSubgroup() : 0;
                             int s2 = lesson.getSubgroup() != null ? lesson.getSubgroup() : 0;
-                            // Конфлікт лише якщо підгрупи однакові АБО одна з них - "Вся група" (0)
                             if (s1 == 0 || s2 == 0 || s1 == s2) {
                                 groupConflict = true;
                             }
@@ -429,7 +434,8 @@ public class ScheduleEndpoint {
                 lesson.getGroup() != null ? lesson.getGroup().getId() : null,
                 lesson.getSubject() != null ? lesson.getSubject().getId() : null,
                 lesson.getRoom() != null ? lesson.getRoom().getId() : null,
-                lesson.getTeacher() != null ? lesson.getTeacher().getId() : null
+                lesson.getTeacher() != null ? lesson.getTeacher().getId() : null,
+                lesson.getPeriodicity()
         );
     }
 

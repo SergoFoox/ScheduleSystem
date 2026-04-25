@@ -1,5 +1,7 @@
 package com.sergofoox.domain.ui.dto;
 
+import com.sergofoox.domain.plan.Periodicity;
+
 public record LessonDTO(
     Long id,
     String subjectName,
@@ -12,5 +14,6 @@ public record LessonDTO(
     Long groupId,
     Long subjectId,
     Long roomId,
-    Long teacherId
+    Long teacherId,
+    Periodicity periodicity
 ) {}
