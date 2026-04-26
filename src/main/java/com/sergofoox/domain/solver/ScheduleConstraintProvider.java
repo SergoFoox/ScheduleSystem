@@ -204,4 +204,5 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         Periodicity slotParity = lesson.getTimeslot().getWeekParity();
         return slotParity == Periodicity.WEEKLY || slotParity == lesson.getPeriodicity();
     }
+
 }

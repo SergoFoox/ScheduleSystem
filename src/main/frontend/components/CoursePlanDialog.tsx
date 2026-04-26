@@ -35,9 +35,11 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
   const [newPlan, setNewPlan] = useState<any>({
     subjectId: undefined,
     teacherId: undefined,
+    secondTeacherId: undefined,
     lectureHours: 16,
     practiceHours: 16,
     labHours: 0,
+    periodicity: Periodicity.WEEKLY,
     requiredRoomType: RoomType.GENERAL_CLASSROOM
   });
 
@@ -83,7 +85,10 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
         totalHours: lectureHours + practiceHours + labHours,
         lectureSessionsPerWeek: lectureHours > 0 ? 1 : 0,
         practiceSessionsPerWeek: practiceHours > 0 ? 1 : 0,
-        labSessionsPerWeek: labHours > 0 ? 1 : 0
+        labSessionsPerWeek: labHours > 0 ? 1 : 0,
+        lecturePeriodicity: newPlan.periodicity || Periodicity.WEEKLY,
+        practicePeriodicity: newPlan.periodicity || Periodicity.WEEKLY,
+        labPeriodicity: newPlan.periodicity || Periodicity.WEEKLY
       };
       await CoursePlanEndpoint.savePlan(planToSave as any);
       Notification.show('Дисципліну додано до плану', { theme: 'success' });
@@ -127,7 +132,13 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
                 className="flex-1"
                 items={subjects.map(s => ({ label: s.name, value: s.id?.toString() }))}
                 value={newPlan.subjectId?.toString()}
-                onValueChanged={(e) => setNewPlan({...newPlan, subjectId: e.detail.value ? parseInt(e.detail.value) : undefined})}
+                onValueChanged={(e) => {
+                  const subjectId = e.detail.value ? parseInt(e.detail.value) : undefined;
+                  setNewPlan({
+                    ...newPlan,
+                    subjectId
+                  });
+                }}
               />
               <Button 
                 theme="icon secondary" 
@@ -145,6 +156,14 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
                 onValueChanged={(e) => setNewPlan({...newPlan, teacherId: e.detail.value ? parseInt(e.detail.value) : undefined})}
               />
               <Select
+                label="Другий викладач"
+                items={teachers
+                  .filter(t => t.id !== newPlan.teacherId)
+                  .map(t => ({ label: t.fullName, value: t.id?.toString() }))}
+                value={newPlan.secondTeacherId?.toString()}
+                onValueChanged={(e) => setNewPlan({...newPlan, secondTeacherId: e.detail.value ? parseInt(e.detail.value) : undefined})}
+              />
+              <Select
                 label="Тип аудиторії"
                 items={[
                   { label: 'Загальна', value: RoomType.GENERAL_CLASSROOM },
@@ -155,48 +174,19 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
                 value={newPlan.requiredRoomType}
                 onValueChanged={(e) => setNewPlan({...newPlan, requiredRoomType: e.detail.value})}
               />
-              <div className="flex gap-2 items-end">
-                <IntegerField label="Год. Лекції" className="w-20" value={newPlan.lectureHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, lectureHours: e.detail.value})} />
-                <Select 
-                  label="Період"
-                  className="flex-1"
-                  items={[
-                    { label: 'Щотижня', value: Periodicity.WEEKLY },
-                    { label: 'Чисельник', value: Periodicity.ODD_WEEKS },
-                    { label: 'Знаменник', value: Periodicity.EVEN_WEEKS },
-                  ]}
-                  value={newPlan.lecturePeriodicity || Periodicity.WEEKLY}
-                  onValueChanged={e => setNewPlan({...newPlan, lecturePeriodicity: e.detail.value})}
-                />
-              </div>
-              <div className="flex gap-2 items-end">
-                <IntegerField label="Год. Прак." className="w-20" value={newPlan.practiceHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, practiceHours: e.detail.value})} />
-                <Select 
-                  label="Період"
-                  className="flex-1"
-                  items={[
-                    { label: 'Щотижня', value: Periodicity.WEEKLY },
-                    { label: 'Чисельник', value: Periodicity.ODD_WEEKS },
-                    { label: 'Знаменник', value: Periodicity.EVEN_WEEKS },
-                  ]}
-                  value={newPlan.practicePeriodicity || Periodicity.WEEKLY}
-                  onValueChanged={e => setNewPlan({...newPlan, practicePeriodicity: e.detail.value})}
-                />
-              </div>
-              <div className="flex gap-2 items-end">
-                <IntegerField label="Год. Лаб." className="w-20" value={newPlan.labHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, labHours: e.detail.value})} />
-                <Select 
-                  label="Період"
-                  className="flex-1"
-                  items={[
-                    { label: 'Щотижня', value: Periodicity.WEEKLY },
-                    { label: 'Чисельник', value: Periodicity.ODD_WEEKS },
-                    { label: 'Знаменник', value: Periodicity.EVEN_WEEKS },
-                  ]}
-                  value={newPlan.labPeriodicity || Periodicity.WEEKLY}
-                  onValueChanged={e => setNewPlan({...newPlan, labPeriodicity: e.detail.value})}
-                />
-              </div>
+              <Select 
+                label="Період"
+                items={[
+                  { label: 'Щотижня', value: Periodicity.WEEKLY },
+                  { label: 'Чисельник', value: Periodicity.ODD_WEEKS },
+                  { label: 'Знаменник', value: Periodicity.EVEN_WEEKS },
+                ]}
+                value={newPlan.periodicity || Periodicity.WEEKLY}
+                onValueChanged={e => setNewPlan({...newPlan, periodicity: e.detail.value})}
+              />
+              <IntegerField label="Год. Лекції" value={newPlan.lectureHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, lectureHours: e.detail.value})} />
+              <IntegerField label="Год. Прак." value={newPlan.practiceHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, practiceHours: e.detail.value})} />
+              <IntegerField label="Год. Лаб." value={newPlan.labHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, labHours: e.detail.value})} />
             </FormLayout>
             <div className="flex justify-end gap-2 mt-2">
                <Button theme="success primary" onClick={handleSaveNew}>Додати в план</Button>

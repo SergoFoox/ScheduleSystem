@@ -68,18 +68,23 @@ export const ScheduleGrid: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = async (e: React.DragEvent, day: string, lessonNum: number, groupId: number) => {
+  const handleDrop = async (e: React.DragEvent, day: string, lessonNum: number, groupId: number, periodicity = 'WEEKLY') => {
     if (published) return;
     e.preventDefault();
+    e.stopPropagation();
     const lessonIdStr = e.dataTransfer.getData('lessonId');
     if (!lessonIdStr) return;
     
     const lessonId = parseInt(lessonIdStr, 10);
-    const targetTimeslot = data.timeslots?.find((ts: any) => ts?.dayOfWeek === day && ts?.lessonNumber === lessonNum);
+    const targetTimeslot = data.timeslots?.find((ts: any) => 
+      ts?.dayOfWeek === day && 
+      ts?.lessonNumber === lessonNum &&
+      (ts?.weekParity === periodicity || ts?.weekParity === 'WEEKLY')
+    );
     if (!targetTimeslot) return;
 
     try {
-      await (ScheduleEndpoint as any).moveLesson(lessonId as any, targetTimeslot.id as any, "", groupId as any);
+      await (ScheduleEndpoint as any).moveLesson(lessonId as any, targetTimeslot.id as any, "", periodicity as any);
       await refreshSchedule();
     } catch (err) {
       console.error('Failed to move lesson:', err);
@@ -175,9 +180,10 @@ export const ScheduleGrid: React.FC = () => {
                     const hasNumerator = numeratorLessons.length > 0;
                     const hasDenominator = denominatorLessons.length > 0;
                     const hasWeekly = slotLessons.some((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+                    const hasSplitSubgroups = slotLessons.length > 1 && slotLessons.some((l: any) => l.subgroup > 0);
                     
-                    const isDiagonal = fallbackSplit || (!hasWeekly && (hasNumerator || hasDenominator));
-                    const isFull = !fallbackSplit && (hasWeekly || (hasNumerator && hasDenominator));
+                    const isDiagonal = !hasSplitSubgroups && (fallbackSplit || (!hasWeekly && (hasNumerator || hasDenominator)));
+                    const isFull = hasSplitSubgroups || (!fallbackSplit && (hasWeekly || (hasNumerator && hasDenominator)));
 
                     return (
                       <td 
@@ -187,7 +193,7 @@ export const ScheduleGrid: React.FC = () => {
                           background: 'linear-gradient(to bottom right, white calc(50% - 1px), black 50%, white calc(50% + 1px))'
                         } : {}}
                         onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, day, num, group.id!)}
+                        onDrop={(e) => handleDrop(e, day, num, group.id!, 'WEEKLY')}
                       >
                         <div className="relative w-full h-full">
                           {slotLessons.length === 0 ? (
@@ -200,6 +206,8 @@ export const ScheduleGrid: React.FC = () => {
                               {/* Numerator Area (Odd) */}
                               <div 
                                 className={`absolute top-0 left-0 w-1/2 h-1/2 flex items-start justify-start p-1 z-10 ${!hasNumerator ? 'hover:bg-blue-50/50 cursor-pointer' : ''}`}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, day, num, group.id!, 'ODD_WEEKS')}
                                 onClick={() => !hasNumerator && handleCellClick(day, num, group.id!)}
                               >
                                 {hasNumerator && (
@@ -219,6 +227,8 @@ export const ScheduleGrid: React.FC = () => {
                               {/* Denominator Area (Even) */}
                               <div 
                                 className={`absolute bottom-0 right-0 w-1/2 h-1/2 flex items-end justify-end p-1 z-10 ${!hasDenominator ? 'hover:bg-blue-50/50 cursor-pointer' : ''}`}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, day, num, group.id!, 'EVEN_WEEKS')}
                                 onClick={() => !hasDenominator && handleCellClick(day, num, group.id!)}
                               >
                                 {hasDenominator && (

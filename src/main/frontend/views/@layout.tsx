@@ -1,4 +1,5 @@
 import { AppLayout, DrawerToggle, Icon, Scroller, SideNav, SideNavItem, Checkbox } from '@vaadin/react-components';
+import '@vaadin/icons/vaadin-iconset.js';
 import { Suspense, useEffect } from 'react';
 import { Outlet } from 'react-router';
 import { useSignal } from '@vaadin/hilla-react-signals';

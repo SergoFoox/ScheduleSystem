@@ -24,6 +24,10 @@ public class CoursePlan {
     @JoinColumn(nullable = true)
     private Teacher teacher;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(nullable = true)
+    private Teacher secondTeacher;
+
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
@@ -115,6 +119,8 @@ public class CoursePlan {
     public void setSubject(Subject subject) { this.subject = subject; }
     public Teacher getTeacher() { return teacher; }
     public void setTeacher(Teacher teacher) { this.teacher = teacher; }
+    public Teacher getSecondTeacher() { return secondTeacher; }
+    public void setSecondTeacher(Teacher secondTeacher) { this.secondTeacher = secondTeacher; }
     public Group getGroup() { return group; }
     public void setGroup(Group group) { this.group = group; }
     public Integer getTotalHours() { return totalHours; }

@@ -67,6 +67,11 @@ public class CoursePlanEndpoint {
             if (dto.teacherId() != null) {
                 plan.setTeacher(teacherRepository.findById(dto.teacherId()).orElseThrow());
             }
+            if (dto.secondTeacherId() != null) {
+                plan.setSecondTeacher(teacherRepository.findById(dto.secondTeacherId()).orElseThrow());
+            } else {
+                plan.setSecondTeacher(null);
+            }
 
             plan.setTotalHours(dto.totalHours());
             plan.setLectureHours(dto.lectureHours());
@@ -110,6 +115,8 @@ public class CoursePlanEndpoint {
                 plan.getSubject().getName(),
                 plan.getTeacher() != null ? plan.getTeacher().getId() : null,
                 plan.getTeacher() != null ? plan.getTeacher().getFullName() : null,
+                plan.getSecondTeacher() != null ? plan.getSecondTeacher().getId() : null,
+                plan.getSecondTeacher() != null ? plan.getSecondTeacher().getFullName() : null,
                 plan.getTotalHours(),
                 plan.getLectureHours(),
                 plan.getPracticeHours(),

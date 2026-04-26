@@ -56,6 +56,8 @@ public class Lesson {
 
     private Integer subgroup = 0; // 0 = whole group, 1 = first, 2 = second
 
+    private Integer splitGroupIndex = 0;
+
     public Lesson() {
     }
 
@@ -154,6 +156,14 @@ public class Lesson {
 
     public void setSubgroup(Integer subgroup) {
         this.subgroup = subgroup;
+    }
+
+    public Integer getSplitGroupIndex() {
+        return splitGroupIndex;
+    }
+
+    public void setSplitGroupIndex(Integer splitGroupIndex) {
+        this.splitGroupIndex = splitGroupIndex;
     }
 
     @Override

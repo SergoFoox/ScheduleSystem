@@ -6,6 +6,7 @@ import com.sergofoox.domain.lesson.Lesson;
 import com.sergofoox.domain.lesson.LessonRepository;
 import com.sergofoox.domain.plan.CoursePlan;
 import com.sergofoox.domain.plan.CoursePlanRepository;
+import com.sergofoox.domain.plan.Periodicity;
 import com.sergofoox.domain.room.Room;
 import com.sergofoox.domain.room.RoomRepository;
 import com.sergofoox.domain.subject.Subject;
@@ -70,24 +71,48 @@ public class ScheduleService {
 
             // Генерируем уроки согласно часам и периодичности из плана
             for (int i = 0; i < plan.getLectureSessionsPerWeek(); i++) {
-                Lesson l = new Lesson(plan.getSubject(), LessonType.LECTURE, plan.getTeacher(), plan.getGroup(), plan);
-                l.setPeriodicity(plan.getLecturePeriodicity());
-                newLessons.add(l);
+                addLessonsForPlan(newLessons, plan, LessonType.LECTURE, plan.getLecturePeriodicity(), i + 1);
             }
             for (int i = 0; i < plan.getPracticeSessionsPerWeek(); i++) {
-                Lesson l = new Lesson(plan.getSubject(), LessonType.PRACTICE, plan.getTeacher(), plan.getGroup(), plan);
-                l.setPeriodicity(plan.getPracticePeriodicity());
-                newLessons.add(l);
+                addLessonsForPlan(newLessons, plan, LessonType.PRACTICE, plan.getPracticePeriodicity(), i + 1);
             }
             for (int i = 0; i < plan.getLabSessionsPerWeek(); i++) {
-                Lesson l = new Lesson(plan.getSubject(), LessonType.LABORATORY, plan.getTeacher(), plan.getGroup(), plan);
-                l.setPeriodicity(plan.getLabPeriodicity());
-                newLessons.add(l);
+                addLessonsForPlan(newLessons, plan, LessonType.LABORATORY, plan.getLabPeriodicity(), i + 1);
             }
         }
         System.out.println("Создано уроков: " + newLessons.size());
         lessonRepository.saveAll(newLessons);
         lessonRepository.flush();
+    }
+
+    private void addLessonsForPlan(List<Lesson> lessons, CoursePlan plan, LessonType lessonType, com.sergofoox.domain.plan.Periodicity periodicity, int splitGroupIndex) {
+        if (plan.getSecondTeacher() != null) {
+            Lesson firstSubgroup = new Lesson(plan.getSubject(), lessonType, plan.getTeacher(), plan.getGroup(), plan, 1);
+            firstSubgroup.setPeriodicity(periodicity);
+            firstSubgroup.setSplitGroupIndex(splitGroupIndex);
+            lessons.add(firstSubgroup);
+
+            Lesson secondSubgroup = new Lesson(plan.getSubject(), lessonType, plan.getSecondTeacher(), plan.getGroup(), plan, 2);
+            secondSubgroup.setPeriodicity(periodicity);
+            secondSubgroup.setSplitGroupIndex(splitGroupIndex);
+            lessons.add(secondSubgroup);
+            return;
+        }
+
+        Lesson lesson = new Lesson(plan.getSubject(), lessonType, plan.getTeacher(), plan.getGroup(), plan);
+        lesson.setPeriodicity(periodicity);
+        lesson.setSplitGroupIndex(splitGroupIndex);
+        lessons.add(lesson);
+    }
+
+    private boolean isEnglishSubject(CoursePlan plan) {
+        String name = plan.getSubject() != null && plan.getSubject().getName() != null
+                ? plan.getSubject().getName().toLowerCase(Locale.ROOT)
+                : "";
+        String abbreviation = plan.getSubject() != null && plan.getSubject().getAbbreviation() != null
+                ? plan.getSubject().getAbbreviation().toLowerCase(Locale.ROOT)
+                : "";
+        return name.contains("англ") || name.contains("english") || abbreviation.contains("англ") || abbreviation.contains("eng");
     }
 
     @Transactional
@@ -137,6 +162,7 @@ public class ScheduleService {
 
     @Transactional
     public void saveSolution(Schedule schedule) {
+        syncSplitSubgroupLessons(schedule);
         System.out.println("Найдено улучшение. Score: " + schedule.getScore());
         for (Lesson lesson : schedule.getLessons()) {
             if (lesson.getId() != null) {
@@ -148,6 +174,73 @@ public class ScheduleService {
             }
         }
         lessonRepository.flush();
+    }
+
+    private void syncSplitSubgroupLessons(Schedule schedule) {
+        Map<String, List<Lesson>> splitGroups = schedule.getLessons().stream()
+                .filter(lesson -> lesson.getSubgroup() != null && lesson.getSubgroup() > 0)
+                .filter(lesson -> lesson.getSplitGroupIndex() != null && lesson.getSplitGroupIndex() > 0)
+                .collect(Collectors.groupingBy(lesson -> lesson.getCoursePlan().getId()
+                        + "|" + lesson.getLessonType()
+                        + "|" + lesson.getPeriodicity()
+                        + "|" + lesson.getSplitGroupIndex()));
+
+        for (List<Lesson> splitLessons : splitGroups.values()) {
+            Lesson first = splitLessons.stream()
+                    .filter(lesson -> lesson.getSubgroup() == 1)
+                    .findFirst()
+                    .orElse(null);
+            Lesson second = splitLessons.stream()
+                    .filter(lesson -> lesson.getSubgroup() == 2)
+                    .findFirst()
+                    .orElse(null);
+
+            if (first == null || second == null || first.getTimeslot() == null) {
+                continue;
+            }
+
+            second.setTimeslot(first.getTimeslot());
+            if (second.getRoom() == null || second.getRoom().equals(first.getRoom()) || isRoomBusy(schedule, second, second.getRoom())) {
+                findAvailableRoom(schedule, second, first.getRoom()).ifPresent(second::setRoom);
+            }
+        }
+    }
+
+    private Optional<Room> findAvailableRoom(Schedule schedule, Lesson lesson, Room excludedRoom) {
+        return schedule.getRooms().stream()
+                .filter(room -> excludedRoom == null || !room.equals(excludedRoom))
+                .filter(room -> !isRoomBusy(schedule, lesson, room))
+                .findFirst();
+    }
+
+    private boolean isRoomBusy(Schedule schedule, Lesson targetLesson, Room room) {
+        if (room == null || targetLesson.getTimeslot() == null) return false;
+        return schedule.getLessons().stream()
+                .filter(lesson -> lesson != targetLesson)
+                .filter(lesson -> lesson.getRoom() != null && lesson.getTimeslot() != null)
+                .filter(lesson -> room.equals(lesson.getRoom()))
+                .filter(lesson -> samePhysicalSlot(lesson, targetLesson))
+                .anyMatch(lesson -> weeksOverlap(lesson, targetLesson));
+    }
+
+    private boolean samePhysicalSlot(Lesson first, Lesson second) {
+        return first.getTimeslot().getDayOfWeek() == second.getTimeslot().getDayOfWeek()
+                && first.getTimeslot().getLessonNumber().equals(second.getTimeslot().getLessonNumber());
+    }
+
+    private boolean weeksOverlap(Lesson first, Lesson second) {
+        Periodicity firstPeriodicity = effectivePeriodicity(first);
+        Periodicity secondPeriodicity = effectivePeriodicity(second);
+        return firstPeriodicity == Periodicity.WEEKLY
+                || secondPeriodicity == Periodicity.WEEKLY
+                || firstPeriodicity == secondPeriodicity;
+    }
+
+    private Periodicity effectivePeriodicity(Lesson lesson) {
+        if (lesson.getTimeslot() != null && lesson.getTimeslot().getWeekParity() != Periodicity.WEEKLY) {
+            return lesson.getTimeslot().getWeekParity();
+        }
+        return lesson.getPeriodicity();
     }
 
     public SolverStatus getSolverStatus() { return solverManager.getSolverStatus(SINGLETON_ID); }

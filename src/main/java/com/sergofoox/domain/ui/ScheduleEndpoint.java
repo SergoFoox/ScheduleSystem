@@ -238,7 +238,7 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     @Transactional
-    public void moveLesson(Long lessonId, Long timeslotId, String roomName) {
+    public void moveLesson(Long lessonId, Long timeslotId, String roomName, com.sergofoox.domain.plan.Periodicity periodicity) {
         try {
             if (published) {
                 throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
@@ -252,13 +252,14 @@ public class ScheduleEndpoint {
             
             // Знаходимо всі частини цього заняття (всі підгрупи), щоб перенести їх разом
             List<Lesson> lessonsToMove = lessonRepository.findAll().stream()
-                    .filter(l -> l.getGroup() != null && l.getGroup().getId().equals(group.getId()))
-                    .filter(l -> l.getSubject() != null && l.getSubject().getId().equals(subject.getId()))
-                    .filter(l -> l.getTimeslot() != null && oldTimeslot != null && l.getTimeslot().getId().equals(oldTimeslot.getId()))
+                    .filter(l -> shouldMoveWithPrimaryLesson(l, primaryLesson, oldTimeslot))
                     .toList();
 
             for (Lesson lesson : lessonsToMove) {
                 lesson.setTimeslot(newTimeslot);
+                if (periodicity != null) {
+                    lesson.setPeriodicity(periodicity);
+                }
                 // Якщо кімната вказана явно - змінюємо, інакше залишаємо поточну
                 if (roomName != null && !roomName.isBlank()) {
                     Room room = roomRepository.findByName(roomName).orElse(null);
@@ -270,6 +271,26 @@ public class ScheduleEndpoint {
             e.printStackTrace();
             throw e;
         }
+    }
+
+    private boolean shouldMoveWithPrimaryLesson(Lesson candidate, Lesson primaryLesson, Timeslot oldTimeslot) {
+        if (candidate.getId() != null && candidate.getId().equals(primaryLesson.getId())) {
+            return true;
+        }
+        if (oldTimeslot == null || candidate.getTimeslot() == null || !candidate.getTimeslot().getId().equals(oldTimeslot.getId())) {
+            return false;
+        }
+        if (primaryLesson.getSubgroup() == null || primaryLesson.getSubgroup() == 0
+                || primaryLesson.getSplitGroupIndex() == null || primaryLesson.getSplitGroupIndex() == 0) {
+            return false;
+        }
+        return candidate.getCoursePlan() != null && primaryLesson.getCoursePlan() != null
+                && candidate.getCoursePlan().getId().equals(primaryLesson.getCoursePlan().getId())
+                && candidate.getLessonType() == primaryLesson.getLessonType()
+                && candidate.getSplitGroupIndex() != null
+                && candidate.getSplitGroupIndex().equals(primaryLesson.getSplitGroupIndex())
+                && candidate.getSubgroup() != null
+                && candidate.getSubgroup() > 0;
     }
 
     @AnonymousAllowed

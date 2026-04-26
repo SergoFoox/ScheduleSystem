@@ -10,6 +10,8 @@ public record CoursePlanDTO(
     String subjectName,
     Long teacherId,
     String teacherName,
+    Long secondTeacherId,
+    String secondTeacherName,
     Integer totalHours,
     Integer lectureHours,
     Integer practiceHours,
