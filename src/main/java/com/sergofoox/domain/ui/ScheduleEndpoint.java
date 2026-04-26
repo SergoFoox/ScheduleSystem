@@ -247,19 +247,37 @@ public class ScheduleEndpoint {
             Timeslot newTimeslot = timeslotRepository.findById(timeslotId).orElseThrow();
             
             Timeslot oldTimeslot = primaryLesson.getTimeslot();
-            Group group = primaryLesson.getGroup();
-            Subject subject = primaryLesson.getSubject();
+            com.sergofoox.domain.plan.Periodicity oldPeriodicity = primaryLesson.getPeriodicity();
+            com.sergofoox.domain.plan.Periodicity requestedPeriodicity = periodicity != null ? periodicity : oldPeriodicity;
+            com.sergofoox.domain.plan.Periodicity newPeriodicity = requestedPeriodicity;
             
             // Знаходимо всі частини цього заняття (всі підгрупи), щоб перенести їх разом
-            List<Lesson> lessonsToMove = lessonRepository.findAll().stream()
+            List<Lesson> allLessons = lessonRepository.findAll();
+            List<Lesson> lessonsToMove = allLessons.stream()
                     .filter(l -> shouldMoveWithPrimaryLesson(l, primaryLesson, oldTimeslot))
+                    .toList();
+            List<Long> movingIds = lessonsToMove.stream()
+                    .map(Lesson::getId)
+                    .toList();
+            List<Lesson> lessonsToCombine = allLessons.stream()
+                    .filter(l -> l.getId() != null && !movingIds.contains(l.getId()))
+                    .filter(l -> shouldCombineAsBiWeekly(l, primaryLesson, newTimeslot, requestedPeriodicity))
+                    .toList();
+
+            if (!lessonsToCombine.isEmpty()) {
+                newPeriodicity = com.sergofoox.domain.plan.Periodicity.ODD_WEEKS;
+            }
+
+            com.sergofoox.domain.plan.Periodicity swapTargetPeriodicity = newPeriodicity;
+            List<Lesson> lessonsToSwap = allLessons.stream()
+                    .filter(l -> l.getId() != null && !movingIds.contains(l.getId()))
+                    .filter(l -> lessonsToCombine.stream().noneMatch(combine -> combine.getId().equals(l.getId())))
+                    .filter(l -> shouldSwapWithMovedLesson(l, primaryLesson, newTimeslot, swapTargetPeriodicity))
                     .toList();
 
             for (Lesson lesson : lessonsToMove) {
                 lesson.setTimeslot(newTimeslot);
-                if (periodicity != null) {
-                    lesson.setPeriodicity(periodicity);
-                }
+                lesson.setPeriodicity(newPeriodicity);
                 // Якщо кімната вказана явно - змінюємо, інакше залишаємо поточну
                 if (roomName != null && !roomName.isBlank()) {
                     Room room = roomRepository.findByName(roomName).orElse(null);
@@ -267,10 +285,67 @@ public class ScheduleEndpoint {
                 }
                 lessonRepository.save(lesson);
             }
+            for (Lesson lesson : lessonsToSwap) {
+                lesson.setTimeslot(oldTimeslot);
+                lesson.setPeriodicity(oldPeriodicity);
+                lessonRepository.save(lesson);
+            }
+            for (Lesson lesson : lessonsToCombine) {
+                lesson.setTimeslot(newTimeslot);
+                lesson.setPeriodicity(com.sergofoox.domain.plan.Periodicity.EVEN_WEEKS);
+                lessonRepository.save(lesson);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             throw e;
         }
+    }
+
+    private boolean shouldCombineAsBiWeekly(
+            Lesson candidate,
+            Lesson movedLesson,
+            Timeslot targetTimeslot,
+            com.sergofoox.domain.plan.Periodicity requestedPeriodicity) {
+        if (requestedPeriodicity != com.sergofoox.domain.plan.Periodicity.WEEKLY) {
+            return false;
+        }
+        if (candidate.getTimeslot() == null || targetTimeslot == null || movedLesson.getGroup() == null || candidate.getGroup() == null) {
+            return false;
+        }
+        if (!candidate.getGroup().getId().equals(movedLesson.getGroup().getId())) {
+            return false;
+        }
+        if (candidate.getTimeslot().getDayOfWeek() != targetTimeslot.getDayOfWeek()
+                || !candidate.getTimeslot().getLessonNumber().equals(targetTimeslot.getLessonNumber())) {
+            return false;
+        }
+        if (candidate.getSubgroup() != null && candidate.getSubgroup() > 0) {
+            return false;
+        }
+        return effectivePeriodicity(candidate) == com.sergofoox.domain.plan.Periodicity.WEEKLY;
+    }
+
+    private boolean shouldSwapWithMovedLesson(
+            Lesson candidate,
+            Lesson movedLesson,
+            Timeslot targetTimeslot,
+            com.sergofoox.domain.plan.Periodicity targetPeriodicity) {
+        if (candidate.getTimeslot() == null || targetTimeslot == null || movedLesson.getGroup() == null || candidate.getGroup() == null) {
+            return false;
+        }
+        if (!candidate.getGroup().getId().equals(movedLesson.getGroup().getId())) {
+            return false;
+        }
+        if (candidate.getTimeslot().getDayOfWeek() != targetTimeslot.getDayOfWeek()
+                || !candidate.getTimeslot().getLessonNumber().equals(targetTimeslot.getLessonNumber())) {
+            return false;
+        }
+        if (candidate.getSubgroup() != null && candidate.getSubgroup() > 0
+                && movedLesson.getSubgroup() != null && movedLesson.getSubgroup() > 0
+                && !candidate.getSubgroup().equals(movedLesson.getSubgroup())) {
+            return false;
+        }
+        return effectivePeriodicity(candidate) == targetPeriodicity;
     }
 
     private boolean shouldMoveWithPrimaryLesson(Lesson candidate, Lesson primaryLesson, Timeslot oldTimeslot) {
