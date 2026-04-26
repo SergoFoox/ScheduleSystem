@@ -414,14 +414,9 @@ public class ScheduleEndpoint {
         if (lesson.getTimeslot() != null && lesson.getId() != null) {
             hasConflict = allLessons.stream()
                     .filter(l -> l.getId() != null && !l.getId().equals(lesson.getId()))
-                    .filter(l -> l.getTimeslot() != null && l.getTimeslot().getId().equals(lesson.getTimeslot().getId()))
+                    .filter(l -> samePhysicalSlot(l, lesson))
                     .anyMatch(l -> {
-                        // Конфлікт лише якщо ТИЖНІ ПЕРЕТИНАЮТЬСЯ
-                        boolean weekOverlap = l.getPeriodicity() == com.sergofoox.domain.plan.Periodicity.WEEKLY || 
-                                             lesson.getPeriodicity() == com.sergofoox.domain.plan.Periodicity.WEEKLY ||
-                                             l.getPeriodicity() == lesson.getPeriodicity();
-                        
-                        if (!weekOverlap) return false;
+                        if (!weeksOverlap(l, lesson)) return false;
 
                         // 1. Конфлікт викладача
                         boolean teacherConflict = l.getTeacher() != null && lesson.getTeacher() != null && 
@@ -460,6 +455,28 @@ public class ScheduleEndpoint {
                 lesson.getTeacher() != null ? lesson.getTeacher().getId() : null,
                 lesson.getPeriodicity()
         );
+    }
+
+    private boolean samePhysicalSlot(Lesson first, Lesson second) {
+        if (first.getTimeslot() == null || second.getTimeslot() == null) return false;
+        return first.getTimeslot().getDayOfWeek() == second.getTimeslot().getDayOfWeek()
+                && first.getTimeslot().getLessonNumber().equals(second.getTimeslot().getLessonNumber());
+    }
+
+    private boolean weeksOverlap(Lesson first, Lesson second) {
+        com.sergofoox.domain.plan.Periodicity firstPeriodicity = effectivePeriodicity(first);
+        com.sergofoox.domain.plan.Periodicity secondPeriodicity = effectivePeriodicity(second);
+        return firstPeriodicity == com.sergofoox.domain.plan.Periodicity.WEEKLY
+                || secondPeriodicity == com.sergofoox.domain.plan.Periodicity.WEEKLY
+                || firstPeriodicity == secondPeriodicity;
+    }
+
+    private com.sergofoox.domain.plan.Periodicity effectivePeriodicity(Lesson lesson) {
+        if (lesson.getTimeslot() != null
+                && lesson.getTimeslot().getWeekParity() != com.sergofoox.domain.plan.Periodicity.WEEKLY) {
+            return lesson.getTimeslot().getWeekParity();
+        }
+        return lesson.getPeriodicity();
     }
 
     private TeacherDTO mapToTeacherDTO(Teacher teacher) {

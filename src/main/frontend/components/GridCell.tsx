@@ -10,16 +10,17 @@ interface GridCellProps {
   onDragStart?: (e: React.DragEvent, id: number) => void;
   compact?: boolean;
   align?: 'left' | 'right' | 'center';
+  suppressConflictIndicator?: boolean;
 }
 
-export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, compact, align = 'center' }) => {
+export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, compact, align = 'center', suppressConflictIndicator = false }) => {
   const [activeLesson, setActiveLesson] = useState<any>(null);
   const [dialogOpened, setDialogOpened] = useState(false);
   
   if (!lessons || lessons.length === 0) return null;
 
   const first = lessons[0];
-  const hasRealConflict = lessons.some((l: any) => l.hasConflict);
+  const hasRealConflict = !suppressConflictIndicator && lessons.some((l: any) => l.hasConflict);
   const published = isPublished.value;
 
   const handleReplacement = (e: React.MouseEvent, lesson: any) => {

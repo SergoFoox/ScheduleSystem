@@ -42,6 +42,16 @@ export const ScheduleGrid: React.FC = () => {
   const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
   const lessonNumbers = [1, 2, 3, 4];
   const groups = [...(data.groups || [])].filter(g => !!g).sort((a, b) => a.name.localeCompare(b.name));
+  const timeslotById = new Map<number, any>(
+    (data.timeslots || []).filter((ts: any) => !!ts?.id).map((ts: any) => [ts.id, ts])
+  );
+
+  const getEffectivePeriodicity = (lesson: any) => {
+    const timeslot = timeslotById.get(lesson.timeslotId);
+    return timeslot?.weekParity && timeslot.weekParity !== 'WEEKLY'
+      ? timeslot.weekParity
+      : lesson.periodicity;
+  };
 
   const handleDragStart = (e: React.DragEvent, lessonId: number) => {
     if (published) {
@@ -150,12 +160,24 @@ export const ScheduleGrid: React.FC = () => {
                       }, new Map<string, any[]>())
                     );
 
-                    const hasNumerator = slotLessons.some((l: any) => l.periodicity === 'ODD_WEEKS');
-                    const hasDenominator = slotLessons.some((l: any) => l.periodicity === 'EVEN_WEEKS');
-                    const hasWeekly = slotLessons.some((l: any) => l.periodicity === 'WEEKLY');
+                    let numeratorLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'ODD_WEEKS');
+                    let denominatorLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'EVEN_WEEKS');
+                    const weeklyLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+
+                    // If old/generated data already contains two lessons in one physical cell without
+                    // ODD/EVEN metadata, render it as a numerator/denominator cell instead of a stack.
+                    const fallbackSplit = numeratorLessons.length === 0 && denominatorLessons.length === 0 && weeklyLessons.length > 1;
+                    if (fallbackSplit) {
+                      numeratorLessons = [weeklyLessons[0]];
+                      denominatorLessons = weeklyLessons.slice(1);
+                    }
+
+                    const hasNumerator = numeratorLessons.length > 0;
+                    const hasDenominator = denominatorLessons.length > 0;
+                    const hasWeekly = slotLessons.some((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
                     
-                    const isDiagonal = !hasWeekly && (hasNumerator || hasDenominator);
-                    const isFull = hasWeekly || (hasNumerator && hasDenominator);
+                    const isDiagonal = fallbackSplit || (!hasWeekly && (hasNumerator || hasDenominator));
+                    const isFull = !fallbackSplit && (hasWeekly || (hasNumerator && hasDenominator));
 
                     return (
                       <td 
@@ -183,10 +205,11 @@ export const ScheduleGrid: React.FC = () => {
                                 {hasNumerator && (
                                   <div className="w-[140%] text-left">
                                     <GridCell 
-                                      lessons={slotLessons.filter((l: any) => l.periodicity === 'ODD_WEEKS')}
+                                      lessons={numeratorLessons}
                                       mode="GROUP"
                                       compact={true}
                                       align="left"
+                                      suppressConflictIndicator={fallbackSplit}
                                       onDragStart={handleDragStart}
                                     />
                                   </div>
@@ -201,10 +224,11 @@ export const ScheduleGrid: React.FC = () => {
                                 {hasDenominator && (
                                   <div className="w-[140%] text-right">
                                     <GridCell 
-                                      lessons={slotLessons.filter((l: any) => l.periodicity === 'EVEN_WEEKS')}
+                                      lessons={denominatorLessons}
                                       mode="GROUP"
                                       compact={true}
                                       align="right"
+                                      suppressConflictIndicator={fallbackSplit}
                                       onDragStart={handleDragStart}
                                     />
                                   </div>
