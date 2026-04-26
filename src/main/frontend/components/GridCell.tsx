@@ -22,6 +22,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
   const first = lessons[0];
   const hasRealConflict = !suppressConflictIndicator && lessons.some((l: any) => l.hasConflict);
   const published = isPublished.value;
+  const hasSplitSubgroups = lessons.length > 1 && lessons.some((l: any) => l.subgroup > 0);
 
   const handleReplacement = (e: React.MouseEvent, lesson: any) => {
     e.stopPropagation(); 
@@ -39,6 +40,9 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
 
   // Збираємо унікальні номери аудиторій
   const uniqueRooms = Array.from(new Set(lessons.map(l => l.roomName || '—'))).join(', ');
+
+  const teacherNames = Array.from(new Set(lessons.map(l => l.teacherName || uniqueRooms)));
+  const displayLessons = hasSplitSubgroups ? teacherNames.map((teacherName, index) => ({ ...first, id: `${first.id}-${index}`, teacherName })) : lessons;
 
   return (
     <>
@@ -58,7 +62,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
           
           {/* Teachers List */}
           <div className={`flex flex-col gap-0 w-full ${alignClasses}`}>
-            {lessons.map((l) => (
+            {displayLessons.map((l) => (
               <div key={l.id} className={`relative group/teacher flex items-center w-full px-1 ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'}`}>
                 {align === 'right' && !published && (
                    <Button 
@@ -92,7 +96,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
             <div className={`flex flex-wrap ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'} leading-tight`}>
                <span>ауд.№{uniqueRooms}</span>
                {/* Показуємо підгрупу тільки якщо вона ОДНА у клітинці */}
-               {lessons.length === 1 && first.subgroup > 0 && (
+               {!hasSplitSubgroups && lessons.length === 1 && first.subgroup > 0 && (
                  <span className="ml-1 italic font-normal text-[0.9em] whitespace-nowrap">
                    {first.subgroup}-а підгр
                  </span>
