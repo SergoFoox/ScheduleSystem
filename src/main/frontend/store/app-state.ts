@@ -11,7 +11,7 @@ export const selectedEntity = signal<SelectedEntity | null>(null);
 export const scheduleData = signal<any | null>(null);
 export const scheduleLoading = signal(false);
 export const isPublished = signal(false);
-export const solverStatus = signal<'NOT_SOLVING' | 'SOLVING'>('NOT_SOLVING');
+export const solverStatus = signal<string>('NOT_SOLVING');
 
 export async function refreshSchedule() {
 

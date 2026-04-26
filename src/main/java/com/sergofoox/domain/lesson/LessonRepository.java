@@ -10,10 +10,10 @@ import java.util.List;
 public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     @Override
-    @EntityGraph(attributePaths = {"subject", "teacher", "group", "timeslot", "room"})
+    @EntityGraph(attributePaths = {"subject", "teacher", "group", "timeslot", "room", "coursePlan"})
     List<Lesson> findAll();
 
-    @EntityGraph(attributePaths = {"subject", "teacher", "group", "timeslot", "room"})
+    @EntityGraph(attributePaths = {"subject", "teacher", "group", "timeslot", "room", "coursePlan"})
     List<Lesson> findByTimeslotId(Long timeslotId);
 
     void deleteByTeacher(com.sergofoox.domain.teacher.Teacher teacher);

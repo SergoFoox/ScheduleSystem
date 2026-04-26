@@ -2,6 +2,7 @@ package com.sergofoox.domain.plan;
 
 import com.sergofoox.domain.group.Group;
 import com.sergofoox.domain.subject.Subject;
+import com.sergofoox.domain.teacher.Teacher;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
@@ -18,6 +19,10 @@ public class CoursePlan {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
     private Subject subject;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(nullable = true)
+    private Teacher teacher;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
@@ -90,8 +95,9 @@ public class CoursePlan {
 
     public CoursePlan() {}
 
-    public CoursePlan(Subject subject, Group group, Integer totalHours, Integer lectureHours, Integer practiceHours, Integer labHours, Integer lectureSessionsPerWeek, Integer practiceSessionsPerWeek, Integer labSessionsPerWeek, RoomType requiredRoomType) {
+    public CoursePlan(Subject subject, Teacher teacher, Group group, Integer totalHours, Integer lectureHours, Integer practiceHours, Integer labHours, Integer lectureSessionsPerWeek, Integer practiceSessionsPerWeek, Integer labSessionsPerWeek, RoomType requiredRoomType) {
         this.subject = subject;
+        this.teacher = teacher;
         this.group = group;
         this.totalHours = totalHours;
         this.lectureHours = lectureHours;
@@ -107,6 +113,8 @@ public class CoursePlan {
     public void setId(Long id) { this.id = id; }
     public Subject getSubject() { return subject; }
     public void setSubject(Subject subject) { this.subject = subject; }
+    public Teacher getTeacher() { return teacher; }
+    public void setTeacher(Teacher teacher) { this.teacher = teacher; }
     public Group getGroup() { return group; }
     public void setGroup(Group group) { this.group = group; }
     public Integer getTotalHours() { return totalHours; }

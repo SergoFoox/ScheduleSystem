@@ -14,7 +14,7 @@ type Mode = 'GROUP' | 'TEACHER' | 'ROOM';
 
 export default function DashboardView() {
   const mode = useSignal<Mode>('GROUP');
-  const isSolving = solverStatus.value === 'SOLVING';
+  const isSolving = solverStatus.value === 'SOLVING_ACTIVE' || solverStatus.value === 'SOLVING_SCHEDULED';
 
   // Poll status when solving to see updates in real-time
   useEffect(() => {

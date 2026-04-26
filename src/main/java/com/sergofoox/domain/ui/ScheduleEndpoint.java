@@ -74,6 +74,10 @@ public class ScheduleEndpoint {
             if (published) {
                 throw new IllegalStateException("Неможливо згенерувати розклад: його вже опубліковано");
             }
+            // 1. Спочатку генеруємо об'єкти Lesson на основі навчальних планів
+            scheduleService.generateLessonsFromPlans();
+            
+            // 2. Запускаємо солвер для розстановки Timeslot та Room
             scheduleService.solve();
         } catch (Exception e) {
             e.printStackTrace();
@@ -124,6 +128,11 @@ public class ScheduleEndpoint {
     public ScheduleGridDTO getScheduleGridData() {
         try {
             List<Lesson> allLessons = lessonRepository.findAll();
+            List<Timeslot> allTimeslots = timeslotRepository.findAll();
+            
+            System.out.println("Запрос данных сетки: уроков=" + allLessons.size() + 
+                               ", таймслотов=" + allTimeslots.size() + 
+                               ", групп=" + groupRepository.count());
 
             List<LessonDTO> lessons = allLessons.stream()
                     .map(lesson -> mapToLessonDTO(lesson, allLessons))
@@ -141,7 +150,7 @@ public class ScheduleEndpoint {
                     .map(this::mapToRoomDTO)
                     .toList();
 
-            List<TimeslotDTO> timeslots = timeslotRepository.findAll().stream()
+            List<TimeslotDTO> timeslots = allTimeslots.stream()
                     .map(this::mapToTimeslotDTO)
                     .toList();
 

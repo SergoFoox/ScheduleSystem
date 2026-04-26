@@ -102,23 +102,18 @@ public class Room {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Room other)) return false;
+        if (id != null && other.id != null) return Objects.equals(id, other.id);
         return Objects.equals(name, other.name) && Objects.equals(building, other.building);
     }
 
     @Override
     public int hashCode() {
+        if (id != null) return Objects.hash(id);
         return Objects.hash(name, building);
     }
 
     @Override
     public String toString() {
-        return "Room{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", building='" + building + '\'' +
-                ", capacity=" + capacity +
-                ", equipment='" + equipment + '\'' +
-                ", type=" + type +
-                '}';
+        return name + " (" + building + ")";
     }
 }

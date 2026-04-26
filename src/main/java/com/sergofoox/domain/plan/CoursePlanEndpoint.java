@@ -63,6 +63,11 @@ public class CoursePlanEndpoint {
 
             plan.setGroup(groupRepository.findById(dto.groupId()).orElseThrow());
             plan.setSubject(subjectRepository.findById(dto.subjectId()).orElseThrow());
+            
+            if (dto.teacherId() != null) {
+                plan.setTeacher(teacherRepository.findById(dto.teacherId()).orElseThrow());
+            }
+
             plan.setTotalHours(dto.totalHours());
             plan.setLectureHours(dto.lectureHours());
             plan.setPracticeHours(dto.practiceHours());
@@ -74,9 +79,9 @@ public class CoursePlanEndpoint {
             plan.setLabSessionsPerWeek(dto.labSessionsPerWeek() != null ? dto.labSessionsPerWeek() : (dto.labHours() > 0 ? 1 : 0));
             
             plan.setRequiredRoomType(dto.requiredRoomType());
-            plan.setLecturePeriodicity(Periodicity.WEEKLY);
-            plan.setPracticePeriodicity(Periodicity.WEEKLY);
-            plan.setLabPeriodicity(Periodicity.WEEKLY);
+            plan.setLecturePeriodicity(dto.lecturePeriodicity() != null ? dto.lecturePeriodicity() : Periodicity.WEEKLY);
+            plan.setPracticePeriodicity(dto.practicePeriodicity() != null ? dto.practicePeriodicity() : Periodicity.WEEKLY);
+            plan.setLabPeriodicity(dto.labPeriodicity() != null ? dto.labPeriodicity() : Periodicity.WEEKLY);
 
             coursePlanRepository.save(plan);
         } catch (Exception e) {
@@ -103,8 +108,8 @@ public class CoursePlanEndpoint {
                 plan.getGroup().getId(),
                 plan.getSubject().getId(),
                 plan.getSubject().getName(),
-                null,
-                null,
+                plan.getTeacher() != null ? plan.getTeacher().getId() : null,
+                plan.getTeacher() != null ? plan.getTeacher().getFullName() : null,
                 plan.getTotalHours(),
                 plan.getLectureHours(),
                 plan.getPracticeHours(),
@@ -112,7 +117,10 @@ public class CoursePlanEndpoint {
                 plan.getLectureSessionsPerWeek(),
                 plan.getPracticeSessionsPerWeek(),
                 plan.getLabSessionsPerWeek(),
-                plan.getRequiredRoomType()
+                plan.getRequiredRoomType(),
+                plan.getLecturePeriodicity(),
+                plan.getPracticePeriodicity(),
+                plan.getLabPeriodicity()
         );
     }
 }

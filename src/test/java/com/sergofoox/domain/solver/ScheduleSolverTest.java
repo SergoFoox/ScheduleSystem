@@ -54,7 +54,7 @@ class ScheduleSolverTest {
         group2.setId(2L);
         Subject subject = new Subject("Math", "M");
         subject.setId(1L);
-        CoursePlan plan = new CoursePlan(subject, group1, 30, 15, 15, 0, 1, 1, 0, RoomType.LECTURE_HALL);
+        CoursePlan plan = new CoursePlan(subject, teacher, group1, 30, 15, 15, 0, 1, 1, 0, RoomType.LECTURE_HALL);
         plan.setId(1L);
 
         // 2. Створюємо заняття (Entities), які треба спланувати

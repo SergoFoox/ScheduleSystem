@@ -7,34 +7,47 @@ import ai.timefold.solver.core.api.score.stream.ConstraintProvider;
 import ai.timefold.solver.core.api.score.stream.Joiners;
 import ai.timefold.solver.core.api.score.stream.ConstraintCollectors;
 import com.sergofoox.domain.lesson.Lesson;
+import com.sergofoox.domain.plan.Periodicity;
+import org.jspecify.annotations.NonNull;
+
 import java.time.Duration;
 
 public class ScheduleConstraintProvider implements ConstraintProvider {
 
     @Override
-    public Constraint[] defineConstraints(ConstraintFactory constraintFactory) {
+    public Constraint @NonNull [] defineConstraints(@NonNull ConstraintFactory constraintFactory) {
         return new Constraint[] {
-                // HARD CONSTRAINTS
+                // HARD: КРИТИЧЕСКИЕ (Нельзя нарушать)
                 teacherConflict(constraintFactory),
                 groupConflict(constraintFactory),
                 roomConflict(constraintFactory),
-                roomCapacity(constraintFactory),
                 
-                // SOFT CONSTRAINTS
+                // HARD: СРЕДНИЕ (Обязательно к заполнению)
+                requiredVariables(constraintFactory),
+                
+                // SOFT: ПРАВИЛА ИЗ ТЗ И РАСПРЕДЕЛЕНИЕ
+                roomTypeCompatibility(constraintFactory),
+                roomCapacity(constraintFactory),
+                spreadRooms(constraintFactory), // НОВОЕ: Равномерное распределение по комнатам
                 teacherRoomStability(constraintFactory),
                 groupWindow(constraintFactory),
                 teacherWindow(constraintFactory),
-                loadBalance(constraintFactory)
+                loadBalance(constraintFactory),
+                compactBiWeekly(constraintFactory)
         };
     }
 
     // --- HARD CONSTRAINTS ---
 
+    // Используем ссылки на методы для корректного отслеживания изменений движком
     Constraint teacherConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getTeacher),
                         Joiners.equal(Lesson::getTimeslot))
-                .penalize(HardSoftScore.ONE_HARD)
+                .filter((l1, l2) -> l1.getTimeslot() != null && (l1.getPeriodicity() == Periodicity.WEEKLY 
+                        || l2.getPeriodicity() == Periodicity.WEEKLY 
+                        || l1.getPeriodicity() == l2.getPeriodicity()))
+                .penalize(HardSoftScore.ofHard(1000))
                 .asConstraint("Teacher conflict");
     }
 
@@ -42,7 +55,16 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getGroup),
                         Joiners.equal(Lesson::getTimeslot))
-                .penalize(HardSoftScore.ONE_HARD)
+                .filter((l1, l2) -> {
+                    if (l1.getTimeslot() == null) return false;
+                    boolean weekOverlap = l1.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l2.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l1.getPeriodicity() == l2.getPeriodicity();
+                    if (!weekOverlap) return false;
+                    if (l1.getSubgroup() != 0 && l2.getSubgroup() != 0 && !l1.getSubgroup().equals(l2.getSubgroup())) return false;
+                    return true;
+                })
+                .penalize(HardSoftScore.ofHard(1000))
                 .asConstraint("Group conflict");
     }
 
@@ -50,63 +72,120 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getRoom),
                         Joiners.equal(Lesson::getTimeslot))
-                .penalize(HardSoftScore.ONE_HARD)
+                .filter((l1, l2) -> {
+                    if (l1.getRoom() == null || l1.getTimeslot() == null) return false;
+                    return l1.getPeriodicity() == Periodicity.WEEKLY 
+                        || l2.getPeriodicity() == Periodicity.WEEKLY 
+                        || l1.getPeriodicity() == l2.getPeriodicity();
+                })
+                .penalize(HardSoftScore.ofHard(1000))
                 .asConstraint("Room conflict");
+    }
+
+    Constraint requiredVariables(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> lesson.getTimeslot() == null || lesson.getRoom() == null)
+                .penalize(HardSoftScore.ofHard(100))
+                .asConstraint("Required variables");
+    }
+
+    // --- SOFT CONSTRAINTS ---
+
+    // Поощряем использование разных аудиторий
+    Constraint spreadRooms(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(l -> l.getRoom() != null)
+                .groupBy(Lesson::getRoom, ConstraintCollectors.count())
+                .filter((room, count) -> count > 2) // Если в одной комнате больше 2 пар в день (в среднем)
+                .penalize(HardSoftScore.ofSoft(10))
+                .asConstraint("Spread lessons across rooms");
+    }
+
+    Constraint roomTypeCompatibility(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> lesson.getRoom() != null && lesson.getCoursePlan() != null &&
+                        lesson.getRoom().getType() != lesson.getCoursePlan().getRequiredRoomType())
+                .penalize(HardSoftScore.ofSoft(50))
+                .asConstraint("Room type incompatibility");
     }
 
     Constraint roomCapacity(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
                 .filter(lesson -> lesson.getRoom() != null && 
                         lesson.getGroup().getSize() > lesson.getRoom().getCapacity())
-                .penalize(HardSoftScore.ONE_HARD)
+                .penalize(HardSoftScore.ofSoft(20))
                 .asConstraint("Room capacity");
     }
 
-    // --- SOFT CONSTRAINTS ---
-
-    // ТЗ 4.2: Мінімізація "вікон" для групи
-    // Штрафуємо, якщо між двома уроками однієї групи в один день є часовий розрив
     Constraint groupWindow(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getGroup),
                         Joiners.equal(l -> l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
+                    if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
+                    boolean weekOverlap = l1.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l2.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l1.getPeriodicity() == l2.getPeriodicity();
+                    if (!weekOverlap) return false;
                     Duration between = Duration.between(l1.getTimeslot().getEndTime(), l2.getTimeslot().getStartTime());
-                    return !between.isNegative() && between.toMinutes() > 40; // Штрафуємо за будь-яке вікно між парами
+                    return !between.isNegative() && between.toMinutes() > 40;
                 })
                 .penalize(HardSoftScore.ONE_SOFT)
                 .asConstraint("Group window");
     }
 
-    // ТЗ 4.2: Мінімізація "вікон" для викладача
     Constraint teacherWindow(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getTeacher),
                         Joiners.equal(l -> l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
+                    if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
+                    boolean weekOverlap = l1.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l2.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l1.getPeriodicity() == l2.getPeriodicity();
+                    if (!weekOverlap) return false;
                     Duration between = Duration.between(l1.getTimeslot().getEndTime(), l2.getTimeslot().getStartTime());
-                    return !between.isNegative() && between.toMinutes() > 15; // 15 хв - стандартна перерва, більше - вікно
+                    return !between.isNegative() && between.toMinutes() > 15;
                 })
                 .penalize(HardSoftScore.ONE_SOFT)
                 .asConstraint("Teacher window");
     }
 
-    // ТЗ 4.2: Рівномірність навантаження (уникання занадто насичених днів)
     Constraint loadBalance(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
-                .groupBy(l -> l.getGroup(), l -> l.getTimeslot().getDayOfWeek(), ConstraintCollectors.count())
-                .filter((group, day, count) -> count > 4) // Більше 4 пар на день - це вже забагато
-                .penalize(HardSoftScore.ofSoft(10)) // Вищий штраф для балансу
+                .filter(l -> l.getTimeslot() != null)
+                .groupBy(Lesson::getGroup, 
+                         l -> l.getTimeslot().getDayOfWeek(), 
+                         Lesson::getPeriodicity,
+                         ConstraintCollectors.count())
+                .filter((group, day, periodicity, count) -> count > 4)
+                .penalize(HardSoftScore.ofSoft(10))
                 .asConstraint("Too many lessons per day");
     }
 
-    // Додатково: Стабільність аудиторії для викладача (зручність)
     Constraint teacherRoomStability(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
                 Joiners.equal(Lesson::getTeacher),
                 Joiners.equal(l -> l.getTimeslot().getDayOfWeek()))
-                .filter((l1, l2) -> !l1.getRoom().equals(l2.getRoom()))
+                .filter((l1, l2) -> {
+                    if (l1.getRoom() == null || l2.getRoom() == null || l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
+                    boolean weekOverlap = l1.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l2.getPeriodicity() == Periodicity.WEEKLY 
+                                       || l1.getPeriodicity() == l2.getPeriodicity();
+                    if (!weekOverlap) return false;
+                    return l1.getRoom() != l2.getRoom();
+                })
                 .penalize(HardSoftScore.ONE_SOFT)
                 .asConstraint("Teacher room stability");
+    }
+
+    Constraint compactBiWeekly(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEachUniquePair(Lesson.class,
+                Joiners.equal(Lesson::getTimeslot),
+                Joiners.equal(Lesson::getRoom))
+                .filter((l1, l2) -> l1.getTimeslot() != null && ((l1.getPeriodicity() == Periodicity.ODD_WEEKS && l2.getPeriodicity() == Periodicity.EVEN_WEEKS)
+                                 || (l1.getPeriodicity() == Periodicity.EVEN_WEEKS && l2.getPeriodicity() == Periodicity.ODD_WEEKS)))
+                .reward(HardSoftScore.ofSoft(20))
+                .asConstraint("Compact bi-weekly slots");
     }
 }

@@ -10,10 +10,12 @@ import { HorizontalLayout } from '@vaadin/react-components/HorizontalLayout.js';
 import { Select } from '@vaadin/react-components/Select.js';
 import { IntegerField } from '@vaadin/react-components/IntegerField.js';
 import { FormLayout } from '@vaadin/react-components/FormLayout.js';
-import { CoursePlanEndpoint, SubjectEndpoint } from '../generated/endpoints';
+import { CoursePlanEndpoint, SubjectEndpoint, TeacherEndpoint } from '../generated/endpoints';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
 import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
+import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import RoomType from '../generated/com/sergofoox/domain/plan/RoomType';
+import Periodicity from '../generated/com/sergofoox/domain/plan/Periodicity';
 import { SubjectDialog } from './SubjectDialog';
 
 interface CoursePlanDialogProps {
@@ -25,12 +27,14 @@ interface CoursePlanDialogProps {
 export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, group, onClose }) => {
   const [plans, setPlans] = useState<CoursePlanDTO[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<TeacherDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [subjectDialogOpen, setSubjectOpened] = useState(false);
   
   const [newPlan, setNewPlan] = useState<any>({
     subjectId: undefined,
+    teacherId: undefined,
     lectureHours: 16,
     practiceHours: 16,
     labHours: 0,
@@ -41,12 +45,14 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
     if (!group?.id) return;
     setLoading(true);
     try {
-      const [pData, sData] = await Promise.all([
+      const [pData, sData, tData] = await Promise.all([
         CoursePlanEndpoint.getPlansByGroup(group.id as any),
-        SubjectEndpoint.getAllSubjects()
+        SubjectEndpoint.getAllSubjects(),
+        TeacherEndpoint.getAllTeachers()
       ]);
       setPlans((pData || []).filter(p => !!p) as CoursePlanDTO[]);
       setSubjects((sData || []).filter(s => !!s));
+      setTeachers((tData || []).filter(t => !!t) as TeacherDTO[]);
     } catch (err) {
       console.error(err);
       Notification.show('Помилка завантаження даних', { theme: 'error' });
@@ -131,7 +137,13 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
                 <Icon icon="vaadin:plus" />
               </Button>
             </div>
-            <FormLayout responsiveSteps={[{ minWidth: '0', columns: 3 }]}>
+            <FormLayout responsiveSteps={[{ minWidth: '0', columns: 2 }]}>
+              <Select
+                label="Викладач"
+                items={teachers.map(t => ({ label: t.fullName, value: t.id?.toString() }))}
+                value={newPlan.teacherId?.toString()}
+                onValueChanged={(e) => setNewPlan({...newPlan, teacherId: e.detail.value ? parseInt(e.detail.value) : undefined})}
+              />
               <Select
                 label="Тип аудиторії"
                 items={[
@@ -144,9 +156,46 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
                 onValueChanged={(e) => setNewPlan({...newPlan, requiredRoomType: e.detail.value})}
               />
               <div className="flex gap-2 items-end">
-                <IntegerField label="Лекції" className="w-20" value={newPlan.lectureHours.toString()} onValueChanged={e => setNewPlan({...newPlan, lectureHours: e.detail.value})} />
-                <IntegerField label="Прак." className="w-20" value={newPlan.practiceHours.toString()} onValueChanged={e => setNewPlan({...newPlan, practiceHours: e.detail.value})} />
-                <IntegerField label="Лаб." className="w-20" value={newPlan.labHours.toString()} onValueChanged={e => setNewPlan({...newPlan, labHours: e.detail.value})} />
+                <IntegerField label="Год. Лекції" className="w-20" value={newPlan.lectureHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, lectureHours: e.detail.value})} />
+                <Select 
+                  label="Період"
+                  className="flex-1"
+                  items={[
+                    { label: 'Щотижня', value: Periodicity.WEEKLY },
+                    { label: 'Чисельник', value: Periodicity.ODD_WEEKS },
+                    { label: 'Знаменник', value: Periodicity.EVEN_WEEKS },
+                  ]}
+                  value={newPlan.lecturePeriodicity || Periodicity.WEEKLY}
+                  onValueChanged={e => setNewPlan({...newPlan, lecturePeriodicity: e.detail.value})}
+                />
+              </div>
+              <div className="flex gap-2 items-end">
+                <IntegerField label="Год. Прак." className="w-20" value={newPlan.practiceHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, practiceHours: e.detail.value})} />
+                <Select 
+                  label="Період"
+                  className="flex-1"
+                  items={[
+                    { label: 'Щотижня', value: Periodicity.WEEKLY },
+                    { label: 'Чисельник', value: Periodicity.ODD_WEEKS },
+                    { label: 'Знаменник', value: Periodicity.EVEN_WEEKS },
+                  ]}
+                  value={newPlan.practicePeriodicity || Periodicity.WEEKLY}
+                  onValueChanged={e => setNewPlan({...newPlan, practicePeriodicity: e.detail.value})}
+                />
+              </div>
+              <div className="flex gap-2 items-end">
+                <IntegerField label="Год. Лаб." className="w-20" value={newPlan.labHours?.toString()} onValueChanged={e => setNewPlan({...newPlan, labHours: e.detail.value})} />
+                <Select 
+                  label="Період"
+                  className="flex-1"
+                  items={[
+                    { label: 'Щотижня', value: Periodicity.WEEKLY },
+                    { label: 'Чисельник', value: Periodicity.ODD_WEEKS },
+                    { label: 'Знаменник', value: Periodicity.EVEN_WEEKS },
+                  ]}
+                  value={newPlan.labPeriodicity || Periodicity.WEEKLY}
+                  onValueChanged={e => setNewPlan({...newPlan, labPeriodicity: e.detail.value})}
+                />
               </div>
             </FormLayout>
             <div className="flex justify-end gap-2 mt-2">
@@ -168,6 +217,7 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
 
         <Grid items={plans} className="border rounded-xl shadow-sm min-h-[350px] bg-white overflow-hidden" theme="row-stripes">
           <GridColumn header="Дисципліна" path="subjectName" autoWidth />
+          <GridColumn header="Викладач" path="teacherName" autoWidth />
           <GridColumn header="Аудиторія" path="requiredRoomType" autoWidth />
           <GridColumn header="Лекції" path="lectureHours" autoWidth textAlign="center" />
           <GridColumn header="Практики" path="practiceHours" autoWidth textAlign="center" />

@@ -1,6 +1,7 @@
 package com.sergofoox.domain.ui.dto;
 
 import com.sergofoox.domain.plan.RoomType;
+import com.sergofoox.domain.plan.Periodicity;
 
 public record CoursePlanDTO(
     Long id,
@@ -16,5 +17,8 @@ public record CoursePlanDTO(
     Integer lectureSessionsPerWeek,
     Integer practiceSessionsPerWeek,
     Integer labSessionsPerWeek,
-    RoomType requiredRoomType
+    RoomType requiredRoomType,
+    Periodicity lecturePeriodicity,
+    Periodicity practicePeriodicity,
+    Periodicity labPeriodicity
 ) {}

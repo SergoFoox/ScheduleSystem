@@ -22,12 +22,13 @@ public class SolverConfiguration {
 
     @Bean
     public SolverConfig solverConfig() {
+        // Убираем фиксированный RandomSeed, чтобы Timefold генерировал новый при каждом запуске
         return new SolverConfig()
                 .withSolutionClass(Schedule.class)
                 .withEntityClassList(Collections.singletonList(Lesson.class))
                 .withConstraintProviderClass(ScheduleConstraintProvider.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withSpentLimit(Duration.ofMinutes(5)))
+                        .withSpentLimit(Duration.ofSeconds(30)))
                 .withPhaseList(List.of(
                         new ConstructionHeuristicPhaseConfig()
                                 .withConstructionHeuristicType(ConstructionHeuristicType.FIRST_FIT),
