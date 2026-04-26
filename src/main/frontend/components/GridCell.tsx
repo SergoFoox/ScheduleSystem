@@ -47,8 +47,15 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
   return (
     <>
       <div 
-        draggable={!published && !compact}
-        onDragStart={(e) => !published && !compact && onDragStart?.(e, first.id)}
+        draggable={!published && !!onDragStart}
+        onDragStart={(e) => {
+          if (published || !onDragStart) {
+            e.preventDefault();
+            return;
+          }
+          e.stopPropagation();
+          onDragStart(e, first.id);
+        }}
         onClick={(e) => handleReplacement(e, first)}
         className={`w-full flex flex-col justify-center relative group cursor-pointer hover:bg-black/5 rounded transition-colors ${hasRealConflict ? 'bg-red-50' : 'bg-transparent'} ${alignClasses} p-1.5 leading-[1.1]`}
       >
