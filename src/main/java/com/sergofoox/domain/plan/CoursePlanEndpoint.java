@@ -64,6 +64,9 @@ public class CoursePlanEndpoint {
             plan.setGroup(groupRepository.findById(dto.groupId()).orElseThrow());
             plan.setSubject(subjectRepository.findById(dto.subjectId()).orElseThrow());
             
+            if (dto.teacherId() == null) {
+                throw new IllegalArgumentException("Teacher is required for course plan");
+            }
             if (dto.teacherId() != null) {
                 plan.setTeacher(teacherRepository.findById(dto.teacherId()).orElseThrow());
             }

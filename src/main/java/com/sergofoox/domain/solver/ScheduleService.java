@@ -20,6 +20,7 @@ import ai.timefold.solver.core.api.solver.SolverManager;
 import ai.timefold.solver.core.api.solver.SolverStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
 import java.util.function.Function;
@@ -38,6 +39,7 @@ public class ScheduleService {
     private final LessonRepository lessonRepository;
     private final CoursePlanRepository coursePlanRepository;
     private final SubjectRepository subjectRepository;
+    private final TransactionTemplate transactionTemplate;
 
     public ScheduleService(SolverManager<Schedule, UUID> solverManager,
                            TeacherRepository teacherRepository,
@@ -46,7 +48,8 @@ public class ScheduleService {
                            TimeslotRepository timeslotRepository,
                            LessonRepository lessonRepository,
                            CoursePlanRepository coursePlanRepository,
-                           SubjectRepository subjectRepository) {
+                           SubjectRepository subjectRepository,
+                           TransactionTemplate transactionTemplate) {
         this.solverManager = solverManager;
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
@@ -55,6 +58,7 @@ public class ScheduleService {
         this.lessonRepository = lessonRepository;
         this.coursePlanRepository = coursePlanRepository;
         this.subjectRepository = subjectRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @Transactional
@@ -67,7 +71,10 @@ public class ScheduleService {
         List<Lesson> newLessons = new ArrayList<>();
 
         for (CoursePlan plan : allPlans) {
-            if (plan.getTeacher() == null) continue;
+            if (getPrimaryTeacher(plan) == null) {
+                System.out.println("Skipping course plan without teacher: id=" + plan.getId());
+                continue;
+            }
 
             // Генерируем уроки согласно часам и периодичности из плана
             for (int i = 0; i < plan.getLectureSessionsPerWeek(); i++) {
@@ -80,14 +87,22 @@ public class ScheduleService {
                 addLessonsForPlan(newLessons, plan, LessonType.LABORATORY, plan.getLabPeriodicity(), i + 1);
             }
         }
+        if (newLessons.isEmpty() && !allPlans.isEmpty()) {
+            throw new IllegalStateException("No lessons were generated. Check that course plans have teachers and weekly sessions.");
+        }
         System.out.println("Создано уроков: " + newLessons.size());
         lessonRepository.saveAll(newLessons);
         lessonRepository.flush();
     }
 
     private void addLessonsForPlan(List<Lesson> lessons, CoursePlan plan, LessonType lessonType, com.sergofoox.domain.plan.Periodicity periodicity, int splitGroupIndex) {
-        if (plan.getSecondTeacher() != null) {
-            Lesson firstSubgroup = new Lesson(plan.getSubject(), lessonType, plan.getTeacher(), plan.getGroup(), plan, 1);
+        Teacher primaryTeacher = getPrimaryTeacher(plan);
+        if (primaryTeacher == null) {
+            return;
+        }
+
+        if (plan.getTeacher() != null && plan.getSecondTeacher() != null) {
+            Lesson firstSubgroup = new Lesson(plan.getSubject(), lessonType, primaryTeacher, plan.getGroup(), plan, 1);
             firstSubgroup.setPeriodicity(periodicity);
             firstSubgroup.setSplitGroupIndex(splitGroupIndex);
             lessons.add(firstSubgroup);
@@ -99,10 +114,14 @@ public class ScheduleService {
             return;
         }
 
-        Lesson lesson = new Lesson(plan.getSubject(), lessonType, plan.getTeacher(), plan.getGroup(), plan);
+        Lesson lesson = new Lesson(plan.getSubject(), lessonType, primaryTeacher, plan.getGroup(), plan);
         lesson.setPeriodicity(periodicity);
         lesson.setSplitGroupIndex(splitGroupIndex);
         lessons.add(lesson);
+    }
+
+    private Teacher getPrimaryTeacher(CoursePlan plan) {
+        return plan.getTeacher() != null ? plan.getTeacher() : plan.getSecondTeacher();
     }
 
     private boolean isEnglishSubject(CoursePlan plan) {
@@ -121,7 +140,12 @@ public class ScheduleService {
         if (solverManager.getSolverStatus(SINGLETON_ID) != SolverStatus.NOT_SOLVING) {
             solverManager.terminateEarly(SINGLETON_ID);
         }
-        solverManager.solveAndListen(SINGLETON_ID, this::findById, this::saveSolution);
+        solverManager.solveAndListen(
+                SINGLETON_ID,
+                this::findById,
+                this::saveSolution,
+                this::saveSolution,
+                (problemId, throwable) -> throwable.printStackTrace());
     }
 
     public Schedule findById(UUID id) {
@@ -142,6 +166,12 @@ public class ScheduleService {
         Map<Long, Subject> subjectMap = subjects.stream().collect(Collectors.toMap(Subject::getId, Function.identity()));
         Map<Long, CoursePlan> planMap = plans.stream().collect(Collectors.toMap(CoursePlan::getId, Function.identity()));
 
+        for (Teacher teacher : teachers) {
+            if (teacher.getAssignedRoom() != null) {
+                teacher.setAssignedRoom(roomMap.get(teacher.getAssignedRoom().getId()));
+            }
+        }
+
         // Принудительная прошивка ссылок
         for (Lesson lesson : lessons) {
             if (lesson.getRoom() != null) lesson.setRoom(roomMap.get(lesson.getRoom().getId()));
@@ -160,21 +190,33 @@ public class ScheduleService {
         return new Schedule(timeslots, rooms, lessons);
     }
 
-    @Transactional
     public void saveSolution(Schedule schedule) {
+        transactionTemplate.executeWithoutResult(status -> persistSolution(schedule));
+    }
+
+    private void persistSolution(Schedule schedule) {
         syncSplitSubgroupLessons(schedule);
         applyAssignedRooms(schedule);
         System.out.println("Найдено улучшение. Score: " + schedule.getScore());
+        int savedCount = 0;
         for (Lesson lesson : schedule.getLessons()) {
             if (lesson.getId() != null) {
                 lessonRepository.findById(lesson.getId()).ifPresent(dbLesson -> {
-                    dbLesson.setTimeslot(lesson.getTimeslot());
-                    dbLesson.setRoom(lesson.getRoom());
+                    Timeslot timeslot = lesson.getTimeslot() != null
+                            ? timeslotRepository.getReferenceById(lesson.getTimeslot().getId())
+                            : null;
+                    Room room = lesson.getRoom() != null
+                            ? roomRepository.getReferenceById(lesson.getRoom().getId())
+                            : null;
+                    dbLesson.setTimeslot(timeslot);
+                    dbLesson.setRoom(room);
                     lessonRepository.save(dbLesson);
                 });
+                savedCount++;
             }
         }
         lessonRepository.flush();
+        System.out.println("Saved scheduled lessons: " + savedCount);
     }
 
     private void syncSplitSubgroupLessons(Schedule schedule) {

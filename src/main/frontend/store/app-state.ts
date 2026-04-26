@@ -13,9 +13,11 @@ export const scheduleLoading = signal(false);
 export const isPublished = signal(false);
 export const solverStatus = signal<string>('NOT_SOLVING');
 
-export async function refreshSchedule() {
+export async function refreshSchedule(showLoading = true) {
 
-  scheduleLoading.value = true;
+  if (showLoading) {
+    scheduleLoading.value = true;
+  }
   try {
     const [result, publishedStatus, status] = await Promise.all([
       ScheduleEndpoint.getScheduleGridData(),
@@ -26,6 +28,8 @@ export async function refreshSchedule() {
     isPublished.value = publishedStatus;
     solverStatus.value = status as any;
   } finally {
-    scheduleLoading.value = false;
+    if (showLoading) {
+      scheduleLoading.value = false;
+    }
   }
 }

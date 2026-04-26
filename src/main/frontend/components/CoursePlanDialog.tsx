@@ -74,6 +74,10 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
       Notification.show('Оберіть дисципліну', { theme: 'error' });
       return;
     }
+    if (!newPlan.teacherId) {
+      Notification.show('Оберіть викладача', { theme: 'error' });
+      return;
+    }
     try {
       const lectureHours = Number(newPlan.lectureHours || 0);
       const practiceHours = Number(newPlan.practiceHours || 0);
