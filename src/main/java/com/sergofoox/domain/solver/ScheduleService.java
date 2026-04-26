@@ -163,6 +163,7 @@ public class ScheduleService {
     @Transactional
     public void saveSolution(Schedule schedule) {
         syncSplitSubgroupLessons(schedule);
+        applyAssignedRooms(schedule);
         System.out.println("Найдено улучшение. Score: " + schedule.getScore());
         for (Lesson lesson : schedule.getLessons()) {
             if (lesson.getId() != null) {
@@ -202,6 +203,21 @@ public class ScheduleService {
             second.setTimeslot(first.getTimeslot());
             if (second.getRoom() == null || second.getRoom().equals(first.getRoom()) || isRoomBusy(schedule, second, second.getRoom())) {
                 findAvailableRoom(schedule, second, first.getRoom()).ifPresent(second::setRoom);
+            }
+        }
+    }
+
+    private void applyAssignedRooms(Schedule schedule) {
+        for (Lesson lesson : schedule.getLessons()) {
+            if (lesson.getTeacher() == null
+                    || lesson.getTeacher().getAssignedRoom() == null
+                    || lesson.getTimeslot() == null) {
+                continue;
+            }
+
+            Room assignedRoom = lesson.getTeacher().getAssignedRoom();
+            if (!isRoomBusy(schedule, lesson, assignedRoom)) {
+                lesson.setRoom(assignedRoom);
             }
         }
     }

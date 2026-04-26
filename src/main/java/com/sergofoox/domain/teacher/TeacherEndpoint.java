@@ -2,6 +2,7 @@ package com.sergofoox.domain.teacher;
 
 import com.sergofoox.domain.ui.dto.TeacherDTO;
 import com.sergofoox.domain.lesson.LessonRepository;
+import com.sergofoox.domain.room.RoomRepository;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,12 @@ public class TeacherEndpoint {
 
     private final TeacherRepository teacherRepository;
     private final LessonRepository lessonRepository;
+    private final RoomRepository roomRepository;
 
-    public TeacherEndpoint(TeacherRepository teacherRepository, LessonRepository lessonRepository) {
+    public TeacherEndpoint(TeacherRepository teacherRepository, LessonRepository lessonRepository, RoomRepository roomRepository) {
         this.teacherRepository = teacherRepository;
         this.lessonRepository = lessonRepository;
+        this.roomRepository = roomRepository;
     }
 
     public List<TeacherDTO> getAllTeachers() {
@@ -45,6 +48,7 @@ public class TeacherEndpoint {
             teacher.setPositionType(dto.positionType());
             teacher.setWeeklyHourLimit(dto.weeklyHourLimit());
             teacher.setMaxWorkingDaysPerWeek(dto.maxWorkingDaysPerWeek());
+            teacher.setAssignedRoom(dto.assignedRoomId() != null ? roomRepository.findById(dto.assignedRoomId()).orElse(null) : null);
             
             teacherRepository.save(teacher);
             System.out.println("Teacher saved successfully");
@@ -76,7 +80,9 @@ public class TeacherEndpoint {
                 teacher.getSpecialization(),
                 teacher.getPositionType(),
                 teacher.getWeeklyHourLimit(),
-                teacher.getMaxWorkingDaysPerWeek()
+                teacher.getMaxWorkingDaysPerWeek(),
+                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getId() : null,
+                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getName() : null
         );
     }
 }

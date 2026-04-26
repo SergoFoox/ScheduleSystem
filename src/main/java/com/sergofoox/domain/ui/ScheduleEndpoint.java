@@ -508,7 +508,9 @@ public class ScheduleEndpoint {
                 teacher.getSpecialization(),
                 teacher.getPositionType(),
                 teacher.getWeeklyHourLimit(),
-                teacher.getMaxWorkingDaysPerWeek()
+                teacher.getMaxWorkingDaysPerWeek(),
+                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getId() : null,
+                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getName() : null
         );
     }
 

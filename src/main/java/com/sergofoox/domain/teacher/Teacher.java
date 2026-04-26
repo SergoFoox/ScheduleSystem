@@ -1,5 +1,6 @@
 package com.sergofoox.domain.teacher;
 
+import com.sergofoox.domain.room.Room;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -36,6 +37,9 @@ public class Teacher {
     @Max(6)
     private Integer maxWorkingDaysPerWeek;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Room assignedRoom;
+
     public Teacher() {}
 
     public Teacher(String fullName, String department, PositionType positionType) {
@@ -66,6 +70,8 @@ public class Teacher {
     public void setWeeklyHourLimit(Integer weeklyHourLimit) { this.weeklyHourLimit = weeklyHourLimit; }
     public Integer getMaxWorkingDaysPerWeek() { return maxWorkingDaysPerWeek; }
     public void setMaxWorkingDaysPerWeek(Integer maxWorkingDaysPerWeek) { this.maxWorkingDaysPerWeek = maxWorkingDaysPerWeek; }
+    public Room getAssignedRoom() { return assignedRoom; }
+    public void setAssignedRoom(Room assignedRoom) { this.assignedRoom = assignedRoom; }
 
     @Override
     public boolean equals(Object o) {
