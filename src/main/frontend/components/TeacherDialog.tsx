@@ -7,8 +7,9 @@ import { Button } from '@vaadin/react-components/Button.js';
 import { FormLayout } from '@vaadin/react-components/FormLayout.js';
 import { HorizontalLayout } from '@vaadin/react-components/HorizontalLayout.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
-import { TeacherEndpoint } from '../generated/endpoints';
+import { RoomEndpoint, TeacherEndpoint } from '../generated/endpoints';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
+import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import PositionType from '../generated/com/sergofoox/domain/teacher/PositionType';
 
 interface TeacherDialogProps {
@@ -25,10 +26,19 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
     department: '',
     positionType: PositionType.FULL_TIME,
     weeklyHourLimit: 40,
-    maxWorkingDaysPerWeek: 5
+    maxWorkingDaysPerWeek: 5,
+    assignedRoomId: undefined,
+    assignedRoomName: undefined
   });
 
   const [saving, setSaving] = useState(false);
+  const [rooms, setRooms] = useState<RoomDTO[]>([]);
+
+  useEffect(() => {
+    RoomEndpoint.getAllRooms()
+      .then(data => setRooms((data || []).filter(room => !!room) as RoomDTO[]))
+      .catch(err => console.error('Failed to load rooms:', err));
+  }, [opened]);
 
   useEffect(() => {
     if (teacher) {
@@ -43,7 +53,9 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
         department: '',
         positionType: PositionType.FULL_TIME,
         weeklyHourLimit: 40,
-        maxWorkingDaysPerWeek: 5
+        maxWorkingDaysPerWeek: 5,
+        assignedRoomId: undefined,
+        assignedRoomName: undefined
       });
     }
   }, [teacher, opened]);
@@ -113,6 +125,16 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
           items={positionOptions}
           value={formData.positionType}
           onValueChanged={(e) => setFormData({ ...formData, positionType: e.detail.value as PositionType })}
+        />
+        <Select
+          label="Закріплена аудиторія"
+          items={[
+            { label: 'Без привʼязки', value: '' },
+            ...rooms.map(room => ({ label: `${room.name}${room.building ? ` (${room.building})` : ''}`, value: room.id?.toString() || '' }))
+          ]}
+          value={formData.assignedRoomId?.toString() || ''}
+          onValueChanged={(e) => setFormData({ ...formData, assignedRoomId: e.detail.value ? parseInt(e.detail.value, 10) : undefined })}
+          className="col-span-2"
         />
         <IntegerField
           label="Ліміт годин на тиждень"

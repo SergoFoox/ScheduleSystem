@@ -21,7 +21,7 @@ export default function DashboardView() {
     let interval: any;
     if (isSolving) {
       interval = setInterval(() => {
-        refreshSchedule();
+        refreshSchedule(false);
       }, 3000);
     }
     return () => interval && clearInterval(interval);
@@ -35,6 +35,14 @@ export default function DashboardView() {
         position: 'bottom-end' 
       });
       await refreshSchedule();
+      const pollUntil = Date.now() + 35000;
+      const poll = window.setInterval(async () => {
+        await refreshSchedule(false);
+        if (solverStatus.value === 'NOT_SOLVING' || Date.now() > pollUntil) {
+          window.clearInterval(poll);
+          await refreshSchedule(false);
+        }
+      }, 1500);
     } catch (err) {
       console.error(err);
       Notification.show('Помилка при запуску генерації', { theme: 'error' });

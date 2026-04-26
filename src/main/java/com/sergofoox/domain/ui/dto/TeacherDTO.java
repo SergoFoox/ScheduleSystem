@@ -9,5 +9,7 @@ public record TeacherDTO(
     String specialization,
     PositionType positionType,
     Integer weeklyHourLimit,
-    Integer maxWorkingDaysPerWeek
+    Integer maxWorkingDaysPerWeek,
+    Long assignedRoomId,
+    String assignedRoomName
 ) {}
