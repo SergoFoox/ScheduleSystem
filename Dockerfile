@@ -18,7 +18,7 @@ COPY . $HOME
 #
 #   $ docker build --secret id=offlineKey,src=$HOME/.vaadin/offlineKey .
 RUN chmod +x ./mvnw
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre-alpine
 COPY --from=build /app/target/*.jar app.jar
