@@ -25,6 +25,7 @@ public class TeacherEndpoint {
         this.roomRepository = roomRepository;
     }
 
+    @Transactional(readOnly = true)
     public List<TeacherDTO> getAllTeachers() {
         return teacherRepository.findAll().stream()
                 .map(this::mapToDTO)

@@ -21,6 +21,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 teacherConflict(constraintFactory),
                 groupConflict(constraintFactory),
                 roomConflict(constraintFactory),
+                subjectConflict(constraintFactory),
                 
                 // HARD: СРЕДНИЕ (Обязательно к заполнению)
                 requiredVariables(constraintFactory),
@@ -73,6 +74,18 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .filter((l1, l2) -> l1.getRoom() != null && samePhysicalSlot(l1, l2) && weeksOverlap(l1, l2))
                 .penalize(HardSoftScore.ofHard(1000))
                 .asConstraint("Room conflict");
+    }
+
+    Constraint subjectConflict(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEachUniquePair(Lesson.class,
+                        Joiners.equal(Lesson::getSubject),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
+                .filter((l1, l2) -> samePhysicalSlot(l1, l2)
+                        && weeksOverlap(l1, l2)
+                        && !sameSplitGroupLesson(l1, l2))
+                .penalize(HardSoftScore.ofSoft(100))
+                .asConstraint("Subject conflict");
     }
 
     Constraint requiredVariables(ConstraintFactory constraintFactory) {
@@ -191,6 +204,22 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         Periodicity p1 = effectivePeriodicity(l1);
         Periodicity p2 = effectivePeriodicity(l2);
         return p1 == Periodicity.WEEKLY || p2 == Periodicity.WEEKLY || p1 == p2;
+    }
+
+    private boolean sameSplitGroupLesson(Lesson l1, Lesson l2) {
+        if (l1.getGroup() == null || l2.getGroup() == null
+                || l1.getCoursePlan() == null || l2.getCoursePlan() == null
+                || l1.getSubgroup() == null || l2.getSubgroup() == null
+                || l1.getSplitGroupIndex() == null || l2.getSplitGroupIndex() == null) {
+            return false;
+        }
+        return l1.getGroup().equals(l2.getGroup())
+                && l1.getCoursePlan().equals(l2.getCoursePlan())
+                && l1.getLessonType() == l2.getLessonType()
+                && l1.getSplitGroupIndex().equals(l2.getSplitGroupIndex())
+                && l1.getSubgroup() > 0
+                && l2.getSubgroup() > 0
+                && !l1.getSubgroup().equals(l2.getSubgroup());
     }
 
     private Periodicity effectivePeriodicity(Lesson lesson) {

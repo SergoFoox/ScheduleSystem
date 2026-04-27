@@ -3,6 +3,8 @@ package com.sergofoox.domain.room;
 import com.sergofoox.domain.ui.dto.RoomDTO;
 import com.sergofoox.domain.lesson.Lesson;
 import com.sergofoox.domain.lesson.LessonRepository;
+import com.sergofoox.domain.teacher.Teacher;
+import com.sergofoox.domain.teacher.TeacherRepository;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.springframework.stereotype.Service;
@@ -17,10 +19,12 @@ public class RoomEndpoint {
 
     private final RoomRepository roomRepository;
     private final LessonRepository lessonRepository;
+    private final TeacherRepository teacherRepository;
 
-    public RoomEndpoint(RoomRepository roomRepository, LessonRepository lessonRepository) {
+    public RoomEndpoint(RoomRepository roomRepository, LessonRepository lessonRepository, TeacherRepository teacherRepository) {
         this.roomRepository = roomRepository;
         this.lessonRepository = lessonRepository;
+        this.teacherRepository = teacherRepository;
     }
 
     public List<RoomDTO> getAllRooms() {
@@ -70,9 +74,15 @@ public class RoomEndpoint {
                 lesson.setRoom(null);
                 lessonRepository.save(lesson);
             }
+
+            List<Teacher> teachersInRoom = teacherRepository.findByAssignedRoom(room);
+            for (Teacher teacher : teachersInRoom) {
+                teacher.setAssignedRoom(null);
+                teacherRepository.save(teacher);
+            }
             
             roomRepository.delete(room);
-            System.out.println("Room deleted successfully, lessons updated");
+            System.out.println("Room deleted successfully, lessons and teachers updated");
         } catch (Exception e) {
             e.printStackTrace();
             throw e;

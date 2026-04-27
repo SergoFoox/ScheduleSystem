@@ -109,6 +109,7 @@ export default function TeachersView() {
           <GridColumn header="ПІБ викладача" path="fullName" autoWidth />
           <GridColumn header="Спеціалізація" path="specialization" autoWidth />
           <GridColumn header="Кафедра" path="department" autoWidth />
+          <GridColumn header="Аудиторія" path="assignedRoomName" autoWidth />
           <GridColumn 
             header="Посада" 
             autoWidth 

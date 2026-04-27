@@ -521,6 +521,9 @@ public class ScheduleEndpoint {
                         // 2. Конфлікт аудиторії
                         boolean roomConflict = l.getRoom() != null && lesson.getRoom() != null && 
                                               l.getRoom().getId().equals(lesson.getRoom().getId());
+                        boolean subjectConflict = l.getSubject() != null && lesson.getSubject() != null
+                                && l.getSubject().getId().equals(lesson.getSubject().getId())
+                                && !sameSplitGroupLesson(l, lesson);
                         
                         // 3. Конфлікт групи
                         boolean groupConflict = false;
@@ -532,7 +535,7 @@ public class ScheduleEndpoint {
                             }
                         }
                         
-                        return teacherConflict || roomConflict || groupConflict;
+                        return teacherConflict || roomConflict || subjectConflict || groupConflict;
                     });
         }
 
@@ -565,6 +568,22 @@ public class ScheduleEndpoint {
         return firstPeriodicity == com.sergofoox.domain.plan.Periodicity.WEEKLY
                 || secondPeriodicity == com.sergofoox.domain.plan.Periodicity.WEEKLY
                 || firstPeriodicity == secondPeriodicity;
+    }
+
+    private boolean sameSplitGroupLesson(Lesson first, Lesson second) {
+        if (first.getGroup() == null || second.getGroup() == null
+                || first.getCoursePlan() == null || second.getCoursePlan() == null
+                || first.getSubgroup() == null || second.getSubgroup() == null
+                || first.getSplitGroupIndex() == null || second.getSplitGroupIndex() == null) {
+            return false;
+        }
+        return first.getGroup().getId().equals(second.getGroup().getId())
+                && first.getCoursePlan().getId().equals(second.getCoursePlan().getId())
+                && first.getLessonType() == second.getLessonType()
+                && first.getSplitGroupIndex().equals(second.getSplitGroupIndex())
+                && first.getSubgroup() > 0
+                && second.getSubgroup() > 0
+                && !first.getSubgroup().equals(second.getSubgroup());
     }
 
     private com.sergofoox.domain.plan.Periodicity effectivePeriodicity(Lesson lesson) {

@@ -197,6 +197,7 @@ public class ScheduleService {
     private void persistSolution(Schedule schedule) {
         syncSplitSubgroupLessons(schedule);
         applyAssignedRooms(schedule);
+        resolveRoomConflicts(schedule);
         System.out.println("Найдено улучшение. Score: " + schedule.getScore());
         int savedCount = 0;
         for (Lesson lesson : schedule.getLessons()) {
@@ -261,6 +262,26 @@ public class ScheduleService {
             if (!isRoomBusy(schedule, lesson, assignedRoom)) {
                 lesson.setRoom(assignedRoom);
             }
+        }
+    }
+
+    private void resolveRoomConflicts(Schedule schedule) {
+        List<Lesson> orderedLessons = schedule.getLessons().stream()
+                .filter(lesson -> lesson.getTimeslot() != null)
+                .sorted(Comparator
+                        .comparing((Lesson lesson) -> lesson.getTimeslot().getDayOfWeek())
+                        .thenComparing(lesson -> lesson.getTimeslot().getLessonNumber())
+                        .thenComparing(lesson -> lesson.getId() == null ? Long.MAX_VALUE : lesson.getId()))
+                .toList();
+
+        for (Lesson lesson : orderedLessons) {
+            if (lesson.getRoom() == null || !isRoomBusy(schedule, lesson, lesson.getRoom())) {
+                continue;
+            }
+
+            Room conflictedRoom = lesson.getRoom();
+            lesson.setRoom(null);
+            findAvailableRoom(schedule, lesson, conflictedRoom).ifPresent(lesson::setRoom);
         }
     }
 
