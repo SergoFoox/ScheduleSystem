@@ -28,6 +28,7 @@ public class Room {
 
     @NotNull
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255)")
     private RoomType type;
 
     public Room() {

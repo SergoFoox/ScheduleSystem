@@ -71,6 +71,7 @@ export const RoomDialog: React.FC<RoomDialogProps> = ({ opened, room, onClose, o
     { label: 'Лабораторія', value: RoomType.LABORATORY },
     { label: 'Комп\'ютерний клас', value: RoomType.COMPUTER_CLASS },
     { label: 'Загальна аудиторія', value: RoomType.GENERAL_CLASSROOM },
+    { label: 'Спортивний зал', value: RoomType.SPORTS_HALL },
   ];
 
   return (

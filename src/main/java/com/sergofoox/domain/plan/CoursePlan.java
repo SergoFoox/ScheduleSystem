@@ -79,6 +79,7 @@ public class CoursePlan {
 
     @NotNull
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255)")
     private RoomType requiredRoomType;
 
     @AssertTrue(message = "Total hours must equal the sum of lecture, practice, and lab hours")
