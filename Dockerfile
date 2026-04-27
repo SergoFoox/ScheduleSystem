@@ -17,10 +17,8 @@ COPY . $HOME
 # If you have a Vaadin Offline key, pass it as a secret with id "offlineKey":
 #
 #   $ docker build --secret id=offlineKey,src=$HOME/.vaadin/offlineKey .
-
-RUN sh -c 'PRO_KEY=$(jq -r ".proKey // empty" /run/secrets/proKey 2>/dev/null || echo "") && \
-    OFFLINE_KEY=$(cat /run/secrets/offlineKey 2>/dev/null || echo "") && \
-    ./mvnw clean package -DskipTests -Dvaadin.proKey=${PRO_KEY} -Dvaadin.offlineKey=${OFFLINE_KEY}'
+RUN chmod +x ./mvnw
+RUN ./mvnw clean package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
 COPY --from=build /app/target/*.jar app.jar
