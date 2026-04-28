@@ -22,17 +22,18 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 groupConflict(constraintFactory),
                 splitGroupTimeslotSync(constraintFactory),
                 roomConflict(constraintFactory),
-                assignedTeacherRoom(constraintFactory),
                 subjectConflict(constraintFactory),
+                noDuplicateSubjectsPerDay(constraintFactory),
                 
                 // HARD: СРЕДНИЕ (Обязательно к заполнению)
                 requiredVariables(constraintFactory),
                 timeslotWeekCompatibility(constraintFactory),
                 
                 // SOFT: ПРАВИЛА ИЗ ТЗ И РАСПРЕДЕЛЕНИЕ
+                assignedTeacherRoom(constraintFactory),
                 roomTypeCompatibility(constraintFactory),
                 roomCapacity(constraintFactory),
-                spreadRooms(constraintFactory), // НОВОЕ: Равномерное распределение по комнатам
+                spreadRooms(constraintFactory),
                 teacherRoomStability(constraintFactory),
                 groupWindow(constraintFactory),
                 teacherWindow(constraintFactory),
@@ -43,6 +44,36 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     // --- HARD CONSTRAINTS ---
 
+    Constraint subjectConflict(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEachUniquePair(Lesson.class,
+                        Joiners.equal(Lesson::getSubject),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
+                .filter((l1, l2) -> samePhysicalSlot(l1, l2)
+                        && weeksOverlap(l1, l2)
+                        && !sameSplitGroupLesson(l1, l2))
+                .penalize(HardSoftScore.ofHard(10000))
+                .asConstraint("Subject conflict");
+    }
+
+    Constraint noDuplicateSubjectsPerDay(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEachUniquePair(Lesson.class,
+                        Joiners.equal(Lesson::getGroup),
+                        Joiners.equal(Lesson::getSubject),
+                        Joiners.equal(Lesson::getLessonType),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
+                .filter((l1, l2) -> {
+                    if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
+                    if (!weeksOverlap(l1, l2)) return false;
+                    // Если это разные подгруппы одного плана - это нормально
+                    if (sameSplitGroupLesson(l1, l2)) return false;
+                    // Если это разные номера пар в один день - штрафуем
+                    return !l1.getTimeslot().getLessonNumber().equals(l2.getTimeslot().getLessonNumber());
+                })
+                .penalize(HardSoftScore.ofHard(5000))
+                .asConstraint("No duplicate subjects per day");
+    }
+
     // Используем ссылки на методы для корректного отслеживания изменений движком
     Constraint teacherConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
@@ -50,7 +81,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
                 .filter((l1, l2) -> samePhysicalSlot(l1, l2) && weeksOverlap(l1, l2))
-                .penalize(HardSoftScore.ofHard(1000))
+                .penalize(HardSoftScore.ofHard(10000))
                 .asConstraint("Teacher conflict");
     }
 
@@ -62,7 +93,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .filter((l1, l2) -> samePhysicalSlot(l1, l2)
                         && weeksOverlap(l1, l2)
                         && !sameSplitGroupLesson(l1, l2))
-                .penalize(HardSoftScore.ofHard(1000))
+                .penalize(HardSoftScore.ofHard(10000))
                 .asConstraint("Group conflict");
     }
 
@@ -73,7 +104,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         Joiners.equal(Lesson::getLessonType),
                         Joiners.equal(Lesson::getSplitGroupIndex))
                 .filter((l1, l2) -> sameSplitGroupLesson(l1, l2) && !samePhysicalSlot(l1, l2))
-                .penalize(HardSoftScore.ofHard(1000))
+                .penalize(HardSoftScore.ofHard(10000))
                 .asConstraint("Split group timeslot sync");
     }
 
@@ -83,7 +114,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
                 .filter((l1, l2) -> l1.getRoom() != null && samePhysicalSlot(l1, l2) && weeksOverlap(l1, l2))
-                .penalize(HardSoftScore.ofHard(1000))
+                .penalize(HardSoftScore.ofHard(10000))
                 .asConstraint("Room conflict");
     }
 
@@ -93,21 +124,12 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         && lesson.getTeacher() != null
                         && lesson.getTeacher().getAssignedRoom() != null
                         && !sameId(lesson.getRoom().getId(), lesson.getTeacher().getAssignedRoom().getId()))
-                .penalize(HardSoftScore.ofHard(1000))
+                .penalize(HardSoftScore.ofSoft(100))
                 .asConstraint("Teacher assigned room");
     }
 
-    Constraint subjectConflict(ConstraintFactory constraintFactory) {
-        return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getSubject),
-                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
-                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
-                .filter((l1, l2) -> samePhysicalSlot(l1, l2)
-                        && weeksOverlap(l1, l2)
-                        && !sameSplitGroupLesson(l1, l2))
-                .penalize(HardSoftScore.ofHard(1000))
-                .asConstraint("Subject conflict");
-    }
+    // subjectConflict удален, так как он слишком ограничивает расписание
+
 
     Constraint requiredVariables(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)

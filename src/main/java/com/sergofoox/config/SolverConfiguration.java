@@ -30,8 +30,8 @@ public class SolverConfiguration {
                 .withEntityClassList(Collections.singletonList(Lesson.class))
                 .withConstraintProviderClass(ScheduleConstraintProvider.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withSpentLimit(Duration.ofSeconds(6))
-                        .withUnimprovedSpentLimit(Duration.ofSeconds(1))
+                        .withSpentLimit(Duration.ofSeconds(10))
+                        .withUnimprovedSpentLimit(Duration.ofSeconds(5))
                         .withBestScoreLimit("0hard/0soft"))
                 .withPhaseList(List.of(
                         new ConstructionHeuristicPhaseConfig()

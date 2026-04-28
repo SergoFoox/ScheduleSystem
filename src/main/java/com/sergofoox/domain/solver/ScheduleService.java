@@ -195,9 +195,6 @@ public class ScheduleService {
     }
 
     private void persistSolution(Schedule schedule) {
-        syncSplitSubgroupLessons(schedule);
-        applyAssignedRooms(schedule);
-        resolveRoomConflicts(schedule);
         System.out.println("Найдено улучшение. Score: " + schedule.getScore());
         int savedCount = 0;
         for (Lesson lesson : schedule.getLessons()) {
@@ -218,125 +215,6 @@ public class ScheduleService {
         }
         lessonRepository.flush();
         System.out.println("Saved scheduled lessons: " + savedCount);
-    }
-
-    private void syncSplitSubgroupLessons(Schedule schedule) {
-        Map<String, List<Lesson>> splitGroups = schedule.getLessons().stream()
-                .filter(lesson -> lesson.getSubgroup() != null && lesson.getSubgroup() > 0)
-                .filter(lesson -> lesson.getSplitGroupIndex() != null && lesson.getSplitGroupIndex() > 0)
-                .collect(Collectors.groupingBy(lesson -> lesson.getCoursePlan().getId()
-                        + "|" + lesson.getLessonType()
-                        + "|" + lesson.getPeriodicity()
-                        + "|" + lesson.getSplitGroupIndex()));
-
-        for (List<Lesson> splitLessons : splitGroups.values()) {
-            Lesson first = splitLessons.stream()
-                    .filter(lesson -> lesson.getSubgroup() == 1)
-                    .findFirst()
-                    .orElse(null);
-            Lesson second = splitLessons.stream()
-                    .filter(lesson -> lesson.getSubgroup() == 2)
-                    .findFirst()
-                    .orElse(null);
-
-            if (first == null || second == null || first.getTimeslot() == null) {
-                continue;
-            }
-
-            second.setTimeslot(first.getTimeslot());
-            if (second.getRoom() == null || second.getRoom().equals(first.getRoom()) || isRoomBusy(schedule, second, second.getRoom())) {
-                findAvailableRoom(schedule, second, first.getRoom()).ifPresent(second::setRoom);
-            }
-        }
-    }
-
-    private void applyAssignedRooms(Schedule schedule) {
-        for (Lesson lesson : schedule.getLessons()) {
-            if (lesson.getTeacher() == null
-                    || lesson.getTeacher().getAssignedRoom() == null
-                    || lesson.getTimeslot() == null) {
-                continue;
-            }
-
-            Room assignedRoom = lesson.getTeacher().getAssignedRoom();
-            if (sameRoom(lesson.getRoom(), assignedRoom)) {
-                continue;
-            }
-            if (!isRoomBusy(schedule, lesson, assignedRoom)) {
-                lesson.setRoom(assignedRoom);
-            }
-        }
-    }
-
-    private void resolveRoomConflicts(Schedule schedule) {
-        List<Lesson> orderedLessons = schedule.getLessons().stream()
-                .filter(lesson -> lesson.getTimeslot() != null)
-                .sorted(Comparator
-                        .comparing((Lesson lesson) -> lesson.getTimeslot().getDayOfWeek())
-                        .thenComparing(lesson -> lesson.getTimeslot().getLessonNumber())
-                        .thenComparing(lesson -> lesson.getId() == null ? Long.MAX_VALUE : lesson.getId()))
-                .toList();
-
-        for (Lesson lesson : orderedLessons) {
-            if (lesson.getRoom() == null || !isRoomBusy(schedule, lesson, lesson.getRoom())) {
-                continue;
-            }
-            if (isAssignedRoomLesson(lesson)) {
-                continue;
-            }
-
-            Room conflictedRoom = lesson.getRoom();
-            lesson.setRoom(null);
-            findAvailableRoom(schedule, lesson, conflictedRoom).ifPresent(lesson::setRoom);
-        }
-    }
-
-    private Optional<Room> findAvailableRoom(Schedule schedule, Lesson lesson, Room excludedRoom) {
-        return schedule.getRooms().stream()
-                .filter(room -> excludedRoom == null || !room.equals(excludedRoom))
-                .filter(room -> !isRoomBusy(schedule, lesson, room))
-                .findFirst();
-    }
-
-    private boolean isRoomBusy(Schedule schedule, Lesson targetLesson, Room room) {
-        if (room == null || targetLesson.getTimeslot() == null) return false;
-        return schedule.getLessons().stream()
-                .filter(lesson -> lesson != targetLesson)
-                .filter(lesson -> lesson.getRoom() != null && lesson.getTimeslot() != null)
-                .filter(lesson -> room.equals(lesson.getRoom()))
-                .filter(lesson -> samePhysicalSlot(lesson, targetLesson))
-                .anyMatch(lesson -> weeksOverlap(lesson, targetLesson));
-    }
-
-    private boolean isAssignedRoomLesson(Lesson lesson) {
-        return lesson.getTeacher() != null
-                && lesson.getTeacher().getAssignedRoom() != null
-                && sameRoom(lesson.getRoom(), lesson.getTeacher().getAssignedRoom());
-    }
-
-    private boolean sameRoom(Room first, Room second) {
-        if (first == null || second == null) return false;
-        return first.getId() != null && first.getId().equals(second.getId());
-    }
-
-    private boolean samePhysicalSlot(Lesson first, Lesson second) {
-        return first.getTimeslot().getDayOfWeek() == second.getTimeslot().getDayOfWeek()
-                && first.getTimeslot().getLessonNumber().equals(second.getTimeslot().getLessonNumber());
-    }
-
-    private boolean weeksOverlap(Lesson first, Lesson second) {
-        Periodicity firstPeriodicity = effectivePeriodicity(first);
-        Periodicity secondPeriodicity = effectivePeriodicity(second);
-        return firstPeriodicity == Periodicity.WEEKLY
-                || secondPeriodicity == Periodicity.WEEKLY
-                || firstPeriodicity == secondPeriodicity;
-    }
-
-    private Periodicity effectivePeriodicity(Lesson lesson) {
-        if (lesson.getTimeslot() != null && lesson.getTimeslot().getWeekParity() != Periodicity.WEEKLY) {
-            return lesson.getTimeslot().getWeekParity();
-        }
-        return lesson.getPeriodicity();
     }
 
     public SolverStatus getSolverStatus() { return solverManager.getSolverStatus(SINGLETON_ID); }
