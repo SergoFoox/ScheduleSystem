@@ -526,14 +526,9 @@ public class ScheduleEndpoint {
                                 && !sameSplitGroupLesson(l, lesson);
                         
                         // 3. Конфлікт групи
-                        boolean groupConflict = false;
-                        if (l.getGroup() != null && lesson.getGroup() != null && l.getGroup().getId().equals(lesson.getGroup().getId())) {
-                            int s1 = l.getSubgroup() != null ? l.getSubgroup() : 0;
-                            int s2 = lesson.getSubgroup() != null ? lesson.getSubgroup() : 0;
-                            if (s1 == 0 || s2 == 0 || s1 == s2) {
-                                groupConflict = true;
-                            }
-                        }
+                        boolean groupConflict = l.getGroup() != null && lesson.getGroup() != null
+                                && l.getGroup().getId().equals(lesson.getGroup().getId())
+                                && !sameSplitGroupLesson(l, lesson);
                         
                         return teacherConflict || roomConflict || subjectConflict || groupConflict;
                     });

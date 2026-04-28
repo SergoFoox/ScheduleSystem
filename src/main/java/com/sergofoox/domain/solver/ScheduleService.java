@@ -259,6 +259,9 @@ public class ScheduleService {
             }
 
             Room assignedRoom = lesson.getTeacher().getAssignedRoom();
+            if (sameRoom(lesson.getRoom(), assignedRoom)) {
+                continue;
+            }
             if (!isRoomBusy(schedule, lesson, assignedRoom)) {
                 lesson.setRoom(assignedRoom);
             }
@@ -276,6 +279,9 @@ public class ScheduleService {
 
         for (Lesson lesson : orderedLessons) {
             if (lesson.getRoom() == null || !isRoomBusy(schedule, lesson, lesson.getRoom())) {
+                continue;
+            }
+            if (isAssignedRoomLesson(lesson)) {
                 continue;
             }
 
@@ -300,6 +306,17 @@ public class ScheduleService {
                 .filter(lesson -> room.equals(lesson.getRoom()))
                 .filter(lesson -> samePhysicalSlot(lesson, targetLesson))
                 .anyMatch(lesson -> weeksOverlap(lesson, targetLesson));
+    }
+
+    private boolean isAssignedRoomLesson(Lesson lesson) {
+        return lesson.getTeacher() != null
+                && lesson.getTeacher().getAssignedRoom() != null
+                && sameRoom(lesson.getRoom(), lesson.getTeacher().getAssignedRoom());
+    }
+
+    private boolean sameRoom(Room first, Room second) {
+        if (first == null || second == null) return false;
+        return first.getId() != null && first.getId().equals(second.getId());
     }
 
     private boolean samePhysicalSlot(Lesson first, Lesson second) {

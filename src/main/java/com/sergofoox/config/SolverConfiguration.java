@@ -5,6 +5,7 @@ import ai.timefold.solver.core.config.constructionheuristic.ConstructionHeuristi
 import ai.timefold.solver.core.config.constructionheuristic.ConstructionHeuristicType;
 import ai.timefold.solver.core.config.localsearch.LocalSearchPhaseConfig;
 import ai.timefold.solver.core.config.localsearch.LocalSearchType;
+import ai.timefold.solver.core.config.solver.EnvironmentMode;
 import ai.timefold.solver.core.config.solver.SolverConfig;
 import ai.timefold.solver.core.config.solver.termination.TerminationConfig;
 import com.sergofoox.domain.lesson.Lesson;
@@ -24,11 +25,14 @@ public class SolverConfiguration {
     public SolverConfig solverConfig() {
         // Убираем фиксированный RandomSeed, чтобы Timefold генерировал новый при каждом запуске
         return new SolverConfig()
+                .withEnvironmentMode(EnvironmentMode.NON_REPRODUCIBLE)
                 .withSolutionClass(Schedule.class)
                 .withEntityClassList(Collections.singletonList(Lesson.class))
                 .withConstraintProviderClass(ScheduleConstraintProvider.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withSpentLimit(Duration.ofSeconds(30)))
+                        .withSpentLimit(Duration.ofSeconds(6))
+                        .withUnimprovedSpentLimit(Duration.ofSeconds(1))
+                        .withBestScoreLimit("0hard/0soft"))
                 .withPhaseList(List.of(
                         new ConstructionHeuristicPhaseConfig()
                                 .withConstructionHeuristicType(ConstructionHeuristicType.FIRST_FIT),

@@ -41,8 +41,9 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
   // Збираємо унікальні номери аудиторій
   const uniqueRooms = Array.from(new Set(lessons.map(l => l.roomName || '—'))).join(', ');
 
-  const teacherNames = Array.from(new Set(lessons.map(l => l.teacherName || uniqueRooms)));
-  const displayLessons = hasSplitSubgroups ? teacherNames.map((teacherName, index) => ({ ...first, id: `${first.id}-${index}`, teacherName })) : lessons;
+  const displayLessons = hasSplitSubgroups
+    ? lessons.map((lesson) => ({ ...lesson, teacherName: lesson.teacherName || uniqueRooms }))
+    : lessons;
 
   return (
     <>

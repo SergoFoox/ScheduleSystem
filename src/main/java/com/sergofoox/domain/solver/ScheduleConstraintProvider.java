@@ -20,7 +20,9 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 // HARD: КРИТИЧЕСКИЕ (Нельзя нарушать)
                 teacherConflict(constraintFactory),
                 groupConflict(constraintFactory),
+                splitGroupTimeslotSync(constraintFactory),
                 roomConflict(constraintFactory),
+                assignedTeacherRoom(constraintFactory),
                 subjectConflict(constraintFactory),
                 
                 // HARD: СРЕДНИЕ (Обязательно к заполнению)
@@ -57,13 +59,22 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         Joiners.equal(Lesson::getGroup),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
-                .filter((l1, l2) -> {
-                    if (!samePhysicalSlot(l1, l2) || !weeksOverlap(l1, l2)) return false;
-                    if (l1.getSubgroup() != 0 && l2.getSubgroup() != 0 && !l1.getSubgroup().equals(l2.getSubgroup())) return false;
-                    return true;
-                })
+                .filter((l1, l2) -> samePhysicalSlot(l1, l2)
+                        && weeksOverlap(l1, l2)
+                        && !sameSplitGroupLesson(l1, l2))
                 .penalize(HardSoftScore.ofHard(1000))
                 .asConstraint("Group conflict");
+    }
+
+    Constraint splitGroupTimeslotSync(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEachUniquePair(Lesson.class,
+                        Joiners.equal(Lesson::getGroup),
+                        Joiners.equal(l -> l.getCoursePlan() == null ? null : l.getCoursePlan().getId()),
+                        Joiners.equal(Lesson::getLessonType),
+                        Joiners.equal(Lesson::getSplitGroupIndex))
+                .filter((l1, l2) -> sameSplitGroupLesson(l1, l2) && !samePhysicalSlot(l1, l2))
+                .penalize(HardSoftScore.ofHard(1000))
+                .asConstraint("Split group timeslot sync");
     }
 
     Constraint roomConflict(ConstraintFactory constraintFactory) {
@@ -76,6 +87,16 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .asConstraint("Room conflict");
     }
 
+    Constraint assignedTeacherRoom(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> lesson.getRoom() != null
+                        && lesson.getTeacher() != null
+                        && lesson.getTeacher().getAssignedRoom() != null
+                        && !sameId(lesson.getRoom().getId(), lesson.getTeacher().getAssignedRoom().getId()))
+                .penalize(HardSoftScore.ofHard(1000))
+                .asConstraint("Teacher assigned room");
+    }
+
     Constraint subjectConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getSubject),
@@ -84,7 +105,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .filter((l1, l2) -> samePhysicalSlot(l1, l2)
                         && weeksOverlap(l1, l2)
                         && !sameSplitGroupLesson(l1, l2))
-                .penalize(HardSoftScore.ofSoft(100))
+                .penalize(HardSoftScore.ofHard(1000))
                 .asConstraint("Subject conflict");
     }
 
@@ -213,13 +234,17 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 || l1.getSplitGroupIndex() == null || l2.getSplitGroupIndex() == null) {
             return false;
         }
-        return l1.getGroup().equals(l2.getGroup())
-                && l1.getCoursePlan().equals(l2.getCoursePlan())
+        return sameId(l1.getGroup().getId(), l2.getGroup().getId())
+                && sameId(l1.getCoursePlan().getId(), l2.getCoursePlan().getId())
                 && l1.getLessonType() == l2.getLessonType()
                 && l1.getSplitGroupIndex().equals(l2.getSplitGroupIndex())
                 && l1.getSubgroup() > 0
                 && l2.getSubgroup() > 0
                 && !l1.getSubgroup().equals(l2.getSubgroup());
+    }
+
+    private boolean sameId(Long firstId, Long secondId) {
+        return firstId != null && firstId.equals(secondId);
     }
 
     private Periodicity effectivePeriodicity(Lesson lesson) {
