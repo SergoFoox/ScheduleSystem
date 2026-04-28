@@ -18,11 +18,16 @@ public class TeacherEndpoint {
     private final TeacherRepository teacherRepository;
     private final LessonRepository lessonRepository;
     private final RoomRepository roomRepository;
+    private final com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository competenceRepository;
 
-    public TeacherEndpoint(TeacherRepository teacherRepository, LessonRepository lessonRepository, RoomRepository roomRepository) {
+    public TeacherEndpoint(TeacherRepository teacherRepository, 
+                           LessonRepository lessonRepository, 
+                           RoomRepository roomRepository,
+                           com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository competenceRepository) {
         this.teacherRepository = teacherRepository;
         this.lessonRepository = lessonRepository;
         this.roomRepository = roomRepository;
+        this.competenceRepository = competenceRepository;
     }
 
     @Transactional(readOnly = true)
@@ -63,8 +68,13 @@ public class TeacherEndpoint {
     public void deleteTeacher(Long id) {
         try {
             Teacher teacher = teacherRepository.findById(id).orElseThrow();
-            // Спершу видаляємо заняття, щоб не було конфліктів у БД
+            // Спершу видаляємо заняття та компетенції, щоб не було конфліктів у БД
             lessonRepository.deleteByTeacher(teacher);
+            
+            // Видаляємо зв'язки з матрицею компетенцій
+            List<com.sergofoox.domain.competence.TeacherCompetenceMatrix> competences = competenceRepository.findByTeacher(teacher);
+            competenceRepository.deleteAll(competences);
+            
             teacherRepository.delete(teacher);
             System.out.println("Teacher deleted successfully");
         } catch (Exception e) {
