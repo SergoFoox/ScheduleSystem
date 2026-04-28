@@ -4,6 +4,8 @@ import com.sergofoox.domain.ui.dto.GroupDTO;
 import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.lesson.LessonRepository;
+import com.sergofoox.domain.plan.CoursePlan;
+import com.sergofoox.domain.plan.CoursePlanRepository;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.springframework.stereotype.Service;
@@ -19,11 +21,16 @@ public class GroupEndpoint {
     private final GroupRepository groupRepository;
     private final TeacherRepository teacherRepository;
     private final LessonRepository lessonRepository;
+    private final CoursePlanRepository coursePlanRepository;
 
-    public GroupEndpoint(GroupRepository groupRepository, TeacherRepository teacherRepository, LessonRepository lessonRepository) {
+    public GroupEndpoint(GroupRepository groupRepository,
+                         TeacherRepository teacherRepository,
+                         LessonRepository lessonRepository,
+                         CoursePlanRepository coursePlanRepository) {
         this.groupRepository = groupRepository;
         this.teacherRepository = teacherRepository;
         this.lessonRepository = lessonRepository;
+        this.coursePlanRepository = coursePlanRepository;
     }
 
     public List<GroupDTO> getAllGroups() {
@@ -64,8 +71,13 @@ public class GroupEndpoint {
     public void deleteGroup(Long id) {
         try {
             Group group = groupRepository.findById(id).orElseThrow();
-            // Спершу видаляємо всі заняття цієї групи
+            List<CoursePlan> coursePlans = coursePlanRepository.findByGroup(group);
+
             lessonRepository.deleteByGroup(group);
+            for (CoursePlan coursePlan : coursePlans) {
+                lessonRepository.deleteByCoursePlan(coursePlan);
+            }
+            coursePlanRepository.deleteByGroup(group);
             groupRepository.delete(group);
             System.out.println("Group deleted successfully");
         } catch (Exception e) {

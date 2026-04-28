@@ -1,7 +1,7 @@
 import { AppLayout, DrawerToggle, Icon, Scroller, SideNav, SideNavItem, Checkbox } from '@vaadin/react-components';
 import '@vaadin/icons/vaadin-iconset.js';
 import { Suspense, useEffect } from 'react';
-import { Outlet } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { ScheduleEndpoint } from '../generated/endpoints';
 import { isPublished, refreshSchedule } from '../store/app-state';
@@ -9,11 +9,16 @@ import { isPublished, refreshSchedule } from '../store/app-state';
 export default function MainLayout() {
   const userRole = useSignal<string | undefined>(undefined);
   const isDispatcher = userRole.value === 'DISPATCHER'; 
+  const location = useLocation();
 
   useEffect(() => {
     refreshSchedule(); // This updates global isPublished and scheduleData
     ScheduleEndpoint.getCurrentUserRole().then(role => userRole.value = role);
   }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('side-nav-location-changed'));
+  }, [location.pathname, location.search]);
 
   const handleToggle = async () => {
     await ScheduleEndpoint.togglePublishedStatus();

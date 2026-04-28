@@ -16,5 +16,7 @@ public interface CoursePlanRepository extends JpaRepository<CoursePlan, Long> {
     @Query("SELECT DISTINCT cp FROM Lesson l JOIN l.coursePlan cp WHERE l.teacher = :teacher")
     List<CoursePlan> findByTeacher(Teacher teacher);
 
+    void deleteByGroup(Group group);
+
     void deleteBySubject(Subject subject);
 }

@@ -34,9 +34,9 @@ class ScheduleSolverTest {
     @Test
     void solveBasicSchedule() {
         // 1. Створюємо дані (Facts)
-        Timeslot t1 = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0));
+        Timeslot t1 = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
         t1.setId(1L);
-        Timeslot t2 = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(10, 15), LocalTime.of(11, 45));
+        Timeslot t2 = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(10, 15), LocalTime.of(11, 45), 2);
         t2.setId(2L);
         List<Timeslot> timeslots = List.of(t1, t2);
 

@@ -8,17 +8,17 @@ import { Notification } from '@vaadin/react-components/Notification.js';
 import { GroupEndpoint } from '../generated/endpoints';
 import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import { GroupDialog } from '../components/GroupDialog';
-import { CoursePlanDialog } from '../components/CoursePlanDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
+import { useNavigate } from 'react-router';
 
 export default function GroupsView() {
   const [groups, setGroups] = useState<GroupDTO[]>([]);
   const [filter, setFilter] = useState('');
   const [dialogOpened, setDialogOpened] = useState(false);
-  const [plansOpened, setPlansOpened] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GroupDTO | undefined>(undefined);
   const [activeItem, setActiveItem] = useState<GroupDTO | null>(null);
   const loading = useSignal(true);
+  const navigate = useNavigate();
 
   const fetchGroups = async () => {
     loading.value = true;
@@ -61,8 +61,8 @@ export default function GroupsView() {
   };
 
   const handleOpenPlans = (group: GroupDTO) => {
-    setSelectedGroup(group);
-    setPlansOpened(true);
+    if (!group.id) return;
+    navigate(`/course-plans?groupId=${group.id}`);
   };
 
   return (
@@ -137,12 +137,6 @@ export default function GroupsView() {
           onSaved={fetchGroups}
         />
       )}
-
-      <CoursePlanDialog
-        opened={plansOpened}
-        group={selectedGroup}
-        onClose={() => setPlansOpened(false)}
-      />
     </div>
   );
 }

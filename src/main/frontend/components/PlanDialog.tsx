@@ -6,53 +6,69 @@ import { Button } from '@vaadin/react-components/Button.js';
 import { FormLayout } from '@vaadin/react-components/FormLayout.js';
 import { HorizontalLayout } from '@vaadin/react-components/HorizontalLayout.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
-import { CoursePlanEndpoint, GroupEndpoint, SubjectEndpoint } from '../generated/endpoints';
+import { CoursePlanEndpoint, GroupEndpoint, SubjectEndpoint, TeacherEndpoint } from '../generated/endpoints';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
 import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
+import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import Subject from '../generated/com/sergofoox/domain/subject/Subject';
 import RoomType from '../generated/com/sergofoox/domain/plan/RoomType';
 
 interface PlanDialogProps {
   opened: boolean;
   plan?: CoursePlanDTO;
+  defaultGroupId?: number;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export const PlanDialog: React.FC<PlanDialogProps> = ({ opened, plan, onClose, onSaved }) => {
+const createDefaultFormData = (groupId?: number): Partial<CoursePlanDTO> => ({
+  groupId,
+  subjectId: undefined,
+  teacherId: undefined,
+  secondTeacherId: undefined,
+  lectureHours: 16,
+  practiceHours: 16,
+  labHours: 0,
+  totalHours: 32,
+  requiredRoomType: RoomType.GENERAL_CLASSROOM
+});
+
+export const PlanDialog: React.FC<PlanDialogProps> = ({ opened, plan, defaultGroupId, onClose, onSaved }) => {
   const [groups, setGroups] = useState<GroupDTO[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [teachers, setTeachers] = useState<TeacherDTO[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState<Partial<CoursePlanDTO>>({
-    groupId: undefined,
-    subjectId: undefined,
-    lectureHours: 16,
-    practiceHours: 16,
-    labHours: 0,
-    totalHours: 32,
-    requiredRoomType: RoomType.GENERAL_CLASSROOM
-  });
+  const [formData, setFormData] = useState<Partial<CoursePlanDTO>>(createDefaultFormData(defaultGroupId));
 
   useEffect(() => {
+    if (!opened) return;
     if (plan) {
       setFormData(plan);
+    } else {
+      setFormData(createDefaultFormData(defaultGroupId));
     }
-  }, [plan]);
+  }, [opened, plan, defaultGroupId]);
 
   useEffect(() => {
     Promise.all([
       GroupEndpoint.getAllGroups(),
-      SubjectEndpoint.getAllSubjects()
-    ]).then(([gData, sData]) => {
+      SubjectEndpoint.getAllSubjects(),
+      TeacherEndpoint.getAllTeachers()
+    ]).then(([gData, sData, tData]) => {
       setGroups((gData || []).filter(g => !!g) as GroupDTO[]);
       setSubjects((sData || []).filter(s => !!s) as Subject[]);
+      setTeachers((tData || []).filter(t => !!t) as TeacherDTO[]);
     });
   }, []);
 
   const handleSave = async () => {
     if (!formData.groupId || !formData.subjectId) {
       Notification.show('Оберіть групу та предмет', { theme: 'error' });
+      return;
+    }
+    if (!formData.teacherId) {
+      Notification.show('Оберіть викладача', { theme: 'error' });
       return;
     }
     setSaving(true);
@@ -91,7 +107,7 @@ export const PlanDialog: React.FC<PlanDialogProps> = ({ opened, plan, onClose, o
           items={groups.map(g => ({ label: g.name, value: g.id?.toString() }))}
           value={formData.groupId?.toString()}
           onValueChanged={(e) => setFormData({...formData, groupId: e.detail.value ? parseInt(e.detail.value) : undefined})}
-          disabled={!!plan}
+          disabled={!!plan || !!defaultGroupId}
         />
         <Select
           label="Дисципліна"
@@ -99,6 +115,30 @@ export const PlanDialog: React.FC<PlanDialogProps> = ({ opened, plan, onClose, o
           value={formData.subjectId?.toString()}
           onValueChanged={(e) => setFormData({...formData, subjectId: e.detail.value ? parseInt(e.detail.value) : undefined})}
           disabled={!!plan}
+        />
+        <Select
+          label="Викладач"
+          items={teachers.map(t => ({ label: t.fullName, value: t.id?.toString() }))}
+          value={formData.teacherId?.toString()}
+          onValueChanged={(e) => {
+            const teacherId = e.detail.value ? parseInt(e.detail.value, 10) : undefined;
+            setFormData({
+              ...formData,
+              teacherId,
+              secondTeacherId: formData.secondTeacherId === teacherId ? undefined : formData.secondTeacherId
+            });
+          }}
+        />
+        <Select
+          label="Другий викладач"
+          items={[
+            { label: 'Без другого викладача', value: '' },
+            ...teachers
+              .filter(t => t.id !== formData.teacherId)
+              .map(t => ({ label: t.fullName, value: t.id?.toString() }))
+          ]}
+          value={formData.secondTeacherId?.toString() || ''}
+          onValueChanged={(e) => setFormData({...formData, secondTeacherId: e.detail.value ? parseInt(e.detail.value, 10) : undefined})}
         />
         <Select
           label="Тип аудиторії"

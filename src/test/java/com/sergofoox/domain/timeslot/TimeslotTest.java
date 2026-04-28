@@ -12,7 +12,7 @@ class TimeslotTest {
     void testTimeslotCreation() {
         LocalTime start = LocalTime.of(8, 30);
         LocalTime end = LocalTime.of(10, 0);
-        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, start, end, Periodicity.ODD_WEEKS);
+        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, start, end, Periodicity.ODD_WEEKS, 1);
 
         assertEquals(DayOfWeek.MONDAY, timeslot.getDayOfWeek());
         assertEquals(start, timeslot.getStartTime());
@@ -25,9 +25,9 @@ class TimeslotTest {
         LocalTime start = LocalTime.of(8, 30);
         LocalTime end = LocalTime.of(10, 0);
         
-        Timeslot t1 = new Timeslot(DayOfWeek.MONDAY, start, end, Periodicity.WEEKLY);
-        Timeslot t2 = new Timeslot(DayOfWeek.MONDAY, start, end, Periodicity.WEEKLY);
-        Timeslot t3 = new Timeslot(DayOfWeek.TUESDAY, start, end, Periodicity.WEEKLY);
+        Timeslot t1 = new Timeslot(DayOfWeek.MONDAY, start, end, Periodicity.WEEKLY, 1);
+        Timeslot t2 = new Timeslot(DayOfWeek.MONDAY, start, end, Periodicity.WEEKLY, 1);
+        Timeslot t3 = new Timeslot(DayOfWeek.TUESDAY, start, end, Periodicity.WEEKLY, 1);
 
         assertEquals(t1, t2);
         assertEquals(t1.hashCode(), t2.hashCode());
@@ -36,7 +36,7 @@ class TimeslotTest {
 
     @Test
     void testToString() {
-        Timeslot timeslot = new Timeslot(DayOfWeek.WEDNESDAY, LocalTime.of(10, 15), LocalTime.of(11, 45), Periodicity.EVEN_WEEKS);
+        Timeslot timeslot = new Timeslot(DayOfWeek.WEDNESDAY, LocalTime.of(10, 15), LocalTime.of(11, 45), Periodicity.EVEN_WEEKS, 2);
         String expected = "WEDNESDAY 10:15-11:45 (EVEN_WEEKS)";
         assertEquals(expected, timeslot.toString());
     }

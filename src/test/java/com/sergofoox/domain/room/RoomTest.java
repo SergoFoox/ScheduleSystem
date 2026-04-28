@@ -73,11 +73,8 @@ public class RoomTest {
     @Test
     void testToString() {
         Room room = new Room("101", 30, "Building A", "Projector", RoomType.LECTURE_HALL);
-        String toString = room.toString();
-        
-        assertTrue(toString.contains("equipment='Projector'"));
-        assertTrue(toString.contains("name='101'"));
-        assertTrue(toString.contains("building='Building A'"));
+
+        assertEquals("101 (Building A)", room.toString());
     }
 
     @Test
