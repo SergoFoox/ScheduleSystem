@@ -1,30 +1,30 @@
-# Design Document: Minimize Parallel Subject Lessons
+# Дизайн-документ: Мінімізація паралельних занять з одного предмета
 
-## Goal
-The goal is to prevent the solver from scheduling the same subject (e.g., "Ukrainian Language") for different groups at the same time slot, even if the teachers and rooms are different. This is requested to maintain a more balanced schedule across groups.
+## Мета
+Мета полягає в тому, щоб запобігти плануванню одного і того ж предмета (наприклад, "Українська мова") для різних груп в один і той же часовий слот, навіть якщо викладачі та аудиторії різні. Це необхідно для забезпечення більш збалансованого розкладу між групами.
 
-## Approach: Soft Constraint
-We will implement this as a **Soft Constraint** to allow the solver flexibility. If the schedule is too crowded, it can still place these lessons together, but it will prefer to separate them to avoid the penalty.
+## Підхід: М'яке обмеження (Soft Constraint)
+Ми впровадимо це як **м'яке обмеження**, щоб залишити солверу гнучкість. Якщо розклад буде занадто щільним, він все одно зможе поставити ці заняття разом, але буде віддавати перевагу їх розділенню, щоб уникнути штрафу.
 
-## Architecture & Implementation
+## Архітектура та реалізація
 
 ### 1. `ScheduleConstraintProvider.java`
-Add a new constraint method `minimizeParallelSubjectLessons`.
+Додати новий метод обмеження `minimizeParallelSubjectLessons`.
 
-- **Constraint Type**: Soft Penalty.
-- **Joiners**: 
-    - `Lesson::getSubject`
-    - `Timeslot::getDayOfWeek`
-    - `Timeslot::getLessonNumber`
-- **Filter**: 
-    - Lessons must overlap in weeks (weekly/odd/even).
-    - Lessons must be for different groups (to avoid conflict with existing hard group constraints, although those already handle this).
-- **Penalty**: `HardSoftScore.ofSoft(50)`.
+- **Тип обмеження**: М'який штраф (Soft Penalty).
+- **Критерії порівняння (Joiners)**: 
+    - `Lesson::getSubject` (Предмет)
+    - `Timeslot::getDayOfWeek` (День тижня)
+    - `Timeslot::getLessonNumber` (Номер пари)
+- **Фільтр**: 
+    - Заняття мають перетинатися по тижнях (щотижнево/парний/непарний).
+    - Заняття мають бути для різних груп.
+- **Штраф**: `HardSoftScore.ofSoft(50)`.
 
-### 2. Validation
-- Run `ScheduleSolverTest` to ensure no regressions.
-- Add a new test case to `ScheduleSolverTest` that specifically checks if the solver prefers to separate same-subject lessons when possible.
+### 2. Валідація
+- Запустити `ScheduleSolverTest`, щоб переконатися у відсутності регресій.
+- Додати новий тест до `ScheduleSolverTest`, який спеціально перевіряє, чи солвер воліє розділяти заняття з одного предмета, коли це можливо.
 
-## Success Criteria
-- The solver should actively try to avoid placing the same subject in the same timeslot for different groups.
-- The constraint must not prevent the solver from finding a feasible (0 hard conflicts) solution.
+## Критерії успіху
+- Солвер має активно намагатися уникати розміщення одного предмета в одному часовому слоті для різних груп.
+- Обмеження не повинно заважати солверу знаходити допустиме рішення (0 hard conflicts).
