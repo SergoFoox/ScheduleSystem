@@ -9,6 +9,7 @@ import type ReplacementCandidateDTO from '../generated/com/sergofoox/domain/ui/d
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
+import { formatPriority, formatRoomType } from '../utils/labels';
 
 interface ReplacementDialogProps {
   lesson: any;
@@ -74,7 +75,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
       onClose();
     } catch (err) {
       console.error('Failed to assign replacement:', err);
-      Notification.show('Помилка при збереженні змін', { theme: 'error' });
+      Notification.show('Помилка під час збереження змін', { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -129,9 +130,9 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
             />
 
             <Select
-              label="Викладач (Кандидати на заміну)"
+              label="Викладач (кандидати на заміну)"
               items={candidates.map(c => ({
-                label: `${c.fullName} (${c.priority === 'PRIMARY' ? 'Осн.' : 'Заміна'}, нагр: ${c.currentWorkload})`,
+                label: `${c.fullName} (${formatPriority(c.priority)}, навантаження: ${c.currentWorkload})`,
                 value: (c.id || '').toString()
               }))}
               value={selectedTeacherId}
@@ -142,7 +143,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
             <Select
               label="Аудиторія"
               items={rooms.map(r => ({
-                label: `${r.name} (${r.type})`,
+                label: `${r.name} (${formatRoomType(r.type)})`,
                 value: (r.id || '').toString()
               }))}
               value={selectedRoomId}

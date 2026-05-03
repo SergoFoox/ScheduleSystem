@@ -64,7 +64,7 @@ export const PlanDialog: React.FC<PlanDialogProps> = ({ opened, plan, defaultGro
 
   const handleSave = async () => {
     if (!formData.groupId || !formData.subjectId) {
-      Notification.show('Оберіть групу та предмет', { theme: 'error' });
+      Notification.show('Оберіть групу та дисципліну', { theme: 'error' });
       return;
     }
     if (!formData.teacherId) {

@@ -74,7 +74,7 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
       onClose();
     } catch (err) {
       console.error('Failed to save teacher:', err);
-      Notification.show('Помилка при збереженні', { theme: 'error' });
+      Notification.show('Помилка під час збереження', { theme: 'error' });
     } finally {
       setSaving(false);
     }

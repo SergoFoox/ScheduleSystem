@@ -28,7 +28,7 @@ export default function MainLayout() {
   return (
     <AppLayout primarySection="drawer">
       <div slot="navbar" className="flex items-center gap-4 px-4 w-full">
-        <DrawerToggle aria-label="Menu toggle"></DrawerToggle>
+        <DrawerToggle aria-label="Перемкнути меню"></DrawerToggle>
         <h1 className="text-lg m-0">ASMS V3</h1>
         
         <div className="ml-auto flex items-center gap-4">
@@ -80,7 +80,7 @@ export default function MainLayout() {
         </SideNav>
       </Scroller>
 
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<div>Завантаження...</div>}>
         <Outlet />
       </Suspense>
     </AppLayout>

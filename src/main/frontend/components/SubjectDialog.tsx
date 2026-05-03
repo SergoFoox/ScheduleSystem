@@ -44,12 +44,12 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({ opened, subject, o
         abbreviation
       };
       const savedSubject = await (SubjectEndpoint as any).saveSubject(subjectToSave);
-      Notification.show(subject ? 'Предмет оновлено' : 'Предмет створено', { theme: 'success' });
+      Notification.show(subject ? 'Дисципліну оновлено' : 'Дисципліну створено', { theme: 'success' });
       onSaved(savedSubject.id as any);
       onClose();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка збереження предмета', { theme: 'error' });
+      Notification.show('Помилка збереження дисципліни', { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -57,7 +57,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({ opened, subject, o
 
   return (
     <Dialog
-      headerTitle={subject ? "Редагувати предмет" : "Новий предмет"}
+      headerTitle={subject ? "Редагування дисципліни" : "Нова дисципліна"}
       opened={opened}
       onOpenedChanged={(e) => !e.detail.value && onClose()}
       footerRenderer={() => (

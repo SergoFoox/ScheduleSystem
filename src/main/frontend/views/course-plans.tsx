@@ -11,6 +11,7 @@ import { CoursePlanEndpoint, GroupEndpoint } from '../generated/endpoints';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
 import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import { PlanDialog } from '../components/PlanDialog';
+import { formatRoomType } from '../utils/labels';
 
 export default function CoursePlansView() {
   const [plans, setPlans] = useState<CoursePlanDTO[]>([]);
@@ -133,7 +134,7 @@ export default function CoursePlansView() {
     try {
       const copiedCount = await CoursePlanEndpoint.copyPlansFromGroup(copySourceGroupId as any, targetGroup.id as any);
       Notification.show(
-        copiedCount > 0 ? `Скопійовано предметів: ${copiedCount}` : 'Нових предметів для копіювання немає',
+        copiedCount > 0 ? `Скопійовано дисциплін: ${copiedCount}` : 'Нових дисциплін для копіювання немає',
         { theme: copiedCount > 0 ? 'success' : 'primary' }
       );
       await refreshData();
@@ -188,7 +189,7 @@ export default function CoursePlansView() {
                 </div>
                 <div className="hidden sm:flex items-center gap-6 text-sm text-gray-600">
                   <span>Курс: {group.course}</span>
-                  <span>Предметів: {groupPlans.length}</span>
+                  <span>Дисциплін: {groupPlans.length}</span>
                   <span>Годин: {getTotalHours(group.id)}</span>
                 </div>
               </button>
@@ -215,7 +216,7 @@ export default function CoursePlansView() {
                     </Button>
                     <Button theme="primary" onClick={() => handleAddPlan(group)}>
                       <Icon icon="vaadin:plus" slot="prefix" />
-                      Додати предмет
+                      Додати дисципліну
                     </Button>
                   </div>
 
@@ -233,7 +234,13 @@ export default function CoursePlansView() {
                       <GridColumn path="practiceHours" header="Практ." autoWidth textAlign="end" />
                       <GridColumn path="labHours" header="Лаб." autoWidth textAlign="end" />
                       <GridColumn path="totalHours" header="Всього" autoWidth textAlign="end" />
-                      <GridColumn path="requiredRoomType" header="Аудиторія" autoWidth />
+                      <GridColumn
+                        header="Аудиторія"
+                        autoWidth
+                        renderer={({ item }) => (
+                          <span>{formatRoomType((item as CoursePlanDTO).requiredRoomType)}</span>
+                        )}
+                      />
                       <GridColumn
                         header="Дії"
                         autoWidth

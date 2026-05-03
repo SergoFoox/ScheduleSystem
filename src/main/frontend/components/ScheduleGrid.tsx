@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { GridCell } from './GridCell';
-import { scheduleData, scheduleLoading, refreshSchedule, isPublished } from '../store/app-state';
+import { scheduleData, scheduleLoading, refreshSchedule, isPublished, selectedCourseFilter, type CourseFilter } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
 import AssignLessonDialog from './AssignLessonDialog';
 
@@ -14,10 +14,13 @@ const dayNames: Record<string, string> = {
   SUNDAY: 'неділя'
 };
 
+const COURSE_FILTERS = [1, 2, 3, 4] as const;
+
 export const ScheduleGrid: React.FC = () => {
   const data = scheduleData.value;
   const loading = scheduleLoading.value;
   const published = isPublished.value;
+  const selectedCourse = selectedCourseFilter.value;
 
   const [assignDialogState, setAssignDialogState] = useState<{
     opened: boolean;
@@ -36,12 +39,43 @@ export const ScheduleGrid: React.FC = () => {
     refreshSchedule();
   }, []);
 
+  const allGroups = useMemo(() => {
+    return [...(data?.groups || [])]
+      .filter(g => !!g)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [data?.groups]);
+
+  const courseCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    allGroups.forEach((group: any) => {
+      const course = Number(group.course);
+      if (Number.isInteger(course)) {
+        counts.set(course, (counts.get(course) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [allGroups]);
+
+  const availableCourses = COURSE_FILTERS.filter(course => courseCounts.has(course));
+  const effectiveCourse: CourseFilter =
+    selectedCourse === 'ALL' || courseCounts.has(selectedCourse)
+      ? selectedCourse
+      : availableCourses[0] ?? 'ALL';
+  const groups = effectiveCourse === 'ALL'
+    ? allGroups
+    : allGroups.filter((group: any) => Number(group.course) === effectiveCourse);
+
+  useEffect(() => {
+    if (selectedCourse !== effectiveCourse) {
+      selectedCourseFilter.value = effectiveCourse;
+    }
+  }, [selectedCourse, effectiveCourse]);
+
   if (loading) return <div className="p-8 text-center text-gray-500 animate-pulse font-serif">Завантаження матриці розкладу...</div>;
   if (!data) return <div className="p-8 text-red-500 text-center font-bold font-serif">Помилка: дані розкладу не завантажено</div>;
 
   const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
   const lessonNumbers = [1, 2, 3, 4];
-  const groups = [...(data.groups || [])].filter(g => !!g).sort((a, b) => a.name.localeCompare(b.name));
   const timeslotById = new Map<number, any>(
     (data.timeslots || []).filter((ts: any) => !!ts?.id).map((ts: any) => [ts.id, ts])
   );
@@ -106,6 +140,50 @@ export const ScheduleGrid: React.FC = () => {
 
   return (
     <div className="overflow-auto max-w-full h-full bg-white p-4 font-serif">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border border-gray-200 bg-white px-3 py-2 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Курс:</span>
+          {COURSE_FILTERS.map((course) => {
+            const selected = effectiveCourse === course;
+            const count = courseCounts.get(course) || 0;
+
+            return (
+              <button
+                key={course}
+                type="button"
+                disabled={count === 0}
+                onClick={() => {
+                  selectedCourseFilter.value = course;
+                }}
+                className={`h-9 min-w-[88px] border px-3 text-sm font-semibold transition-colors ${
+                  selected
+                    ? 'border-gray-900 bg-gray-900 text-white'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500 hover:bg-gray-50'
+                } ${count === 0 ? 'cursor-not-allowed opacity-40 hover:border-gray-300 hover:bg-white' : ''}`}
+              >
+                {course} курс
+                <span className={`ml-2 text-xs ${selected ? 'text-gray-200' : 'text-gray-500'}`}>{count}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              selectedCourseFilter.value = 'ALL';
+            }}
+            className={`h-9 min-w-[76px] border px-3 text-sm font-semibold transition-colors ${
+              effectiveCourse === 'ALL'
+                ? 'border-gray-900 bg-gray-900 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Усі
+          </button>
+        </div>
+        <div className="text-xs font-medium text-gray-500">
+          Показано: {groups.length} з {allGroups.length}
+        </div>
+      </div>
       <table className="border-collapse w-full border-[2.5px] border-black text-black bg-white">
         <thead>
           <tr>
@@ -158,7 +236,7 @@ export const ScheduleGrid: React.FC = () => {
 
                     const groupedBySubject: Array<[string, any[]]> = Array.from(
                       slotLessons.reduce((map: Map<string, any[]>, lesson: any) => {
-                        const key = lesson.subjectName || 'Невідомий предмет';
+                        const key = lesson.subjectName || 'Невідома дисципліна';
                         if (!map.has(key)) map.set(key, []);
                         map.get(key)!.push(lesson);
                         return map;

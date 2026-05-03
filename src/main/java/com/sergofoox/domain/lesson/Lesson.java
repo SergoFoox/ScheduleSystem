@@ -1,6 +1,7 @@
 package com.sergofoox.domain.lesson;
 
 import ai.timefold.solver.core.api.domain.entity.PlanningEntity;
+import ai.timefold.solver.core.api.domain.entity.PlanningPin;
 import ai.timefold.solver.core.api.domain.lookup.PlanningId;
 import ai.timefold.solver.core.api.domain.variable.PlanningVariable;
 import com.sergofoox.domain.group.Group;
@@ -57,6 +58,10 @@ public class Lesson {
     private Integer subgroup = 0; // 0 = whole group, 1 = first, 2 = second
 
     private Integer splitGroupIndex = 0;
+
+    @PlanningPin
+    @Transient
+    private boolean pinned;
 
     public Lesson() {
     }
@@ -164,6 +169,14 @@ public class Lesson {
 
     public void setSplitGroupIndex(Integer splitGroupIndex) {
         this.splitGroupIndex = splitGroupIndex;
+    }
+
+    public boolean isPinned() {
+        return pinned;
+    }
+
+    public void setPinned(boolean pinned) {
+        this.pinned = pinned;
     }
 
     @Override

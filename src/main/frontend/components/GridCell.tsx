@@ -102,11 +102,11 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
           {/* Combined Rooms and Conditional Subgroup label */}
           <div className={`${roomFontSize} text-black font-bold font-serif flex flex-col ${alignClasses} gap-0 mt-0.5`}>
             <div className={`flex flex-wrap ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'} leading-tight`}>
-               <span>ауд.№{uniqueRooms}</span>
+               <span>ауд. №{uniqueRooms}</span>
                {/* Показуємо підгрупу тільки якщо вона ОДНА у клітинці */}
                {!hasSplitSubgroups && lessons.length === 1 && first.subgroup > 0 && (
                  <span className="ml-1 italic font-normal text-[0.9em] whitespace-nowrap">
-                   {first.subgroup}-а підгр
+                   {first.subgroup}-а підгр.
                  </span>
                )}
             </div>

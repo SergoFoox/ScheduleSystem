@@ -17,6 +17,7 @@ import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO
 import RoomType from '../generated/com/sergofoox/domain/plan/RoomType';
 import Periodicity from '../generated/com/sergofoox/domain/plan/Periodicity';
 import { SubjectDialog } from './SubjectDialog';
+import { formatRoomType } from '../utils/labels';
 
 interface CoursePlanDialogProps {
   opened: boolean;
@@ -117,10 +118,10 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Видалити цей предмет з плану?')) return;
+    if (!window.confirm('Видалити цю дисципліну з плану?')) return;
     try {
       await CoursePlanEndpoint.deletePlan(id as any);
-      Notification.show('Предмет видалено', { theme: 'success' });
+      Notification.show('Дисципліну видалено', { theme: 'success' });
       fetchData();
     } catch (err) {
       console.error(err);
@@ -186,7 +187,7 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
     try {
       const copiedCount = await CoursePlanEndpoint.copyPlansFromGroup(copySourceGroupId as any, group.id as any);
       Notification.show(
-        copiedCount > 0 ? `Скопійовано предметів: ${copiedCount}` : 'Нових предметів для копіювання немає',
+        copiedCount > 0 ? `Скопійовано дисциплін: ${copiedCount}` : 'Нових дисциплін для копіювання немає',
         { theme: copiedCount > 0 ? 'success' : 'primary' }
       );
       await fetchData();
@@ -214,7 +215,7 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
             </h4>
             <div className="flex gap-2 items-end">
               <Select
-                label="Оберіть предмет"
+                label="Оберіть дисципліну"
                 className="flex-1"
                 items={subjects.map(s => ({ label: s.name, value: s.id?.toString() }))}
                 value={newPlan.subjectId?.toString()}
@@ -229,7 +230,7 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
               <Button 
                 theme="icon secondary" 
                 onClick={() => setSubjectOpened(true)}
-                title="Створити новий предмет у довіднику"
+                title="Створити нову дисципліну у довіднику"
               >
                 <Icon icon="vaadin:plus" />
               </Button>
@@ -328,7 +329,7 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
               </span>
               <Button theme="primary" onClick={() => setIsAdding(true)}>
                 <Icon icon="vaadin:plus" slot="prefix" />
-                Додати предмет
+                Додати дисципліну
               </Button>
             </div>
             <div className="flex flex-wrap items-end gap-2">
@@ -362,7 +363,13 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
               <span>{[item.teacherName, item.secondTeacherName].filter(Boolean).join(', ')}</span>
             )}
           />
-          <GridColumn header="Аудиторія" path="requiredRoomType" autoWidth />
+          <GridColumn
+            header="Аудиторія"
+            autoWidth
+            renderer={({ item }) => (
+              <span>{formatRoomType((item as CoursePlanDTO).requiredRoomType)}</span>
+            )}
+          />
           <GridColumn header="Лекції" path="lectureHours" autoWidth textAlign="center" />
           <GridColumn header="Практики" path="practiceHours" autoWidth textAlign="center" />
           <GridColumn header="Лаб." path="labHours" autoWidth textAlign="center" />
@@ -400,8 +407,8 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
         opened={subjectDialogOpen} 
         onClose={() => setSubjectOpened(false)} 
         onSaved={(id) => {
-          fetchData(); // Оновити список предметів
-          setNewPlan({...newPlan, subjectId: id}); // Одразу обрати створений предмет
+          fetchData(); // Оновити список дисциплін
+          setNewPlan({...newPlan, subjectId: id}); // Одразу обрати створену дисципліну
         }}
       />
     </Dialog>

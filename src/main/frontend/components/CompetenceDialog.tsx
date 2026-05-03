@@ -13,6 +13,7 @@ import Subject from '../generated/com/sergofoox/domain/subject/Subject';
 import LessonType from '../generated/com/sergofoox/domain/subject/LessonType';
 import Priority from '../generated/com/sergofoox/domain/competence/Priority';
 import { HorizontalLayout, VerticalLayout } from '@vaadin/react-components';
+import { formatLessonType, formatPriority } from '../utils/labels';
 
 interface CompetenceDialogProps {
   opened: boolean;
@@ -79,7 +80,7 @@ export const CompetenceDialog: React.FC<CompetenceDialogProps> = ({ opened, teac
       <VerticalLayout className="gap-m p-m">
         <HorizontalLayout className="items-end gap-s w-full">
           <Select
-            label="Предмет"
+            label="Дисципліна"
             items={subjects.map(s => ({ label: s.name, value: s.id?.toString() }))}
             onValueChanged={e => setSelectedSubjectId(e.detail.value ? parseInt(e.detail.value) : undefined)}
             className="flex-grow"
@@ -113,8 +114,20 @@ export const CompetenceDialog: React.FC<CompetenceDialogProps> = ({ opened, teac
 
         <Grid items={competences} className="h-64 border rounded">
           <GridColumn path="subjectName" header="Дисципліна" autoWidth />
-          <GridColumn path="lessonType" header="Тип" autoWidth />
-          <GridColumn path="priority" header="Пріоритет" autoWidth />
+          <GridColumn
+            header="Тип"
+            autoWidth
+            renderer={({ item }) => (
+              <span>{formatLessonType((item as TeacherCompetenceDTO).lessonType)}</span>
+            )}
+          />
+          <GridColumn
+            header="Пріоритет"
+            autoWidth
+            renderer={({ item }) => (
+              <span>{formatPriority((item as TeacherCompetenceDTO).priority)}</span>
+            )}
+          />
           <GridColumn
             header="Дії"
             autoWidth

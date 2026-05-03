@@ -111,12 +111,12 @@ const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, day, le
         );
       }
       
-      Notification.show('Пари успішно призначено', { theme: 'success' });
+      Notification.show('Заняття успішно призначено', { theme: 'success' });
       await refreshSchedule();
       onClose();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка при призначенні пари', { theme: 'error' });
+      Notification.show('Помилка під час призначення заняття', { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -124,14 +124,14 @@ const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, day, le
 
   return (
     <Dialog
-      headerTitle={`Призначити пару (${day}, №${lessonNum})`}
+      headerTitle={`Призначити заняття (${day}, №${lessonNum})`}
       opened={opened}
       onOpenedChanged={(e) => !e.detail.value && onClose()}
       footerRenderer={() => (
         <div className="flex gap-2 p-2 w-full justify-between items-center">
            <Button theme="tertiary" onClick={addAssignmentRow} disabled={loading || !selectedSubjectId}>
              <Icon icon="vaadin:plus" slot="prefix" />
-             Додати підгрупу / запаралелити
+             Додати підгрупу / паралельне заняття
           </Button>
           <div className="flex gap-2">
             <Button theme="primary" onClick={handleAssign} disabled={saving || !selectedSubjectId || loading}>
@@ -169,7 +169,7 @@ const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, day, le
                     <Select
                       label="Склад"
                       items={[
-                        { label: 'Вся група', value: '0' },
+                        { label: 'Уся група', value: '0' },
                         { label: '1 підгр.', value: '1' },
                         { label: '2 підгр.', value: '2' },
                         { label: '3 підгр.', value: '3' },

@@ -11,6 +11,7 @@ import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO
 import { TeacherDialog } from '../components/TeacherDialog';
 import { CompetenceDialog } from '../components/CompetenceDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
+import { formatPositionType } from '../utils/labels';
 
 export default function TeachersView() {
   const [teachers, setTeachers] = useState<TeacherDTO[]>([]);
@@ -73,7 +74,7 @@ export default function TeachersView() {
       fetchTeachers();
     } catch (err) {
       console.error('Failed to delete teacher:', err);
-      Notification.show('Помилка при видаленні', { theme: 'error', position: 'bottom-end' });
+      Notification.show('Помилка під час видалення', { theme: 'error', position: 'bottom-end' });
     }
   };
 
@@ -115,7 +116,7 @@ export default function TeachersView() {
             autoWidth 
             renderer={({ item }) => (
               <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
-                {item.positionType}
+                {formatPositionType((item as TeacherDTO).positionType)}
               </span>
             )}
           />
@@ -142,7 +143,7 @@ export default function TeachersView() {
                 <Button 
                   theme="tertiary icon" 
                   onClick={() => handleCompetence(item as TeacherDTO)}
-                  title="Компетенції (предмети)"
+                  title="Компетенції (дисципліни)"
                 >
                   <Icon icon="vaadin:book" />
                 </Button>

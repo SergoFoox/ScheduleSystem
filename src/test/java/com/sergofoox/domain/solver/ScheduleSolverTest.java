@@ -192,6 +192,50 @@ class ScheduleSolverTest {
     }
 
     @Test
+    void detectsSameTeacherConflictByIdEvenWhenEntityInstancesDiffer() {
+        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
+        timeslot.setId(1L);
+
+        Room r1 = new Room("101", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r1.setId(1L);
+        Room r2 = new Room("102", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r2.setId(2L);
+
+        Teacher teacherInstanceA = new Teacher("Teacher A", "CS", PositionType.FULL_TIME);
+        teacherInstanceA.setId(1L);
+        Teacher teacherInstanceB = new Teacher("Teacher B", "Math", PositionType.PART_TIME);
+        teacherInstanceB.setId(1L);
+
+        Group group1 = new Group("G-01", 20, 1, "CS");
+        group1.setId(1L);
+        Group group2 = new Group("G-02", 20, 1, "CS");
+        group2.setId(2L);
+
+        Subject math = new Subject("Math", "M");
+        math.setId(1L);
+        Subject physics = new Subject("Physics", "P");
+        physics.setId(2L);
+
+        CoursePlan plan1 = new CoursePlan(math, teacherInstanceA, group1, 30, 15, 15, 0, 1, 1, 0, RoomType.LECTURE_HALL);
+        plan1.setId(1L);
+        CoursePlan plan2 = new CoursePlan(physics, teacherInstanceB, group2, 30, 15, 15, 0, 1, 1, 0, RoomType.LECTURE_HALL);
+        plan2.setId(2L);
+
+        Lesson lesson1 = new Lesson(math, LessonType.LECTURE, teacherInstanceA, group1, plan1);
+        lesson1.setId(1L);
+        Lesson lesson2 = new Lesson(physics, LessonType.LECTURE, teacherInstanceB, group2, plan2);
+        lesson2.setId(2L);
+
+        Schedule solution = solverFactory.buildSolver().solve(new Schedule(
+                List.of(timeslot),
+                List.of(r1, r2),
+                new ArrayList<>(List.of(lesson1, lesson2))));
+
+        assertFalse(solution.getScore().isFeasible(),
+                "Lessons with the same teacher id in the same slot must be a hard conflict");
+    }
+
+    @Test
     void usesAssignedTeacherRoom() {
         Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
         timeslot.setId(1L);

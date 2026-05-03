@@ -7,7 +7,7 @@ import { Notification } from '@vaadin/react-components/Notification.js';
 import { ScheduleGrid } from '../components/ScheduleGrid';
 import { AnalyticsSidebar } from '../components/AnalyticsSidebar';
 import { useSignal } from '@vaadin/hilla-react-signals';
-import { solverStatus, isPublished, refreshSchedule, selectedEntity } from '../store/app-state';
+import { solverStatus, isPublished, refreshSchedule, selectedEntity, selectedCourseFilter } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
 
 type Mode = 'GROUP' | 'TEACHER' | 'ROOM';
@@ -29,8 +29,10 @@ export default function DashboardView() {
 
   const handleGenerate = async () => {
     try {
-      await ScheduleEndpoint.generateSchedule();
-      Notification.show('Процес автоматичної генерації розпочато', { 
+      const courseFilter = selectedCourseFilter.value;
+      const course = courseFilter === 'ALL' ? 0 : courseFilter;
+      await ScheduleEndpoint.generateScheduleForCourse(course);
+      Notification.show(course > 0 ? `Генерацію розкладу для ${course} курсу розпочато` : 'Генерацію розкладу для всіх курсів розпочато', {
         theme: 'success', 
         position: 'bottom-end' 
       });
@@ -45,7 +47,7 @@ export default function DashboardView() {
       }, 1500);
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка при запуску генерації', { theme: 'error' });
+      Notification.show('Помилка під час запуску генерації', { theme: 'error' });
     }
   };
 
@@ -57,7 +59,7 @@ export default function DashboardView() {
       await refreshSchedule();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка при очищенні розкладу', { theme: 'error' });
+      Notification.show('Помилка під час очищення розкладу', { theme: 'error' });
     }
   };
 
@@ -117,7 +119,7 @@ export default function DashboardView() {
               <Button 
                 theme="tertiary" 
                 onClick={() => Notification.show('Експорт HTML у розробці', { position: 'bottom-center' })}
-                title="Експорт в HTML"
+                title="Експорт у HTML"
               >
                 <Icon icon="vaadin:download" slot="prefix" />
                 HTML
@@ -125,7 +127,7 @@ export default function DashboardView() {
               <Button 
                 theme="tertiary" 
                 onClick={() => Notification.show('Експорт PDF у розробці', { position: 'bottom-center' })}
-                title="Експорт в PDF"
+                title="Експорт у PDF"
               >
                 <Icon icon="vaadin:download" slot="prefix" />
                 PDF

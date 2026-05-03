@@ -77,10 +77,10 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     // Используем ссылки на методы для корректного отслеживания изменений движком
     Constraint teacherConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getTeacher),
+                        Joiners.equal(this::teacherId),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
-                .filter((l1, l2) -> samePhysicalSlot(l1, l2) && weeksOverlap(l1, l2))
+                .filter((l1, l2) -> teacherId(l1) != null && samePhysicalSlot(l1, l2) && weeksOverlap(l1, l2))
                 .penalize(HardSoftScore.ofHard(10000))
                 .asConstraint("Teacher conflict");
     }
@@ -189,9 +189,10 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint teacherWindow(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getTeacher),
+                        Joiners.equal(this::teacherId),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
+                    if (teacherId(l1) == null) return false;
                     if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
                     if (!weeksOverlap(l1, l2)) return false;
                     Duration between = Duration.between(l1.getTimeslot().getEndTime(), l2.getTimeslot().getStartTime());
@@ -215,12 +216,13 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint teacherRoomStability(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                Joiners.equal(Lesson::getTeacher),
+                Joiners.equal(this::teacherId),
                 Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
+                    if (teacherId(l1) == null) return false;
                     if (l1.getRoom() == null || l2.getRoom() == null || l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
                     if (!weeksOverlap(l1, l2)) return false;
-                    return l1.getRoom() != l2.getRoom();
+                    return !sameId(l1.getRoom().getId(), l2.getRoom().getId());
                 })
                 .penalize(HardSoftScore.ONE_SOFT)
                 .asConstraint("Teacher room stability");
@@ -267,6 +269,10 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     private boolean sameId(Long firstId, Long secondId) {
         return firstId != null && firstId.equals(secondId);
+    }
+
+    private Long teacherId(Lesson lesson) {
+        return lesson.getTeacher() != null ? lesson.getTeacher().getId() : null;
     }
 
     private Periodicity effectivePeriodicity(Lesson lesson) {

@@ -12,6 +12,8 @@ export const scheduleData = signal<any | null>(null);
 export const scheduleLoading = signal(false);
 export const isPublished = signal(false);
 export const solverStatus = signal<string>('NOT_SOLVING');
+export type CourseFilter = number | 'ALL';
+export const selectedCourseFilter = signal<CourseFilter>(1);
 
 export async function refreshSchedule(showLoading = true) {
 

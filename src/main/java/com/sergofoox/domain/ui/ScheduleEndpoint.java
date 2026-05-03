@@ -70,15 +70,24 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     public void generateSchedule() {
+        generateScheduleForCourse(0);
+    }
+
+    @AnonymousAllowed
+    public void generateScheduleForCourse(Integer course) {
         try {
             if (published) {
                 throw new IllegalStateException("Неможливо згенерувати розклад: його вже опубліковано");
             }
             // 1. Спочатку генеруємо об'єкти Lesson на основі навчальних планів
-            scheduleService.generateLessonsFromPlans();
+            Integer courseFilter = course != null && course > 0 ? course : null;
+            if (courseFilter != null && courseFilter > 4) {
+                throw new IllegalArgumentException("Курс має бути від 1 до 4");
+            }
+            scheduleService.generateLessonsFromPlans(courseFilter);
             
             // 2. Запускаємо солвер для розстановки Timeslot та Room
-            scheduleService.solve();
+            scheduleService.solve(courseFilter);
         } catch (Exception e) {
             e.printStackTrace();
             throw e;

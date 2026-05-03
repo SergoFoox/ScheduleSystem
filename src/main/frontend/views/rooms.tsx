@@ -10,6 +10,7 @@ import { RoomEndpoint } from '../generated/endpoints';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import { RoomDialog } from '../components/RoomDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
+import { formatRoomType } from '../utils/labels';
 
 export default function RoomsView() {
   const [rooms, setRooms] = useState<RoomDTO[]>([]);
@@ -66,7 +67,7 @@ export default function RoomsView() {
       fetchRooms();
     } catch (err) {
       console.error('Failed to delete room:', err);
-      Notification.show('Помилка при видаленні', { theme: 'error', position: 'bottom-end' });
+      Notification.show('Помилка під час видалення', { theme: 'error', position: 'bottom-end' });
     }
   };
 
@@ -107,7 +108,7 @@ export default function RoomsView() {
             autoWidth 
             renderer={({ item }) => (
               <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                {item.type}
+                {formatRoomType((item as RoomDTO).type)}
               </span>
             )}
           />

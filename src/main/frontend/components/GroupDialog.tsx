@@ -65,7 +65,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
       onClose();
     } catch (err) {
       console.error('Failed to save group:', err);
-      Notification.show('Помилка при збереженні', { theme: 'error' });
+      Notification.show('Помилка під час збереження', { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -83,7 +83,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
       onClose();
     } catch (err) {
       console.error('Failed to delete group:', err);
-      Notification.show('Помилка при видаленні', { theme: 'error' });
+      Notification.show('Помилка під час видалення', { theme: 'error' });
     } finally {
       setSaving(false);
     }
