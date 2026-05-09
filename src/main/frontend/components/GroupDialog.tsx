@@ -11,6 +11,7 @@ import { GroupEndpoint, TeacherEndpoint } from '../generated/endpoints';
 import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import { Select } from '@vaadin/react-components/Select.js';
+import { getMutationErrorMessage } from '../store/app-state';
 
 interface GroupDialogProps {
   opened: boolean;
@@ -65,7 +66,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
       onClose();
     } catch (err) {
       console.error('Failed to save group:', err);
-      Notification.show('Помилка під час збереження', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час збереження'), { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -83,7 +84,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
       onClose();
     } catch (err) {
       console.error('Failed to delete group:', err);
-      Notification.show('Помилка під час видалення', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час видалення'), { theme: 'error' });
     } finally {
       setSaving(false);
     }

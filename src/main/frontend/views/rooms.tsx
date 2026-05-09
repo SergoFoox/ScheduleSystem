@@ -11,6 +11,7 @@ import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import { RoomDialog } from '../components/RoomDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { formatRoomType } from '../utils/labels';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
 
 export default function RoomsView() {
   const [rooms, setRooms] = useState<RoomDTO[]>([]);
@@ -44,16 +45,28 @@ export default function RoomsView() {
   );
 
   const handleAdd = () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedRoom(undefined);
     setDialogOpened(true);
   };
 
   const handleEdit = (room: RoomDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedRoom(room);
     setDialogOpened(true);
   };
 
   const openDeleteConfirm = (id: number) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setRoomToDelete(id);
     setConfirmOpened(true);
   };
@@ -67,7 +80,7 @@ export default function RoomsView() {
       fetchRooms();
     } catch (err) {
       console.error('Failed to delete room:', err);
-      Notification.show('Помилка під час видалення', { theme: 'error', position: 'bottom-end' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час видалення'), { theme: 'error', position: 'bottom-end' });
     }
   };
 

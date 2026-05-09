@@ -7,6 +7,7 @@ import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.lesson.LessonRepository;
+import com.sergofoox.domain.ui.TemplateAccessService;
 import com.sergofoox.domain.ui.dto.CoursePlanDTO;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
@@ -27,17 +28,20 @@ public class CoursePlanEndpoint {
     private final SubjectRepository subjectRepository;
     private final TeacherRepository teacherRepository;
     private final LessonRepository lessonRepository;
+    private final TemplateAccessService templateAccessService;
 
     public CoursePlanEndpoint(CoursePlanRepository coursePlanRepository,
                               GroupRepository groupRepository,
                               SubjectRepository subjectRepository,
                               TeacherRepository teacherRepository,
-                              LessonRepository lessonRepository) {
+                              LessonRepository lessonRepository,
+                              TemplateAccessService templateAccessService) {
         this.coursePlanRepository = coursePlanRepository;
         this.groupRepository = groupRepository;
         this.subjectRepository = subjectRepository;
         this.teacherRepository = teacherRepository;
         this.lessonRepository = lessonRepository;
+        this.templateAccessService = templateAccessService;
     }
 
     public List<CoursePlanDTO> getPlansByGroup(Long groupId) {
@@ -55,6 +59,7 @@ public class CoursePlanEndpoint {
 
     @Transactional
     public int copyPlansFromGroup(Long sourceGroupId, Long targetGroupId) {
+        templateAccessService.requireWritableTemplate();
         if (sourceGroupId == null || targetGroupId == null) {
             throw new IllegalArgumentException("Source and target groups are required");
         }
@@ -87,6 +92,7 @@ public class CoursePlanEndpoint {
 
     @Transactional
     public void savePlan(CoursePlanDTO dto) {
+        templateAccessService.requireWritableTemplate();
         try {
             CoursePlan plan;
             if (dto.id() != null) {
@@ -134,6 +140,7 @@ public class CoursePlanEndpoint {
 
     @Transactional
     public void deletePlan(Long id) {
+        templateAccessService.requireWritableTemplate();
         try {
             CoursePlan plan = coursePlanRepository.findById(id).orElseThrow();
             lessonRepository.deleteByCoursePlan(plan);

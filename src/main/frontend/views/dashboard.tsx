@@ -6,8 +6,18 @@ import { ProgressBar } from '@vaadin/react-components/ProgressBar.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { ScheduleGrid } from '../components/ScheduleGrid';
 import { AnalyticsSidebar } from '../components/AnalyticsSidebar';
+import { SavedSchedulesPanel } from '../components/SavedSchedulesPanel';
 import { useSignal } from '@vaadin/hilla-react-signals';
-import { solverStatus, isPublished, refreshSchedule, selectedEntity, selectedCourseFilter } from '../store/app-state';
+import {
+  BASE_TEMPLATE_LOCKED_MESSAGE,
+  getMutationErrorMessage,
+  isBaseTemplateLocked,
+  isPublished,
+  refreshSchedule,
+  selectedCourseFilter,
+  selectedEntity,
+  solverStatus
+} from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
 
 type Mode = 'GROUP' | 'TEACHER' | 'ROOM';
@@ -52,6 +62,10 @@ export default function DashboardView() {
   };
 
   const handleClear = async () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     if (!window.confirm('Ви впевнені, що хочете повністю очистити поточний розклад?')) return;
     try {
       await ScheduleEndpoint.clearSchedule();
@@ -59,7 +73,7 @@ export default function DashboardView() {
       await refreshSchedule();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка під час очищення розкладу', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час очищення розкладу'), { theme: 'error' });
     }
   };
 
@@ -71,6 +85,7 @@ export default function DashboardView() {
 
   return (
     <div className="flex h-full overflow-hidden bg-gray-50/50">
+      <SavedSchedulesPanel />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Modern Toolbar */}
         <div className="flex justify-between items-center p-4 bg-white border-b shadow-sm gap-4">

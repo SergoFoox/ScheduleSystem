@@ -11,6 +11,7 @@ import { RoomEndpoint, TeacherEndpoint } from '../generated/endpoints';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import PositionType from '../generated/com/sergofoox/domain/teacher/PositionType';
+import { getMutationErrorMessage } from '../store/app-state';
 
 interface TeacherDialogProps {
   opened: boolean;
@@ -74,7 +75,7 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
       onClose();
     } catch (err) {
       console.error('Failed to save teacher:', err);
-      Notification.show('Помилка під час збереження', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час збереження'), { theme: 'error' });
     } finally {
       setSaving(false);
     }

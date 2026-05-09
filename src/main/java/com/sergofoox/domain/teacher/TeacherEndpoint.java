@@ -3,6 +3,7 @@ package com.sergofoox.domain.teacher;
 import com.sergofoox.domain.ui.dto.TeacherDTO;
 import com.sergofoox.domain.lesson.LessonRepository;
 import com.sergofoox.domain.room.RoomRepository;
+import com.sergofoox.domain.ui.TemplateAccessService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.springframework.stereotype.Service;
@@ -19,15 +20,18 @@ public class TeacherEndpoint {
     private final LessonRepository lessonRepository;
     private final RoomRepository roomRepository;
     private final com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository competenceRepository;
+    private final TemplateAccessService templateAccessService;
 
     public TeacherEndpoint(TeacherRepository teacherRepository, 
                            LessonRepository lessonRepository, 
                            RoomRepository roomRepository,
-                           com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository competenceRepository) {
+                           com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository competenceRepository,
+                           TemplateAccessService templateAccessService) {
         this.teacherRepository = teacherRepository;
         this.lessonRepository = lessonRepository;
         this.roomRepository = roomRepository;
         this.competenceRepository = competenceRepository;
+        this.templateAccessService = templateAccessService;
     }
 
     @Transactional(readOnly = true)
@@ -39,6 +43,7 @@ public class TeacherEndpoint {
 
     @Transactional
     public void saveTeacher(TeacherDTO dto) {
+        templateAccessService.requireWritableTemplate();
         System.out.println("Attempting to save teacher: " + dto.fullName());
         try {
             Teacher teacher;
@@ -66,6 +71,7 @@ public class TeacherEndpoint {
 
     @Transactional
     public void deleteTeacher(Long id) {
+        templateAccessService.requireWritableTemplate();
         try {
             Teacher teacher = teacherRepository.findById(id).orElseThrow();
             // Спершу видаляємо заняття та компетенції, щоб не було конфліктів у БД

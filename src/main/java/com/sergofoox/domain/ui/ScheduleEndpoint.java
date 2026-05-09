@@ -1,5 +1,9 @@
 package com.sergofoox.domain.ui;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.sergofoox.domain.competence.Priority;
 import com.sergofoox.domain.competence.TeacherCompetenceMatrix;
 import com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository;
 import com.sergofoox.domain.group.Group;
@@ -8,12 +12,18 @@ import com.sergofoox.domain.lesson.Lesson;
 import com.sergofoox.domain.lesson.LessonRepository;
 import com.sergofoox.domain.plan.CoursePlan;
 import com.sergofoox.domain.plan.CoursePlanRepository;
+import com.sergofoox.domain.plan.Periodicity;
+import com.sergofoox.domain.plan.RoomType;
 import com.sergofoox.domain.room.Room;
 import com.sergofoox.domain.room.RoomRepository;
+import com.sergofoox.domain.saved.SavedSchedule;
+import com.sergofoox.domain.saved.SavedScheduleLesson;
+import com.sergofoox.domain.saved.SavedScheduleRepository;
 import com.sergofoox.domain.solver.ScheduleService;
 import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.subject.LessonType;
 import com.sergofoox.domain.subject.Subject;
+import com.sergofoox.domain.teacher.PositionType;
 import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.timeslot.Timeslot;
@@ -21,19 +31,32 @@ import com.sergofoox.domain.timeslot.TimeslotRepository;
 import com.sergofoox.domain.ui.dto.*;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @BrowserCallable
 @Service
 @AnonymousAllowed
 public class ScheduleEndpoint {
+
+    private static final DateTimeFormatter SAVED_SCHEDULE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final long BUILT_IN_TEMPLATE_ID = -1L;
+    private static final String BUILT_IN_TEMPLATE_NAME = "Базовий шаблон";
+    private static final String LEGACY_BUILT_IN_TEMPLATE_NAME = "Базовий шаблон (імпортовано)";
+    private static final int BUILT_IN_TEMPLATE_LESSON_COUNT = 185;
 
     private final TeacherRepository teacherRepository;
     private final GroupRepository groupRepository;
@@ -44,6 +67,10 @@ public class ScheduleEndpoint {
     private final CoursePlanRepository coursePlanRepository;
     private final TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository;
     private final ScheduleService scheduleService;
+    private final SavedScheduleRepository savedScheduleRepository;
+    private final DataSource dataSource;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final TemplateAccessService templateAccessService;
 
     private boolean published = false;
 
@@ -56,7 +83,10 @@ public class ScheduleEndpoint {
             LessonRepository lessonRepository,
             CoursePlanRepository coursePlanRepository,
             TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository,
-            ScheduleService scheduleService) {
+            ScheduleService scheduleService,
+            SavedScheduleRepository savedScheduleRepository,
+            DataSource dataSource,
+            TemplateAccessService templateAccessService) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
         this.roomRepository = roomRepository;
@@ -66,6 +96,9 @@ public class ScheduleEndpoint {
         this.coursePlanRepository = coursePlanRepository;
         this.teacherCompetenceMatrixRepository = teacherCompetenceMatrixRepository;
         this.scheduleService = scheduleService;
+        this.savedScheduleRepository = savedScheduleRepository;
+        this.dataSource = dataSource;
+        this.templateAccessService = templateAccessService;
     }
 
     @AnonymousAllowed
@@ -101,6 +134,7 @@ public class ScheduleEndpoint {
             if (published) {
                 throw new IllegalStateException("Неможливо очистити розклад: його вже опубліковано");
             }
+            templateAccessService.requireWritableTemplate();
             List<Lesson> allLessons = lessonRepository.findAll();
             for (Lesson lesson : allLessons) {
                 lesson.setTimeslot(null);
@@ -119,8 +153,245 @@ public class ScheduleEndpoint {
     }
 
     @AnonymousAllowed
+    @Transactional(readOnly = true)
+    public List<SavedScheduleDTO> getSavedSchedules() {
+        List<SavedScheduleDTO> savedSchedules = new ArrayList<>(savedScheduleRepository.findAllByOrderBySortOrderAscUpdatedAtDescIdAsc().stream()
+                .filter(savedSchedule -> !isBuiltInTemplateName(savedSchedule.getName()))
+                .map(this::mapToSavedScheduleDTO)
+                .toList());
+        savedSchedules.add(0, new SavedScheduleDTO(
+                BUILT_IN_TEMPLATE_ID,
+                BUILT_IN_TEMPLATE_NAME,
+                "",
+                "",
+                BUILT_IN_TEMPLATE_LESSON_COUNT,
+                true,
+                true));
+        return savedSchedules;
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public SavedScheduleDTO saveCurrentSchedule(String name) {
+        templateAccessService.requireWritableTemplate();
+        String normalizedName = normalizeSavedScheduleName(name);
+        LocalDateTime now = LocalDateTime.now();
+        SavedSchedule savedSchedule = savedScheduleRepository.findByNameIgnoreCase(normalizedName)
+                .orElseGet(SavedSchedule::new);
+
+        if (savedSchedule.getCreatedAt() == null) {
+            savedSchedule.setCreatedAt(now);
+            savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
+        }
+        if (savedSchedule.getSortOrder() == null) {
+            savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
+        }
+        savedSchedule.setName(normalizedName);
+        savedSchedule.setUpdatedAt(now);
+        savedSchedule.setFullTemplate(false);
+        savedSchedule.setSnapshotJson(null);
+        savedSchedule.replaceLessons(lessonRepository.findAll().stream()
+                .map(this::createSavedScheduleLesson)
+                .toList());
+
+        return mapToSavedScheduleDTO(savedScheduleRepository.save(savedSchedule));
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public SavedScheduleDTO saveCurrentScheduleToSavedSchedule(Long id) {
+        templateAccessService.requireWritableTemplate();
+        if (id == null || id < 0) {
+            throw new IllegalArgumentException("Базовий шаблон не можна перезаписати");
+        }
+
+        SavedSchedule savedSchedule = savedScheduleRepository.findById(id).orElseThrow();
+        savedSchedule.setUpdatedAt(LocalDateTime.now());
+        if (savedSchedule.isFullTemplate()) {
+            savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
+        }
+        savedSchedule.replaceLessons(lessonRepository.findAll().stream()
+                .map(this::createSavedScheduleLesson)
+                .toList());
+
+        return mapToSavedScheduleDTO(savedScheduleRepository.save(savedSchedule));
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public SavedScheduleDTO copyBuiltInTemplate(String name) {
+        String normalizedName = normalizeSavedScheduleName(name);
+        if (isBuiltInTemplateName(normalizedName) || savedScheduleRepository.findByNameIgnoreCase(normalizedName).isPresent()) {
+            throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
+        }
+
+        if (!templateAccessService.isBaseTemplateLocked()) {
+            importBuiltInTemplate();
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        SavedSchedule savedSchedule = new SavedSchedule();
+        savedSchedule.setName(normalizedName);
+        savedSchedule.setCreatedAt(now);
+        savedSchedule.setUpdatedAt(now);
+        savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
+        savedSchedule.setFullTemplate(true);
+        savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
+        savedSchedule.replaceLessons(lessonRepository.findAll().stream()
+                .map(this::createSavedScheduleLesson)
+                .toList());
+
+        SavedSchedule saved = savedScheduleRepository.save(savedSchedule);
+        templateAccessService.activateEditableTemplate(saved.getId());
+        return mapToSavedScheduleDTO(saved);
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public SavedScheduleDTO copySavedSchedule(Long id, String name) {
+        if (id == null || id < 0) {
+            throw new IllegalArgumentException("Базовий шаблон копіюється окремою дією");
+        }
+
+        String normalizedName = normalizeSavedScheduleName(name);
+        if (isBuiltInTemplateName(normalizedName) || savedScheduleRepository.findByNameIgnoreCase(normalizedName).isPresent()) {
+            throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
+        }
+
+        SavedSchedule source = savedScheduleRepository.findById(id).orElseThrow();
+        LocalDateTime now = LocalDateTime.now();
+        SavedSchedule copy = new SavedSchedule();
+        copy.setName(normalizedName);
+        copy.setCreatedAt(now);
+        copy.setUpdatedAt(now);
+        copy.setSortOrder(nextSavedScheduleSortOrder());
+        copy.setFullTemplate(source.isFullTemplate());
+        copy.setSnapshotJson(source.getSnapshotJson());
+        copy.replaceLessons(source.getLessons().stream()
+                .map(this::copySavedScheduleLesson)
+                .toList());
+
+        return mapToSavedScheduleDTO(savedScheduleRepository.save(copy));
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public void loadSavedSchedule(Long id) {
+        if (published) {
+            throw new IllegalStateException("Неможливо завантажити збережений розклад: розклад вже опубліковано");
+        }
+
+        if (Objects.equals(id, BUILT_IN_TEMPLATE_ID)) {
+            importBuiltInTemplate();
+            templateAccessService.lockBaseTemplate();
+            return;
+        }
+
+        SavedSchedule savedSchedule = savedScheduleRepository.findById(id).orElseThrow();
+        if (savedSchedule.isFullTemplate() && savedSchedule.getSnapshotJson() != null && !savedSchedule.getSnapshotJson().isBlank()) {
+            restoreSnapshot(deserializeSnapshot(savedSchedule.getSnapshotJson()));
+            templateAccessService.activateEditableTemplate(savedSchedule.getId());
+            return;
+        }
+
+        List<Lesson> lessons = lessonRepository.findAll();
+        Map<Long, Lesson> lessonsById = lessons.stream()
+                .filter(lesson -> lesson.getId() != null)
+                .collect(Collectors.toMap(Lesson::getId, lesson -> lesson));
+        Set<Long> restoredLessonIds = new HashSet<>();
+
+        for (SavedScheduleLesson savedLesson : savedSchedule.getLessons()) {
+            resolveSavedLesson(savedLesson, lessonsById, lessons, restoredLessonIds)
+                    .ifPresent(lesson -> {
+                        applySavedLesson(lesson, savedLesson);
+                        restoredLessonIds.add(lesson.getId());
+                        lessonRepository.save(lesson);
+                    });
+        }
+
+        for (Lesson lesson : lessons) {
+            if (lesson.getId() != null && !restoredLessonIds.contains(lesson.getId())) {
+                lesson.setTimeslot(null);
+                lesson.setRoom(null);
+                lessonRepository.save(lesson);
+            }
+        }
+        lessonRepository.flush();
+        templateAccessService.activateEditableTemplate(savedSchedule.getId());
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public void deleteSavedSchedule(Long id) {
+        if (id == null || id < 0) {
+            return;
+        }
+        savedScheduleRepository.deleteById(id);
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public SavedScheduleDTO renameSavedSchedule(Long id, String name) {
+        if (id == null || id < 0) {
+            throw new IllegalArgumentException("Базовий шаблон не можна перейменувати");
+        }
+
+        String normalizedName = normalizeSavedScheduleName(name);
+        if (isBuiltInTemplateName(normalizedName)) {
+            throw new IllegalArgumentException("Цю назву зарезервовано для базового шаблону");
+        }
+
+        SavedSchedule savedSchedule = savedScheduleRepository.findById(id).orElseThrow();
+        Optional<SavedSchedule> duplicate = savedScheduleRepository.findByNameIgnoreCase(normalizedName);
+        if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
+            throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
+        }
+
+        savedSchedule.setName(normalizedName);
+        savedSchedule.setUpdatedAt(LocalDateTime.now());
+        return mapToSavedScheduleDTO(savedScheduleRepository.save(savedSchedule));
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public void reorderSavedSchedules(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+
+        List<SavedSchedule> savedSchedules = savedScheduleRepository.findAllByOrderBySortOrderAscUpdatedAtDescIdAsc().stream()
+                .filter(savedSchedule -> !isBuiltInTemplateName(savedSchedule.getName()))
+                .toList();
+        Map<Long, SavedSchedule> savedSchedulesById = savedSchedules.stream()
+                .filter(savedSchedule -> savedSchedule.getId() != null)
+                .collect(Collectors.toMap(SavedSchedule::getId, savedSchedule -> savedSchedule));
+
+        List<Long> orderedIds = ids.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .filter(savedSchedulesById::containsKey)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        savedSchedules.stream()
+                .map(SavedSchedule::getId)
+                .filter(id -> !orderedIds.contains(id))
+                .forEach(orderedIds::add);
+
+        for (int index = 0; index < orderedIds.size(); index++) {
+            savedSchedulesById.get(orderedIds.get(index)).setSortOrder(index);
+        }
+        savedScheduleRepository.saveAll(savedSchedulesById.values());
+    }
+
+    @AnonymousAllowed
     public boolean isPublished() {
         return published;
+    }
+
+    @AnonymousAllowed
+    public boolean isBaseTemplateLocked() {
+        return templateAccessService.isBaseTemplateLocked();
     }
 
     @AnonymousAllowed
@@ -130,6 +401,7 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     public void togglePublishedStatus() {
+        templateAccessService.requireWritableTemplate();
         this.published = !this.published;
     }
 
@@ -245,6 +517,480 @@ public class ScheduleEndpoint {
         return totalWindows;
     }
 
+    private SavedScheduleLesson createSavedScheduleLesson(Lesson lesson) {
+        SavedScheduleLesson savedLesson = new SavedScheduleLesson();
+        savedLesson.setLessonId(lesson.getId());
+        savedLesson.setCoursePlanId(idOf(lesson.getCoursePlan()));
+        savedLesson.setGroupId(idOf(lesson.getGroup()));
+        savedLesson.setSubjectId(idOf(lesson.getSubject()));
+        savedLesson.setTeacherId(idOf(lesson.getTeacher()));
+        savedLesson.setTimeslotId(idOf(lesson.getTimeslot()));
+        savedLesson.setRoomId(idOf(lesson.getRoom()));
+        savedLesson.setLessonType(lesson.getLessonType());
+        savedLesson.setPeriodicity(lesson.getPeriodicity() != null ? lesson.getPeriodicity() : Periodicity.WEEKLY);
+        savedLesson.setSubgroup(lesson.getSubgroup());
+        savedLesson.setSplitGroupIndex(lesson.getSplitGroupIndex());
+        return savedLesson;
+    }
+
+    private SavedScheduleLesson copySavedScheduleLesson(SavedScheduleLesson source) {
+        SavedScheduleLesson copy = new SavedScheduleLesson();
+        copy.setLessonId(source.getLessonId());
+        copy.setCoursePlanId(source.getCoursePlanId());
+        copy.setGroupId(source.getGroupId());
+        copy.setSubjectId(source.getSubjectId());
+        copy.setTeacherId(source.getTeacherId());
+        copy.setTimeslotId(source.getTimeslotId());
+        copy.setRoomId(source.getRoomId());
+        copy.setLessonType(source.getLessonType());
+        copy.setPeriodicity(source.getPeriodicity());
+        copy.setSubgroup(source.getSubgroup());
+        copy.setSplitGroupIndex(source.getSplitGroupIndex());
+        return copy;
+    }
+
+    private Optional<Lesson> resolveSavedLesson(
+            SavedScheduleLesson savedLesson,
+            Map<Long, Lesson> lessonsById,
+            List<Lesson> lessons,
+            Set<Long> restoredLessonIds) {
+        Lesson directMatch = savedLesson.getLessonId() != null ? lessonsById.get(savedLesson.getLessonId()) : null;
+        if (directMatch != null && directMatch.getId() != null && !restoredLessonIds.contains(directMatch.getId())) {
+            return Optional.of(directMatch);
+        }
+
+        return lessons.stream()
+                .filter(lesson -> lesson.getId() != null && !restoredLessonIds.contains(lesson.getId()))
+                .filter(lesson -> matchesSavedLesson(lesson, savedLesson))
+                .findFirst();
+    }
+
+    private boolean matchesSavedLesson(Lesson lesson, SavedScheduleLesson savedLesson) {
+        boolean planMatches = sameId(idOf(lesson.getCoursePlan()), savedLesson.getCoursePlanId())
+                || (sameId(idOf(lesson.getGroup()), savedLesson.getGroupId())
+                && sameId(idOf(lesson.getSubject()), savedLesson.getSubjectId()));
+
+        return planMatches
+                && lesson.getLessonType() == savedLesson.getLessonType()
+                && Objects.equals(defaultIndex(lesson.getSubgroup()), defaultIndex(savedLesson.getSubgroup()))
+                && Objects.equals(defaultIndex(lesson.getSplitGroupIndex()), defaultIndex(savedLesson.getSplitGroupIndex()))
+                && (savedLesson.getTeacherId() == null || sameId(idOf(lesson.getTeacher()), savedLesson.getTeacherId()));
+    }
+
+    private void applySavedLesson(Lesson lesson, SavedScheduleLesson savedLesson) {
+        lesson.setTimeslot(savedLesson.getTimeslotId() != null
+                ? timeslotRepository.findById(savedLesson.getTimeslotId()).orElse(null)
+                : null);
+        lesson.setRoom(savedLesson.getRoomId() != null
+                ? roomRepository.findById(savedLesson.getRoomId()).orElse(null)
+                : null);
+        lesson.setPeriodicity(savedLesson.getPeriodicity() != null ? savedLesson.getPeriodicity() : Periodicity.WEEKLY);
+    }
+
+    private SavedScheduleDTO mapToSavedScheduleDTO(SavedSchedule savedSchedule) {
+        return new SavedScheduleDTO(
+                savedSchedule.getId(),
+                savedSchedule.getName(),
+                formatSavedScheduleDate(savedSchedule.getCreatedAt()),
+                formatSavedScheduleDate(savedSchedule.getUpdatedAt()),
+                savedSchedule.getLessons().size(),
+                false,
+                savedSchedule.isFullTemplate()
+        );
+    }
+
+    private String normalizeSavedScheduleName(String name) {
+        if (name == null || name.trim().isBlank()) {
+            throw new IllegalArgumentException("Назва розкладу обов'язкова");
+        }
+        return name.trim();
+    }
+
+    private String formatSavedScheduleDate(LocalDateTime dateTime) {
+        return dateTime != null ? SAVED_SCHEDULE_DATE_FORMAT.format(dateTime) : "";
+    }
+
+    private int nextSavedScheduleSortOrder() {
+        return savedScheduleRepository.findAll().stream()
+                .map(SavedSchedule::getSortOrder)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(-1) + 1;
+    }
+
+    private boolean isBuiltInTemplateName(String name) {
+        return BUILT_IN_TEMPLATE_NAME.equalsIgnoreCase(name)
+                || LEGACY_BUILT_IN_TEMPLATE_NAME.equalsIgnoreCase(name);
+    }
+
+    private void importBuiltInTemplate() {
+        Connection connection = DataSourceUtils.getConnection(dataSource);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    TRUNCATE TABLE
+                        lesson,
+                        teacher_competence_matrix,
+                        course_plan,
+                        student_group,
+                        teacher,
+                        subject,
+                        room,
+                        timeslot,
+                        schedule_template,
+                        schedule_profile
+                    RESTART IDENTITY CASCADE
+                    """);
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V2__Base_Template.sql"));
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to import built-in schedule template.", e);
+        } finally {
+            DataSourceUtils.releaseConnection(connection, dataSource);
+        }
+    }
+
+    private FullTemplateSnapshot captureCurrentSnapshot() {
+        List<SubjectSnapshot> subjects = subjectRepository.findAll().stream()
+                .sorted(Comparator.comparing(Subject::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(subject -> new SubjectSnapshot(subject.getId(), subject.getName(), subject.getAbbreviation()))
+                .toList();
+
+        List<RoomSnapshot> rooms = roomRepository.findAll().stream()
+                .sorted(Comparator.comparing(Room::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(room -> new RoomSnapshot(room.getId(), room.getName(), room.getCapacity(), room.getBuilding(), room.getEquipment(), room.getType()))
+                .toList();
+
+        List<TeacherSnapshot> teachers = teacherRepository.findAll().stream()
+                .sorted(Comparator.comparing(Teacher::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(teacher -> new TeacherSnapshot(
+                        teacher.getId(),
+                        teacher.getFullName(),
+                        teacher.getDepartment(),
+                        teacher.getSpecialization(),
+                        teacher.getPositionType(),
+                        teacher.getWeeklyHourLimit(),
+                        teacher.getMaxWorkingDaysPerWeek(),
+                        idOf(teacher.getAssignedRoom())))
+                .toList();
+
+        List<GroupSnapshot> groups = groupRepository.findAll().stream()
+                .sorted(Comparator.comparing(Group::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(group -> new GroupSnapshot(group.getId(), group.getName(), group.getSize(), group.getCourse(), group.getDepartment(), group.getCuratorId()))
+                .toList();
+
+        List<CoursePlanSnapshot> coursePlans = coursePlanRepository.findAll().stream()
+                .sorted(Comparator.comparing(CoursePlan::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(plan -> new CoursePlanSnapshot(
+                        plan.getId(),
+                        idOf(plan.getSubject()),
+                        idOf(plan.getTeacher()),
+                        idOf(plan.getSecondTeacher()),
+                        idOf(plan.getGroup()),
+                        plan.getTotalHours(),
+                        plan.getLectureHours(),
+                        plan.getPracticeHours(),
+                        plan.getLabHours(),
+                        plan.getLectureSessionsPerWeek(),
+                        plan.getPracticeSessionsPerWeek(),
+                        plan.getLabSessionsPerWeek(),
+                        plan.getLecturePeriodicity(),
+                        plan.getPracticePeriodicity(),
+                        plan.getLabPeriodicity(),
+                        plan.getExecutedHours(),
+                        plan.getRequiredRoomType()))
+                .toList();
+
+        List<TimeslotSnapshot> timeslots = timeslotRepository.findAll().stream()
+                .sorted(Comparator.comparing(Timeslot::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(timeslot -> new TimeslotSnapshot(
+                        timeslot.getId(),
+                        timeslot.getDayOfWeek(),
+                        timeslot.getStartTime(),
+                        timeslot.getEndTime(),
+                        timeslot.getWeekParity(),
+                        timeslot.getLessonNumber()))
+                .toList();
+
+        List<CompetenceSnapshot> competences = teacherCompetenceMatrixRepository.findAll().stream()
+                .sorted(Comparator.comparing(TeacherCompetenceMatrix::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(matrix -> new CompetenceSnapshot(
+                        matrix.getId(),
+                        idOf(matrix.getTeacher()),
+                        idOf(matrix.getSubject()),
+                        matrix.getLessonType(),
+                        matrix.getPriority()))
+                .toList();
+
+        List<LessonSnapshot> lessons = lessonRepository.findAll().stream()
+                .sorted(Comparator.comparing(Lesson::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(lesson -> new LessonSnapshot(
+                        lesson.getId(),
+                        idOf(lesson.getSubject()),
+                        lesson.getLessonType(),
+                        idOf(lesson.getTeacher()),
+                        idOf(lesson.getGroup()),
+                        idOf(lesson.getCoursePlan()),
+                        idOf(lesson.getTimeslot()),
+                        idOf(lesson.getRoom()),
+                        lesson.getPeriodicity(),
+                        lesson.getSubgroup(),
+                        lesson.getSplitGroupIndex()))
+                .toList();
+
+        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, lessons);
+    }
+
+    private String serializeSnapshot(FullTemplateSnapshot snapshot) {
+        try {
+            return objectMapper.writeValueAsString(snapshot);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to save template snapshot.", e);
+        }
+    }
+
+    private FullTemplateSnapshot deserializeSnapshot(String snapshotJson) {
+        try {
+            return objectMapper.readValue(snapshotJson, FullTemplateSnapshot.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to read template snapshot.", e);
+        }
+    }
+
+    private void restoreSnapshot(FullTemplateSnapshot snapshot) {
+        clearWorkingData();
+
+        Map<Long, Subject> subjectsByOldId = new HashMap<>();
+        for (SubjectSnapshot source : snapshot.subjects()) {
+            Subject subject = new Subject();
+            subject.setName(source.name());
+            subject.setAbbreviation(source.abbreviation());
+            subjectsByOldId.put(source.id(), subjectRepository.save(subject));
+        }
+
+        Map<Long, Room> roomsByOldId = new HashMap<>();
+        for (RoomSnapshot source : snapshot.rooms()) {
+            Room room = new Room();
+            room.setName(source.name());
+            room.setCapacity(source.capacity());
+            room.setBuilding(source.building());
+            room.setEquipment(source.equipment());
+            room.setType(source.type());
+            roomsByOldId.put(source.id(), roomRepository.save(room));
+        }
+
+        Map<Long, Teacher> teachersByOldId = new HashMap<>();
+        for (TeacherSnapshot source : snapshot.teachers()) {
+            Teacher teacher = new Teacher();
+            teacher.setFullName(source.fullName());
+            teacher.setDepartment(source.department());
+            teacher.setSpecialization(source.specialization());
+            teacher.setPositionType(source.positionType());
+            teacher.setWeeklyHourLimit(source.weeklyHourLimit());
+            teacher.setMaxWorkingDaysPerWeek(source.maxWorkingDaysPerWeek());
+            teacher.setAssignedRoom(roomsByOldId.get(source.assignedRoomId()));
+            teachersByOldId.put(source.id(), teacherRepository.save(teacher));
+        }
+
+        Map<Long, Group> groupsByOldId = new HashMap<>();
+        for (GroupSnapshot source : snapshot.groups()) {
+            Group group = new Group();
+            group.setName(source.name());
+            group.setSize(source.size());
+            group.setCourse(source.course());
+            group.setDepartment(source.department());
+            Teacher curator = teachersByOldId.get(source.curatorId());
+            group.setCuratorId(curator != null ? curator.getId() : null);
+            groupsByOldId.put(source.id(), groupRepository.save(group));
+        }
+
+        Map<Long, CoursePlan> coursePlansByOldId = new HashMap<>();
+        for (CoursePlanSnapshot source : snapshot.coursePlans()) {
+            CoursePlan plan = new CoursePlan();
+            plan.setSubject(subjectsByOldId.get(source.subjectId()));
+            plan.setTeacher(teachersByOldId.get(source.teacherId()));
+            plan.setSecondTeacher(teachersByOldId.get(source.secondTeacherId()));
+            plan.setGroup(groupsByOldId.get(source.groupId()));
+            plan.setTotalHours(source.totalHours());
+            plan.setLectureHours(source.lectureHours());
+            plan.setPracticeHours(source.practiceHours());
+            plan.setLabHours(source.labHours());
+            plan.setLectureSessionsPerWeek(source.lectureSessionsPerWeek());
+            plan.setPracticeSessionsPerWeek(source.practiceSessionsPerWeek());
+            plan.setLabSessionsPerWeek(source.labSessionsPerWeek());
+            plan.setLecturePeriodicity(source.lecturePeriodicity());
+            plan.setPracticePeriodicity(source.practicePeriodicity());
+            plan.setLabPeriodicity(source.labPeriodicity());
+            plan.setExecutedHours(source.executedHours());
+            plan.setRequiredRoomType(source.requiredRoomType());
+            coursePlansByOldId.put(source.id(), coursePlanRepository.save(plan));
+        }
+
+        Map<Long, Timeslot> timeslotsByOldId = new HashMap<>();
+        for (TimeslotSnapshot source : snapshot.timeslots()) {
+            Timeslot timeslot = new Timeslot();
+            timeslot.setDayOfWeek(source.dayOfWeek());
+            timeslot.setStartTime(source.startTime());
+            timeslot.setEndTime(source.endTime());
+            timeslot.setWeekParity(source.weekParity());
+            timeslot.setLessonNumber(source.lessonNumber());
+            timeslotsByOldId.put(source.id(), timeslotRepository.save(timeslot));
+        }
+
+        for (CompetenceSnapshot source : snapshot.competences()) {
+            TeacherCompetenceMatrix matrix = new TeacherCompetenceMatrix();
+            matrix.setTeacher(teachersByOldId.get(source.teacherId()));
+            matrix.setSubject(subjectsByOldId.get(source.subjectId()));
+            matrix.setLessonType(source.lessonType());
+            matrix.setPriority(source.priority());
+            teacherCompetenceMatrixRepository.save(matrix);
+        }
+
+        for (LessonSnapshot source : snapshot.lessons()) {
+            Lesson lesson = new Lesson();
+            lesson.setSubject(subjectsByOldId.get(source.subjectId()));
+            lesson.setLessonType(source.lessonType());
+            lesson.setTeacher(teachersByOldId.get(source.teacherId()));
+            lesson.setGroup(groupsByOldId.get(source.groupId()));
+            lesson.setCoursePlan(coursePlansByOldId.get(source.coursePlanId()));
+            lesson.setTimeslot(timeslotsByOldId.get(source.timeslotId()));
+            lesson.setRoom(roomsByOldId.get(source.roomId()));
+            lesson.setPeriodicity(source.periodicity() != null ? source.periodicity() : Periodicity.WEEKLY);
+            lesson.setSubgroup(source.subgroup());
+            lesson.setSplitGroupIndex(source.splitGroupIndex());
+            lessonRepository.save(lesson);
+        }
+    }
+
+    private void clearWorkingData() {
+        Connection connection = DataSourceUtils.getConnection(dataSource);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    TRUNCATE TABLE
+                        lesson,
+                        teacher_competence_matrix,
+                        course_plan,
+                        student_group,
+                        teacher,
+                        subject,
+                        room,
+                        timeslot,
+                        schedule_template,
+                        schedule_profile
+                    RESTART IDENTITY CASCADE
+                    """);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to clear active schedule data.", e);
+        } finally {
+            DataSourceUtils.releaseConnection(connection, dataSource);
+        }
+    }
+
+    private record FullTemplateSnapshot(
+            List<SubjectSnapshot> subjects,
+            List<RoomSnapshot> rooms,
+            List<TeacherSnapshot> teachers,
+            List<GroupSnapshot> groups,
+            List<CoursePlanSnapshot> coursePlans,
+            List<TimeslotSnapshot> timeslots,
+            List<CompetenceSnapshot> competences,
+            List<LessonSnapshot> lessons
+    ) {
+    }
+
+    private record SubjectSnapshot(Long id, String name, String abbreviation) {
+    }
+
+    private record RoomSnapshot(Long id, String name, Integer capacity, String building, String equipment, RoomType type) {
+    }
+
+    private record TeacherSnapshot(
+            Long id,
+            String fullName,
+            String department,
+            String specialization,
+            PositionType positionType,
+            Integer weeklyHourLimit,
+            Integer maxWorkingDaysPerWeek,
+            Long assignedRoomId
+    ) {
+    }
+
+    private record GroupSnapshot(Long id, String name, Integer size, Integer course, String department, Long curatorId) {
+    }
+
+    private record CoursePlanSnapshot(
+            Long id,
+            Long subjectId,
+            Long teacherId,
+            Long secondTeacherId,
+            Long groupId,
+            Integer totalHours,
+            Integer lectureHours,
+            Integer practiceHours,
+            Integer labHours,
+            Integer lectureSessionsPerWeek,
+            Integer practiceSessionsPerWeek,
+            Integer labSessionsPerWeek,
+            Periodicity lecturePeriodicity,
+            Periodicity practicePeriodicity,
+            Periodicity labPeriodicity,
+            Integer executedHours,
+            RoomType requiredRoomType
+    ) {
+    }
+
+    private record TimeslotSnapshot(
+            Long id,
+            DayOfWeek dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            Periodicity weekParity,
+            Integer lessonNumber
+    ) {
+    }
+
+    private record CompetenceSnapshot(
+            Long id,
+            Long teacherId,
+            Long subjectId,
+            LessonType lessonType,
+            Priority priority
+    ) {
+    }
+
+    private record LessonSnapshot(
+            Long id,
+            Long subjectId,
+            LessonType lessonType,
+            Long teacherId,
+            Long groupId,
+            Long coursePlanId,
+            Long timeslotId,
+            Long roomId,
+            Periodicity periodicity,
+            Integer subgroup,
+            Integer splitGroupIndex
+    ) {
+    }
+
+    private Integer defaultIndex(Integer value) {
+        return value != null ? value : 0;
+    }
+
+    private Long idOf(Object entity) {
+        if (entity instanceof Lesson lesson) return lesson.getId();
+        if (entity instanceof CoursePlan coursePlan) return coursePlan.getId();
+        if (entity instanceof Group group) return group.getId();
+        if (entity instanceof Subject subject) return subject.getId();
+        if (entity instanceof Teacher teacher) return teacher.getId();
+        if (entity instanceof Timeslot timeslot) return timeslot.getId();
+        if (entity instanceof Room room) return room.getId();
+        return null;
+    }
+
+    private boolean sameId(Long firstId, Long secondId) {
+        return firstId != null && firstId.equals(secondId);
+    }
+
     @AnonymousAllowed
     @Transactional
     public void moveLesson(Long lessonId, Long timeslotId, String roomName, com.sergofoox.domain.plan.Periodicity periodicity) {
@@ -252,6 +998,7 @@ public class ScheduleEndpoint {
             if (published) {
                 throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
             }
+            templateAccessService.requireWritableTemplate();
             Lesson primaryLesson = lessonRepository.findById(lessonId).orElseThrow();
             Timeslot newTimeslot = timeslotRepository.findById(timeslotId).orElseThrow();
             
@@ -424,6 +1171,7 @@ public class ScheduleEndpoint {
     public void unassignLesson(Long lessonId) {
         try {
             if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
+            templateAccessService.requireWritableTemplate();
             Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
             lesson.setTimeslot(null);
             lesson.setRoom(null);
@@ -439,6 +1187,7 @@ public class ScheduleEndpoint {
     public LessonDTO assignReplacement(Long lessonId, Long teacherId, Long roomId, Long subjectId) {
         try {
             if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
+            templateAccessService.requireWritableTemplate();
             Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
             
             if (subjectId != null) {
@@ -478,6 +1227,7 @@ public class ScheduleEndpoint {
     public void assignManualLesson(Long groupId, Long subjectId, Long timeslotId, Long roomId, Long teacherId, Integer subgroup, com.sergofoox.domain.plan.Periodicity periodicity) {
         try {
             if (published) throw new IllegalStateException("Розклад опубліковано");
+            templateAccessService.requireWritableTemplate();
             
             Group group = groupRepository.findById(groupId).orElseThrow();
             Subject subject = subjectRepository.findById(subjectId).orElseThrow();

@@ -1,25 +1,33 @@
 package com.sergofoox.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 
 import javax.sql.DataSource;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 @Configuration
-@Profile("postgres")
+@ConditionalOnProperty(name = "spring.datasource.driverClassName", havingValue = "org.postgresql.Driver")
 public class PostgresDataSourceConfig {
+
+    private static final String INVALID_CATALOG_SQL_STATE = "3D000";
+    private static final String DUPLICATE_DATABASE_SQL_STATE = "42P04";
 
     @Bean
     public DataSource dataSource(Environment environment) {
         String databaseUrl = firstPresent(
                 environment.getProperty("SPRING_DATASOURCE_URL"),
-                environment.getProperty("DATABASE_URL")
+                environment.getProperty("DATABASE_URL"),
+                environment.getProperty("spring.datasource.url")
         );
 
         ParsedDatabaseUrl parsedUrl = databaseUrl == null
@@ -29,17 +37,21 @@ public class PostgresDataSourceConfig {
         String username = firstPresent(
                 environment.getProperty("SPRING_DATASOURCE_USERNAME"),
                 environment.getProperty("PGUSER"),
-                parsedUrl.username()
+                parsedUrl.username(),
+                environment.getProperty("spring.datasource.username")
         );
         String password = firstPresent(
                 environment.getProperty("SPRING_DATASOURCE_PASSWORD"),
                 environment.getProperty("PGPASSWORD"),
-                parsedUrl.password()
+                parsedUrl.password(),
+                environment.getProperty("spring.datasource.password")
         );
 
         if (username == null || password == null) {
             throw new IllegalStateException("PostgreSQL credentials are missing. Set PGUSER/PGPASSWORD or SPRING_DATASOURCE_USERNAME/SPRING_DATASOURCE_PASSWORD.");
         }
+
+        ensureDatabaseExists(parsedUrl, username, password);
 
         HikariDataSource dataSource = new HikariDataSource();
         dataSource.setDriverClassName("org.postgresql.Driver");
@@ -57,12 +69,14 @@ public class PostgresDataSourceConfig {
         }
 
         String port = environment.getProperty("PGPORT", "5432");
-        return new ParsedDatabaseUrl("jdbc:postgresql://" + host + ":" + port + "/" + database, null, null);
+        String jdbcUrl = "jdbc:postgresql://" + host + ":" + port + "/" + database;
+        String maintenanceJdbcUrl = "jdbc:postgresql://" + host + ":" + port + "/postgres";
+        return new ParsedDatabaseUrl(jdbcUrl, maintenanceJdbcUrl, database, null, null);
     }
 
     private static ParsedDatabaseUrl parseDatabaseUrl(String databaseUrl) {
         if (databaseUrl.startsWith("jdbc:")) {
-            return new ParsedDatabaseUrl(databaseUrl, null, null);
+            return parseJdbcDatabaseUrl(databaseUrl);
         }
 
         URI uri = URI.create(databaseUrl);
@@ -75,6 +89,8 @@ public class PostgresDataSourceConfig {
         String port = uri.getPort() == -1 ? "" : ":" + uri.getPort();
         String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
         String jdbcUrl = "jdbc:postgresql://" + uri.getHost() + port + path + query;
+        String maintenanceJdbcUrl = "jdbc:postgresql://" + uri.getHost() + port + "/postgres" + query;
+        String databaseName = decode(path.substring(1));
 
         String username = null;
         String password = null;
@@ -86,7 +102,44 @@ public class PostgresDataSourceConfig {
             }
         }
 
-        return new ParsedDatabaseUrl(jdbcUrl, username, password);
+        return new ParsedDatabaseUrl(jdbcUrl, maintenanceJdbcUrl, databaseName, username, password);
+    }
+
+    private static ParsedDatabaseUrl parseJdbcDatabaseUrl(String jdbcUrl) {
+        String withoutPrefix = jdbcUrl.substring("jdbc:".length());
+        URI uri = URI.create(withoutPrefix);
+        String path = uri.getPath() == null || uri.getPath().isBlank() ? "/postgres" : uri.getPath();
+        String databaseName = decode(path.substring(1));
+        String port = uri.getPort() == -1 ? "" : ":" + uri.getPort();
+        String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
+        String maintenanceJdbcUrl = "jdbc:postgresql://" + uri.getHost() + port + "/postgres" + query;
+        return new ParsedDatabaseUrl(jdbcUrl, maintenanceJdbcUrl, databaseName, null, null);
+    }
+
+    private static void ensureDatabaseExists(ParsedDatabaseUrl parsedUrl, String username, String password) {
+        try (Connection ignored = DriverManager.getConnection(parsedUrl.jdbcUrl(), username, password)) {
+            return;
+        } catch (SQLException targetException) {
+            if (!INVALID_CATALOG_SQL_STATE.equals(targetException.getSQLState())) {
+                throw new IllegalStateException("Failed to connect to PostgreSQL database: " + parsedUrl.jdbcUrl(), targetException);
+            }
+        }
+
+        try (Connection connection = DriverManager.getConnection(parsedUrl.maintenanceJdbcUrl(), username, password);
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE DATABASE " + quoteIdentifier(parsedUrl.databaseName()));
+        } catch (SQLException createException) {
+            if (!DUPLICATE_DATABASE_SQL_STATE.equals(createException.getSQLState())) {
+                throw new IllegalStateException("PostgreSQL database '" + parsedUrl.databaseName() + "' does not exist and could not be created.", createException);
+            }
+        }
+    }
+
+    private static String quoteIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new IllegalStateException("PostgreSQL database name is missing.");
+        }
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
     private static String firstPresent(String... values) {
@@ -102,6 +155,6 @@ public class PostgresDataSourceConfig {
         return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
-    private record ParsedDatabaseUrl(String jdbcUrl, String username, String password) {
+    private record ParsedDatabaseUrl(String jdbcUrl, String maintenanceJdbcUrl, String databaseName, String username, String password) {
     }
 }

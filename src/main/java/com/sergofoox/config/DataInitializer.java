@@ -30,17 +30,9 @@ public class DataInitializer {
             CoursePlanRepository coursePlanRepository,
             TeacherCompetenceMatrixRepository matrixRepository) {
         return args -> {
-            if (timeslotRepository.count() == 0) {
-                System.out.println(">>> База временных слотов пуста. Создаю стандартную сетку (1-4 пары)...");
-                DayOfWeek[] days = {DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY};
-                for (DayOfWeek day : days) {
-                    timeslotRepository.save(new Timeslot(day, LocalTime.of(8, 30), LocalTime.of(10, 0), 1));
-                    timeslotRepository.save(new Timeslot(day, LocalTime.of(10, 15), LocalTime.of(11, 45), 2));
-                    timeslotRepository.save(new Timeslot(day, LocalTime.of(12, 15), LocalTime.of(13, 45), 3));
-                    timeslotRepository.save(new Timeslot(day, LocalTime.of(14, 0), LocalTime.of(15, 30), 4));
-                }
-            }
-            System.out.println(">>> Инициализация завершена. Слотов в базе: " + timeslotRepository.count());
+            /* Handled by Flyway migration V2__Base_Template.sql */
+            System.out.println(">>> Ініціалізація бази даних тепер виконується через Flyway.");
+            System.out.println(">>> Слотов в базе: " + timeslotRepository.count());
             System.out.println(">>> Групп в базе: " + groupRepository.count());
             System.out.println(">>> Аудиторий в базе: " + roomRepository.count());
         };

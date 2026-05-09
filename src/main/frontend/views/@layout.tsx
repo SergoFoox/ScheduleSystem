@@ -4,7 +4,8 @@ import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { ScheduleEndpoint } from '../generated/endpoints';
-import { isPublished, refreshSchedule } from '../store/app-state';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked, isPublished, refreshSchedule } from '../store/app-state';
+import { Notification } from '@vaadin/react-components/Notification.js';
 
 export default function MainLayout() {
   const userRole = useSignal<string | undefined>(undefined);
@@ -21,6 +22,11 @@ export default function MainLayout() {
   }, [location.pathname, location.search]);
 
   const handleToggle = async () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      await refreshSchedule(false);
+      return;
+    }
     await ScheduleEndpoint.togglePublishedStatus();
     await refreshSchedule();
   };

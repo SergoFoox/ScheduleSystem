@@ -5,6 +5,7 @@ import com.sergofoox.domain.lesson.Lesson;
 import com.sergofoox.domain.lesson.LessonRepository;
 import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
+import com.sergofoox.domain.ui.TemplateAccessService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.springframework.stereotype.Service;
@@ -20,11 +21,16 @@ public class RoomEndpoint {
     private final RoomRepository roomRepository;
     private final LessonRepository lessonRepository;
     private final TeacherRepository teacherRepository;
+    private final TemplateAccessService templateAccessService;
 
-    public RoomEndpoint(RoomRepository roomRepository, LessonRepository lessonRepository, TeacherRepository teacherRepository) {
+    public RoomEndpoint(RoomRepository roomRepository,
+                        LessonRepository lessonRepository,
+                        TeacherRepository teacherRepository,
+                        TemplateAccessService templateAccessService) {
         this.roomRepository = roomRepository;
         this.lessonRepository = lessonRepository;
         this.teacherRepository = teacherRepository;
+        this.templateAccessService = templateAccessService;
     }
 
     public List<RoomDTO> getAllRooms() {
@@ -40,6 +46,7 @@ public class RoomEndpoint {
 
     @Transactional
     public void saveRoom(RoomDTO dto) {
+        templateAccessService.requireWritableTemplate();
         System.out.println("Attempting to save room: " + dto.name());
         try {
             Room room;
@@ -65,6 +72,7 @@ public class RoomEndpoint {
 
     @Transactional
     public void deleteRoom(Long id) {
+        templateAccessService.requireWritableTemplate();
         try {
             Room room = roomRepository.findById(id).orElseThrow();
             

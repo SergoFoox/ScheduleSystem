@@ -10,6 +10,7 @@ import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import { GroupDialog } from '../components/GroupDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { useNavigate } from 'react-router';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked } from '../store/app-state';
 
 export default function GroupsView() {
   const [groups, setGroups] = useState<GroupDTO[]>([]);
@@ -43,12 +44,20 @@ export default function GroupsView() {
   );
 
   const handleAdd = () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedGroup(undefined);
     setActiveItem(null);
     setDialogOpened(true);
   };
 
   const handleEdit = (group: GroupDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedGroup(group);
     setActiveItem(group);
     setDialogOpened(true);

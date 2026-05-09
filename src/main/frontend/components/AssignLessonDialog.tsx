@@ -5,7 +5,7 @@ import { Select } from '@vaadin/react-components/Select.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { Icon } from '@vaadin/react-components/Icon.js';
 import { ScheduleEndpoint, CoursePlanEndpoint, RoomEndpoint } from '../generated/endpoints';
-import { refreshSchedule } from '../store/app-state';
+import { getMutationErrorMessage, refreshSchedule } from '../store/app-state';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 
@@ -116,7 +116,7 @@ const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, day, le
       onClose();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка під час призначення заняття', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час призначення заняття'), { theme: 'error' });
     } finally {
       setSaving(false);
     }

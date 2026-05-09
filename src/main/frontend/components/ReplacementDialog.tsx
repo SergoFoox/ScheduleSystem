@@ -4,7 +4,7 @@ import { Button } from '@vaadin/react-components/Button.js';
 import { Select } from '@vaadin/react-components/Select.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { ScheduleEndpoint, RoomEndpoint, CoursePlanEndpoint } from '../generated/endpoints';
-import { refreshSchedule } from '../store/app-state';
+import { getMutationErrorMessage, refreshSchedule } from '../store/app-state';
 import type ReplacementCandidateDTO from '../generated/com/sergofoox/domain/ui/dto/ReplacementCandidateDTO';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
@@ -75,7 +75,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
       onClose();
     } catch (err) {
       console.error('Failed to assign replacement:', err);
-      Notification.show('Помилка під час збереження змін', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час збереження змін'), { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -93,6 +93,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
       onClose();
     } catch (err) {
       console.error('Failed to unassign lesson:', err);
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час видалення заняття'), { theme: 'error' });
     } finally {
       setSaving(false);
     }

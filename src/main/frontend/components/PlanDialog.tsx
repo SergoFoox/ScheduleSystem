@@ -12,6 +12,7 @@ import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import Subject from '../generated/com/sergofoox/domain/subject/Subject';
 import RoomType from '../generated/com/sergofoox/domain/plan/RoomType';
+import { getMutationErrorMessage } from '../store/app-state';
 
 interface PlanDialogProps {
   opened: boolean;
@@ -83,7 +84,7 @@ export const PlanDialog: React.FC<PlanDialogProps> = ({ opened, plan, defaultGro
       onClose();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка збереження', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка збереження'), { theme: 'error' });
     } finally {
       setSaving(false);
     }

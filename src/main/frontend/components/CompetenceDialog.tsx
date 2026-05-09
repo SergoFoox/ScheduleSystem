@@ -14,6 +14,7 @@ import LessonType from '../generated/com/sergofoox/domain/subject/LessonType';
 import Priority from '../generated/com/sergofoox/domain/competence/Priority';
 import { HorizontalLayout, VerticalLayout } from '@vaadin/react-components';
 import { formatLessonType, formatPriority } from '../utils/labels';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
 
 interface CompetenceDialogProps {
   opened: boolean;
@@ -45,6 +46,10 @@ export const CompetenceDialog: React.FC<CompetenceDialogProps> = ({ opened, teac
   }, [opened, teacher]);
 
   const handleAdd = async () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary' });
+      return;
+    }
     if (!selectedSubjectId || !teacher?.id) return;
     try {
       await TeacherCompetenceMatrixEndpoint.saveCompetence({
@@ -57,16 +62,21 @@ export const CompetenceDialog: React.FC<CompetenceDialogProps> = ({ opened, teac
       refreshCompetences();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка додавання', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка додавання'), { theme: 'error' });
     }
   };
 
   const handleDelete = async (id: number) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary' });
+      return;
+    }
     try {
       await TeacherCompetenceMatrixEndpoint.deleteCompetence(id);
       refreshCompetences();
     } catch (err) {
       console.error(err);
+      Notification.show(getMutationErrorMessage(err, 'Помилка видалення'), { theme: 'error' });
     }
   };
 

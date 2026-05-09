@@ -12,6 +12,7 @@ import { TeacherDialog } from '../components/TeacherDialog';
 import { CompetenceDialog } from '../components/CompetenceDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { formatPositionType } from '../utils/labels';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
 
 export default function TeachersView() {
   const [teachers, setTeachers] = useState<TeacherDTO[]>([]);
@@ -46,21 +47,37 @@ export default function TeachersView() {
   );
 
   const handleAdd = () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedTeacher(undefined);
     setDialogOpened(true);
   };
 
   const handleEdit = (teacher: TeacherDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedTeacher(teacher);
     setDialogOpened(true);
   };
 
   const handleCompetence = (teacher: TeacherDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedTeacher(teacher);
     setCompetenceOpened(true);
   };
 
   const openDeleteConfirm = (id: number) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setTeacherToDelete(id);
     setConfirmOpened(true);
   };
@@ -74,7 +91,7 @@ export default function TeachersView() {
       fetchTeachers();
     } catch (err) {
       console.error('Failed to delete teacher:', err);
-      Notification.show('Помилка під час видалення', { theme: 'error', position: 'bottom-end' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час видалення'), { theme: 'error', position: 'bottom-end' });
     }
   };
 

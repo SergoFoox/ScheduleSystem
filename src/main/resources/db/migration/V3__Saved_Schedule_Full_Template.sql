@@ -1,0 +1,2 @@
+ALTER TABLE saved_schedule ADD COLUMN IF NOT EXISTS full_template BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE saved_schedule ADD COLUMN IF NOT EXISTS snapshot_json TEXT;

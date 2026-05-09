@@ -7,6 +7,7 @@ import { Notification } from '@vaadin/react-components/Notification.js';
 import { SubjectEndpoint } from '../generated/endpoints';
 import Subject from '../generated/com/sergofoox/domain/subject/Subject';
 import { SubjectDialog } from '../components/SubjectDialog';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
 
 export default function SubjectsView() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -28,16 +29,28 @@ export default function SubjectsView() {
   }, []);
 
   const handleAdd = () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedSubject(undefined);
     setDialogOpened(true);
   };
 
   const handleEdit = (subject: Subject) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedSubject(subject);
     setDialogOpened(true);
   };
 
   const handleDelete = async (id: number) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     if (confirm('Ви впевнені, що хочете видалити цю дисципліну? Увага: всі повʼязані плани навантаження та заняття також будуть видалені!')) {
       try {
         await SubjectEndpoint.deleteSubject(id as any);
@@ -45,7 +58,7 @@ export default function SubjectsView() {
         refreshSubjects();
       } catch (err) {
         console.error(err);
-        Notification.show('Помилка видалення дисципліни', { theme: 'error' });
+        Notification.show(getMutationErrorMessage(err, 'Помилка видалення дисципліни'), { theme: 'error' });
       }
     }
   };

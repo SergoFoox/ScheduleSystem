@@ -1,6 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { GridCell } from './GridCell';
-import { scheduleData, scheduleLoading, refreshSchedule, isPublished, selectedCourseFilter, type CourseFilter } from '../store/app-state';
+import { Notification } from '@vaadin/react-components/Notification.js';
+import {
+  BASE_TEMPLATE_LOCKED_MESSAGE,
+  getMutationErrorMessage,
+  isBaseTemplateLocked,
+  isPublished,
+  refreshSchedule,
+  scheduleData,
+  scheduleLoading,
+  selectedCourseFilter,
+  type CourseFilter
+} from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
 import AssignLessonDialog from './AssignLessonDialog';
 
@@ -20,6 +31,7 @@ export const ScheduleGrid: React.FC = () => {
   const data = scheduleData.value;
   const loading = scheduleLoading.value;
   const published = isPublished.value;
+  const baseTemplateLocked = isBaseTemplateLocked.value;
   const selectedCourse = selectedCourseFilter.value;
 
   const [assignDialogState, setAssignDialogState] = useState<{
@@ -88,8 +100,11 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleDragStart = (e: React.DragEvent, lessonId: number) => {
-    if (published) {
+    if (published || baseTemplateLocked) {
       e.preventDefault();
+      if (baseTemplateLocked) {
+        Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      }
       return;
     }
     e.dataTransfer.setData('lessonId', lessonId.toString());
@@ -97,13 +112,18 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (published) return;
+    if (published || baseTemplateLocked) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = async (e: React.DragEvent, day: string, lessonNum: number, groupId: number, periodicity = 'WEEKLY') => {
-    if (published) return;
+    if (published || baseTemplateLocked) {
+      if (baseTemplateLocked) {
+        Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      }
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     const lessonIdStr = e.dataTransfer.getData('lessonId');
@@ -122,11 +142,16 @@ export const ScheduleGrid: React.FC = () => {
       await refreshSchedule();
     } catch (err) {
       console.error('Failed to move lesson:', err);
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час перенесення заняття'), { theme: 'error' });
     }
   };
 
   const handleCellClick = (day: string, lessonNum: number, groupId: number) => {
     if (published) return;
+    if (baseTemplateLocked) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     const targetTimeslot = data.timeslots?.find((ts: any) => ts?.dayOfWeek === day && ts?.lessonNumber === lessonNum);
     
     setAssignDialogState({

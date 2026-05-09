@@ -12,6 +12,7 @@ import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CourseP
 import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import { PlanDialog } from '../components/PlanDialog';
 import { formatRoomType } from '../utils/labels';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
 
 export default function CoursePlansView() {
   const [plans, setPlans] = useState<CoursePlanDTO[]>([]);
@@ -93,18 +94,30 @@ export default function CoursePlansView() {
   };
 
   const handleAddPlan = (group: GroupDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedPlan(undefined);
     setDefaultDialogGroupId(group.id);
     setDialogOpened(true);
   };
 
   const handleEditPlan = (plan: CoursePlanDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedPlan(plan);
     setDefaultDialogGroupId(undefined);
     setDialogOpened(true);
   };
 
   const handleDelete = async (plan: CoursePlanDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     if (!plan.id) return;
     if (!confirm(`Видалити "${plan.subjectName || 'дисципліну'}" з навчального плану?`)) return;
 
@@ -114,11 +127,15 @@ export default function CoursePlansView() {
       await refreshData();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка видалення плану', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка видалення плану'), { theme: 'error' });
     }
   };
 
   const handleCopyPlans = async (targetGroup: GroupDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     if (!targetGroup.id || !copySourceGroupId) {
       Notification.show('Оберіть групу-джерело', { theme: 'error' });
       return;
@@ -140,7 +157,7 @@ export default function CoursePlansView() {
       await refreshData();
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка копіювання плану', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка копіювання плану'), { theme: 'error' });
     } finally {
       setCopying(false);
     }

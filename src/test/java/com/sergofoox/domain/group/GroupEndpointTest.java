@@ -8,6 +8,7 @@ import com.sergofoox.domain.subject.Subject;
 import com.sergofoox.domain.teacher.PositionType;
 import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
+import com.sergofoox.domain.ui.TemplateAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,11 +41,14 @@ class GroupEndpointTest {
 
     @BeforeEach
     void setUp() {
+        TemplateAccessService templateAccessService = new TemplateAccessService();
+        templateAccessService.activateEditableTemplate(null);
         endpoint = new GroupEndpoint(
                 groupRepository,
                 teacherRepository,
                 lessonRepository,
-                coursePlanRepository
+                coursePlanRepository,
+                templateAccessService
         );
     }
 
