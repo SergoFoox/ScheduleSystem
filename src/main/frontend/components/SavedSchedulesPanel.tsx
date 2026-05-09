@@ -54,10 +54,6 @@ export const SavedSchedulesPanel: React.FC = () => {
   }, []);
 
   const handleSave = async () => {
-    if (baseTemplateLocked) {
-      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
-      return;
-    }
     const trimmed = name.trim();
     if (!trimmed) {
       Notification.show('Вкажіть назву розкладу', { theme: 'error', position: 'bottom-end' });
@@ -69,10 +65,13 @@ export const SavedSchedulesPanel: React.FC = () => {
       await ScheduleEndpoint.saveCurrentSchedule(trimmed);
       setName('');
       await loadItems();
-      Notification.show('Розклад збережено', { theme: 'success', position: 'bottom-end' });
+      Notification.show('Порожній розклад створено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to save schedule:', err);
-      Notification.show(getMutationErrorMessage(err, 'Помилка під час збереження розкладу'), { theme: 'error', position: 'bottom-end' });
+      const message = err instanceof Error && err.message.includes('існує')
+        ? 'Розклад із такою назвою вже існує'
+        : getMutationErrorMessage(err, 'Помилка під час створення розкладу');
+      Notification.show(message, { theme: 'error', position: 'bottom-end' });
     } finally {
       setLoading(false);
     }

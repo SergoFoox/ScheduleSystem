@@ -8,10 +8,15 @@ public class TemplateAccessService {
     public static final String BASE_TEMPLATE_EDIT_MESSAGE = "Для цього потрібно скопіювати шаблон.";
 
     private volatile boolean baseTemplateLocked = true;
+    private volatile boolean baseTemplateOpened = false;
     private volatile Long activeSavedScheduleId;
 
     public boolean isBaseTemplateLocked() {
         return baseTemplateLocked;
+    }
+
+    public boolean isBaseTemplateOpened() {
+        return baseTemplateOpened;
     }
 
     public Long getActiveSavedScheduleId() {
@@ -20,11 +25,19 @@ public class TemplateAccessService {
 
     public void lockBaseTemplate() {
         baseTemplateLocked = true;
+        baseTemplateOpened = true;
+        activeSavedScheduleId = null;
+    }
+
+    public void resetBaseTemplateSession() {
+        baseTemplateLocked = true;
+        baseTemplateOpened = false;
         activeSavedScheduleId = null;
     }
 
     public void activateEditableTemplate(Long savedScheduleId) {
         baseTemplateLocked = false;
+        baseTemplateOpened = false;
         activeSavedScheduleId = savedScheduleId;
     }
 

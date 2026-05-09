@@ -135,12 +135,7 @@ public class ScheduleEndpoint {
                 throw new IllegalStateException("Неможливо очистити розклад: його вже опубліковано");
             }
             templateAccessService.requireWritableTemplate();
-            List<Lesson> allLessons = lessonRepository.findAll();
-            for (Lesson lesson : allLessons) {
-                lesson.setTimeslot(null);
-                lesson.setRoom(null);
-                lessonRepository.save(lesson);
-            }
+            clearLessonPlacements();
         } catch (Exception e) {
             e.printStackTrace();
             throw e;
@@ -164,7 +159,7 @@ public class ScheduleEndpoint {
                 BUILT_IN_TEMPLATE_NAME,
                 "",
                 "",
-                BUILT_IN_TEMPLATE_LESSON_COUNT,
+                getBuiltInTemplateLessonCount(),
                 true,
                 true));
         return savedSchedules;
@@ -173,26 +168,20 @@ public class ScheduleEndpoint {
     @AnonymousAllowed
     @Transactional
     public SavedScheduleDTO saveCurrentSchedule(String name) {
-        templateAccessService.requireWritableTemplate();
         String normalizedName = normalizeSavedScheduleName(name);
-        LocalDateTime now = LocalDateTime.now();
-        SavedSchedule savedSchedule = savedScheduleRepository.findByNameIgnoreCase(normalizedName)
-                .orElseGet(SavedSchedule::new);
+        if (isBuiltInTemplateName(normalizedName) || savedScheduleRepository.findByNameIgnoreCase(normalizedName).isPresent()) {
+            throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
+        }
 
-        if (savedSchedule.getCreatedAt() == null) {
-            savedSchedule.setCreatedAt(now);
-            savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
-        }
-        if (savedSchedule.getSortOrder() == null) {
-            savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
-        }
+        LocalDateTime now = LocalDateTime.now();
+        SavedSchedule savedSchedule = new SavedSchedule();
         savedSchedule.setName(normalizedName);
+        savedSchedule.setCreatedAt(now);
         savedSchedule.setUpdatedAt(now);
-        savedSchedule.setFullTemplate(false);
-        savedSchedule.setSnapshotJson(null);
-        savedSchedule.replaceLessons(lessonRepository.findAll().stream()
-                .map(this::createSavedScheduleLesson)
-                .toList());
+        savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
+        savedSchedule.setFullTemplate(true);
+        savedSchedule.setSnapshotJson(serializeSnapshot(clearSnapshotLessonPlacements(captureCurrentSnapshot())));
+        savedSchedule.replaceLessons(List.of());
 
         return mapToSavedScheduleDTO(savedScheduleRepository.save(savedSchedule));
     }
@@ -392,6 +381,17 @@ public class ScheduleEndpoint {
     @AnonymousAllowed
     public boolean isBaseTemplateLocked() {
         return templateAccessService.isBaseTemplateLocked();
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public void resetBaseTemplateOnPageReload() {
+        if (!templateAccessService.isBaseTemplateOpened()) {
+            return;
+        }
+        clearWorkingData();
+        published = false;
+        templateAccessService.resetBaseTemplateSession();
     }
 
     @AnonymousAllowed
@@ -610,12 +610,28 @@ public class ScheduleEndpoint {
         return dateTime != null ? SAVED_SCHEDULE_DATE_FORMAT.format(dateTime) : "";
     }
 
+    private int getBuiltInTemplateLessonCount() {
+        if (templateAccessService.isBaseTemplateLocked()) {
+            return Math.toIntExact(lessonRepository.count());
+        }
+        return BUILT_IN_TEMPLATE_LESSON_COUNT;
+    }
+
     private int nextSavedScheduleSortOrder() {
         return savedScheduleRepository.findAll().stream()
                 .map(SavedSchedule::getSortOrder)
                 .filter(Objects::nonNull)
                 .max(Integer::compareTo)
                 .orElse(-1) + 1;
+    }
+
+    private void clearLessonPlacements() {
+        List<Lesson> allLessons = lessonRepository.findAll();
+        for (Lesson lesson : allLessons) {
+            lesson.setTimeslot(null);
+            lesson.setRoom(null);
+            lessonRepository.save(lesson);
+        }
     }
 
     private boolean isBuiltInTemplateName(String name) {
@@ -737,6 +753,33 @@ public class ScheduleEndpoint {
                 .toList();
 
         return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, lessons);
+    }
+
+    private FullTemplateSnapshot clearSnapshotLessonPlacements(FullTemplateSnapshot snapshot) {
+        List<LessonSnapshot> emptyLessons = snapshot.lessons().stream()
+                .map(lesson -> new LessonSnapshot(
+                        lesson.id(),
+                        lesson.subjectId(),
+                        lesson.lessonType(),
+                        lesson.teacherId(),
+                        lesson.groupId(),
+                        lesson.coursePlanId(),
+                        null,
+                        null,
+                        lesson.periodicity(),
+                        lesson.subgroup(),
+                        lesson.splitGroupIndex()))
+                .toList();
+
+        return new FullTemplateSnapshot(
+                snapshot.subjects(),
+                snapshot.rooms(),
+                snapshot.teachers(),
+                snapshot.groups(),
+                snapshot.coursePlans(),
+                snapshot.timeslots(),
+                snapshot.competences(),
+                emptyLessons);
     }
 
     private String serializeSnapshot(FullTemplateSnapshot snapshot) {

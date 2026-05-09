@@ -13,8 +13,15 @@ export default function MainLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    refreshSchedule(); // This updates global isPublished and scheduleData
-    ScheduleEndpoint.getCurrentUserRole().then(role => userRole.value = role);
+    const init = async () => {
+      const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      if (navigationEntry?.type === 'reload') {
+        await ScheduleEndpoint.resetBaseTemplateOnPageReload();
+      }
+      await refreshSchedule(); // This updates global isPublished and scheduleData
+      userRole.value = await ScheduleEndpoint.getCurrentUserRole();
+    };
+    init().catch((err) => console.error('Failed to initialize layout:', err));
   }, []);
 
   useEffect(() => {
