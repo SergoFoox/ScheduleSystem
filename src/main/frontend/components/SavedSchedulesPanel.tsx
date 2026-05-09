@@ -212,6 +212,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.deleteSavedSchedule(schedule.id);
       await loadItems();
+      await refreshSchedule();
       Notification.show('Збережений розклад видалено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to delete saved schedule:', err);

@@ -315,7 +315,13 @@ public class ScheduleEndpoint {
         if (id == null || id < 0) {
             return;
         }
+        boolean deletedScheduleIsActive = Objects.equals(templateAccessService.getActiveSavedScheduleId(), id);
         savedScheduleRepository.deleteById(id);
+        if (deletedScheduleIsActive) {
+            clearWorkingData();
+            published = false;
+            templateAccessService.resetBaseTemplateSession();
+        }
     }
 
     @AnonymousAllowed
