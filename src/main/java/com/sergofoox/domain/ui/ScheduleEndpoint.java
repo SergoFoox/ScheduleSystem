@@ -149,25 +149,26 @@ public class ScheduleEndpoint {
     @AnonymousAllowed
     @Transactional(readOnly = true)
     public List<SavedScheduleDTO> getSavedSchedules() {
-        try {
-            List<SavedScheduleDTO> savedSchedules = new ArrayList<>(savedScheduleRepository.findAllByOrderBySortOrderAscUpdatedAtDescIdAsc().stream()
-                    .filter(savedSchedule -> !isBuiltInTemplateName(savedSchedule.getName()))
-                    .map(this::mapToSavedScheduleDTO)
-                    .toList());
-            savedSchedules.add(0, new SavedScheduleDTO(
-                    BUILT_IN_TEMPLATE_ID,
-                    BUILT_IN_TEMPLATE_NAME,
-                    "",
-                    "",
-                    getBuiltInTemplateLessonCount(),
-                    true,
-                    true,
-                    false));
-            return savedSchedules;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Collections.emptyList();
+        List<SavedSchedule> savedSchedules = savedScheduleRepository.findAllByOrderBySortOrderAscUpdatedAtDescIdAsc();
+        List<SavedScheduleDTO> dtos = new ArrayList<>();
+        
+        dtos.add(new SavedScheduleDTO(
+                BUILT_IN_TEMPLATE_ID,
+                BUILT_IN_TEMPLATE_NAME,
+                "",
+                "",
+                getBuiltInTemplateLessonCount(),
+                true,
+                true,
+                false));
+
+        for (SavedSchedule s : savedSchedules) {
+            if (!isBuiltInTemplateName(s.getName())) {
+                dtos.add(mapToSavedScheduleDTO(s));
+            }
         }
+        
+        return dtos;
     }
 
     @AnonymousAllowed
@@ -435,7 +436,6 @@ public class ScheduleEndpoint {
     @Transactional(readOnly = true)
     public ScheduleGridDTO getScheduleGridData() {
         try {
-            System.out.println(">>> Завантаження даних для сітки...");
             List<Lesson> allLessons = lessonRepository.findAll();
             List<Timeslot> allTimeslots = timeslotRepository.findAll();
             List<Teacher> allTeachers = teacherRepository.findByArchivedFalse();
@@ -477,7 +477,6 @@ public class ScheduleEndpoint {
 
             return new ScheduleGridDTO(lessons, teachers, groups, rooms, timeslots);
         } catch (Exception e) {
-            System.err.println("!!! Помилка в getScheduleGridData: " + e.getMessage());
             e.printStackTrace();
             return new ScheduleGridDTO(Collections.emptyList(), Collections.emptyList(), 
                                      Collections.emptyList(), Collections.emptyList(), 
@@ -632,12 +631,13 @@ public class ScheduleEndpoint {
     }
 
     private SavedScheduleDTO mapToSavedScheduleDTO(SavedSchedule savedSchedule) {
+        int count = savedSchedule.getLessons() != null ? savedSchedule.getLessons().size() : 0;
         return new SavedScheduleDTO(
                 savedSchedule.getId(),
                 savedSchedule.getName(),
                 formatSavedScheduleDate(savedSchedule.getCreatedAt()),
                 formatSavedScheduleDate(savedSchedule.getUpdatedAt()),
-                savedSchedule.getLessons().size(),
+                count,
                 false,
                 savedSchedule.isFullTemplate(),
                 savedSchedule.isAutosaveEnabled()

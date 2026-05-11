@@ -93,6 +93,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.loadSavedSchedule(schedule.id);
       await refreshSchedule();
+      await loadItems(); // Оновлюємо список, щоб побачити актуальні лічильники занять
       Notification.show(schedule.isBuiltIn ? 'Базовий шаблон відкрито для перегляду' : 'Розклад завантажено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to load schedule:', err);
