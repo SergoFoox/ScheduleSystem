@@ -74,15 +74,23 @@ public class TeacherEndpoint {
         templateAccessService.requireWritableTemplate();
         try {
             Teacher teacher = teacherRepository.findById(id).orElseThrow();
-            // Спершу видаляємо заняття та компетенції, щоб не було конфліктів у БД
-            lessonRepository.deleteByTeacher(teacher);
-            
-            // Видаляємо зв'язки з матрицею компетенцій
-            List<com.sergofoox.domain.competence.TeacherCompetenceMatrix> competences = competenceRepository.findByTeacher(teacher);
-            competenceRepository.deleteAll(competences);
-            
-            teacherRepository.delete(teacher);
-            System.out.println("Teacher deleted successfully");
+            teacher.setArchived(true);
+            teacherRepository.save(teacher);
+            System.out.println("Teacher archived successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    @Transactional
+    public void restoreTeacher(Long id) {
+        templateAccessService.requireWritableTemplate();
+        try {
+            Teacher teacher = teacherRepository.findById(id).orElseThrow();
+            teacher.setArchived(false);
+            teacherRepository.save(teacher);
+            System.out.println("Teacher restored successfully");
         } catch (Exception e) {
             e.printStackTrace();
             throw e;
@@ -99,7 +107,8 @@ public class TeacherEndpoint {
                 teacher.getWeeklyHourLimit(),
                 teacher.getMaxWorkingDaysPerWeek(),
                 teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getId() : null,
-                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getName() : null
+                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getName() : null,
+                teacher.isArchived()
         );
     }
 }

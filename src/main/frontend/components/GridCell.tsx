@@ -91,8 +91,15 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
                   </Button>
                 )}
                 
-                <span className={`${teacherFontSize} font-normal font-serif text-black truncate`}>
+                <span className={`${teacherFontSize} font-normal font-serif text-black truncate flex items-center gap-1`}>
                   {l.teacherName || '—'}
+                  {l.teacherArchived && (
+                    <Icon 
+                      icon="vaadin:package" 
+                      className="w-3 h-3 text-gray-400" 
+                      title="Цей викладач в архіві" 
+                    />
+                  )}
                 </span>
                 
                 {(align === 'left' || align === 'center') && !published && (

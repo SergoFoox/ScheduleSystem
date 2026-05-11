@@ -40,6 +40,8 @@ public class Teacher {
     @ManyToOne(fetch = FetchType.LAZY)
     private Room assignedRoom;
 
+    private boolean archived = false;
+
     public Teacher() {}
 
     public Teacher(String fullName, String department, PositionType positionType) {
@@ -72,6 +74,14 @@ public class Teacher {
     public void setMaxWorkingDaysPerWeek(Integer maxWorkingDaysPerWeek) { this.maxWorkingDaysPerWeek = maxWorkingDaysPerWeek; }
     public Room getAssignedRoom() { return assignedRoom; }
     public void setAssignedRoom(Room assignedRoom) { this.assignedRoom = assignedRoom; }
+
+    public boolean isArchived() {
+        return archived;
+    }
+
+    public void setArchived(boolean archived) {
+        this.archived = archived;
+    }
 
     @Override
     public boolean equals(Object o) {

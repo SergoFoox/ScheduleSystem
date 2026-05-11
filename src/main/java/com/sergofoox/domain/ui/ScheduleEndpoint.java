@@ -438,7 +438,7 @@ public class ScheduleEndpoint {
             System.out.println(">>> Завантаження даних для сітки...");
             List<Lesson> allLessons = lessonRepository.findAll();
             List<Timeslot> allTimeslots = timeslotRepository.findAll();
-            List<Teacher> allTeachers = teacherRepository.findAll();
+            List<Teacher> allTeachers = teacherRepository.findByArchivedFalse();
             List<Group> allGroups = groupRepository.findAll();
             List<Room> allRooms = roomRepository.findAll();
             
@@ -1229,6 +1229,7 @@ public class ScheduleEndpoint {
             List<Lesson> allLessons = lessonRepository.findAll();
 
             return matrixEntries.stream()
+                    .filter(entry -> !entry.getTeacher().isArchived())
                     .filter(entry -> !busyTeacherIds.contains(entry.getTeacher().getId()))
                     .map(entry -> {
                         Teacher t = entry.getTeacher();
@@ -1406,6 +1407,7 @@ public class ScheduleEndpoint {
                 lesson.getSubject() != null ? lesson.getSubject().getId() : null,
                 lesson.getRoom() != null ? lesson.getRoom().getId() : null,
                 lesson.getTeacher() != null ? lesson.getTeacher().getId() : null,
+                lesson.getTeacher() != null && lesson.getTeacher().isArchived(),
                 lesson.getPeriodicity()
         );
     }
@@ -1458,7 +1460,8 @@ public class ScheduleEndpoint {
                 teacher.getWeeklyHourLimit(),
                 teacher.getMaxWorkingDaysPerWeek(),
                 teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getId() : null,
-                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getName() : null
+                teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getName() : null,
+                teacher.isArchived()
         );
     }
 

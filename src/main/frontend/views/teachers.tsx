@@ -6,6 +6,8 @@ import { Button } from '@vaadin/react-components/Button.js';
 import { Icon } from '@vaadin/react-components/Icon.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { ConfirmDialog } from '@vaadin/react-components/ConfirmDialog.js';
+import { Tabs } from '@vaadin/react-components/Tabs.js';
+import { Tab } from '@vaadin/react-components/Tab.js';
 import { TeacherEndpoint } from '../generated/endpoints';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import { TeacherDialog } from '../components/TeacherDialog';
@@ -22,6 +24,7 @@ export default function TeachersView() {
   const [confirmOpened, setConfirmOpened] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherDTO | undefined>(undefined);
   const [teacherToDelete, setTeacherToDelete] = useState<number | undefined>(undefined);
+  const [selectedTab, setSelectedTab] = useState(0);
   const loading = useSignal(true);
 
   const fetchTeachers = async () => {
@@ -41,10 +44,13 @@ export default function TeachersView() {
     fetchTeachers();
   }, []);
 
-  const filteredTeachers = teachers.filter(teacher => 
-    teacher.fullName?.toLowerCase().includes(filter.toLowerCase()) ||
-    teacher.department?.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filteredTeachers = teachers.filter(teacher => {
+    const matchesFilter = 
+      teacher.fullName?.toLowerCase().includes(filter.toLowerCase()) ||
+      teacher.department?.toLowerCase().includes(filter.toLowerCase());
+    const matchesTab = selectedTab === 0 ? !teacher.archived : teacher.archived;
+    return matchesFilter && matchesTab;
+  });
 
   const handleAdd = () => {
     if (isBaseTemplateLocked.value) {
@@ -95,6 +101,21 @@ export default function TeachersView() {
     }
   };
 
+  const handleRestore = async (id: number) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
+    try {
+      await TeacherEndpoint.restoreTeacher(id as any);
+      Notification.show('Викладача відновлено', { theme: 'success', position: 'bottom-end' });
+      fetchTeachers();
+    } catch (err) {
+      console.error('Failed to restore teacher:', err);
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час відновлення'), { theme: 'error', position: 'bottom-end' });
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col gap-6 p-6 overflow-hidden bg-gray-50/50">
       <div className="flex justify-between items-center p-4 rounded-xl bg-white border shadow-sm">
@@ -102,6 +123,13 @@ export default function TeachersView() {
           <h2 className="text-2xl font-extrabold tracking-tight text-gray-900">
             Список викладачів
           </h2>
+          <Tabs 
+            selected={selectedTab} 
+            onSelectedChanged={e => setSelectedTab(e.detail.value)}
+          >
+            <Tab>Активні</Tab>
+            <Tab>Архів</Tab>
+          </Tabs>
           <TextField
             placeholder="Пошук за ПІБ або кафедрою..."
             value={filter}
@@ -112,10 +140,12 @@ export default function TeachersView() {
             <Icon icon="vaadin:search" slot="prefix" className="text-gray-400" />
           </TextField>
         </div>
-        <Button theme="primary" onClick={handleAdd} className="shadow-md">
-          <Icon icon="vaadin:plus" slot="prefix" />
-          Додати викладача
-        </Button>
+        {selectedTab === 0 && (
+          <Button theme="primary" onClick={handleAdd} className="shadow-md">
+            <Icon icon="vaadin:plus" slot="prefix" />
+            Додати викладача
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden border rounded-xl shadow-lg bg-white">
@@ -148,33 +178,48 @@ export default function TeachersView() {
             }
             autoWidth
             frozenToEnd
-            renderer={({ item }) => (
-              <div className="flex gap-2 p-1">
-                <Button 
-                  theme="tertiary icon" 
-                  onClick={() => handleEdit(item as TeacherDTO)}
-                  title="Редагувати"
-                >
-                  <Icon icon="vaadin:edit" />
-                </Button>
-                <Button 
-                  theme="tertiary icon" 
-                  onClick={() => handleCompetence(item as TeacherDTO)}
-                  title="Компетенції (дисципліни)"
-                >
-                  <Icon icon="vaadin:book" />
-                </Button>
-                <Button 
-                  theme="tertiary error icon" 
-                  onClick={() => {
-                    if (item.id) openDeleteConfirm(item.id as any);
-                  }}
-                  title="Видалити"
-                >
-                  <Icon icon="vaadin:trash" />
-                </Button>
-              </div>
-            )}
+            renderer={({ item }) => {
+              const teacher = item as TeacherDTO;
+              return (
+                <div className="flex gap-2 p-1">
+                  <Button 
+                    theme="tertiary icon" 
+                    onClick={() => handleEdit(teacher)}
+                    title="Редагувати"
+                  >
+                    <Icon icon="vaadin:edit" />
+                  </Button>
+                  <Button 
+                    theme="tertiary icon" 
+                    onClick={() => handleCompetence(teacher)}
+                    title="Компетенції (дисципліни)"
+                  >
+                    <Icon icon="vaadin:book" />
+                  </Button>
+                  {!teacher.archived ? (
+                    <Button 
+                      theme="tertiary error icon" 
+                      onClick={() => {
+                        if (teacher.id) openDeleteConfirm(teacher.id as any);
+                      }}
+                      title="Видалити"
+                    >
+                      <Icon icon="vaadin:trash" />
+                    </Button>
+                  ) : (
+                    <Button 
+                      theme="tertiary icon" 
+                      onClick={() => {
+                        if (teacher.id) handleRestore(teacher.id as any);
+                      }}
+                      title="Відновити"
+                    >
+                      <Icon icon="vaadin:rotate-left" />
+                    </Button>
+                  )}
+                </div>
+              );
+            }}
           />
         </Grid>
       </div>

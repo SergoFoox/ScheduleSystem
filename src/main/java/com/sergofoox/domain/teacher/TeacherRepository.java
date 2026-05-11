@@ -14,4 +14,7 @@ public interface TeacherRepository extends JpaRepository<Teacher, Long> {
     List<Teacher> findAll();
 
     List<Teacher> findByAssignedRoom(Room assignedRoom);
+
+    List<Teacher> findByArchivedFalse();
+    List<Teacher> findByArchivedTrue();
 }

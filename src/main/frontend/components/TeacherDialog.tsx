@@ -29,7 +29,8 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
     weeklyHourLimit: 40,
     maxWorkingDaysPerWeek: 5,
     assignedRoomId: undefined,
-    assignedRoomName: undefined
+    assignedRoomName: undefined,
+    archived: false
   });
 
   const [saving, setSaving] = useState(false);
@@ -56,7 +57,8 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
         weeklyHourLimit: 40,
         maxWorkingDaysPerWeek: 5,
         assignedRoomId: undefined,
-        assignedRoomName: undefined
+        assignedRoomName: undefined,
+        archived: false
       });
     }
   }, [teacher, opened]);
