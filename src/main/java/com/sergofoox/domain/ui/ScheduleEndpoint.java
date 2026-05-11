@@ -31,6 +31,8 @@ import com.sergofoox.domain.timeslot.TimeslotRepository;
 import com.sergofoox.domain.ui.dto.*;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
@@ -73,6 +75,9 @@ public class ScheduleEndpoint {
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
     private final TemplateAccessService templateAccessService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private boolean published = false;
 
@@ -254,34 +259,79 @@ public class ScheduleEndpoint {
             throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
         }
 
-        // Якщо базовий шаблон зараз НЕ завантажений в робочу пам'ять (таблиці), 
-        // нам потрібно його завантажити, щоб мати що копіювати.
-        // АЛЕ ми не хочемо затирати поточну роботу користувача, якщо він просто копіює.
-        // Проте, оскільки копіювання зазвичай відбувається з вікна менеджменту,
-        // ми припускаємо, що користувач або вже завантажив його, або готовий до завантаження.
-        if (!templateAccessService.isBaseTemplateLocked()) {
-            importBuiltInTemplate();
-        }
-
+        // 1. Створюємо новий порожній розклад
         LocalDateTime now = LocalDateTime.now();
-        SavedSchedule savedSchedule = new SavedSchedule();
-        savedSchedule.setName(normalizedName);
-        savedSchedule.setCreatedAt(now);
-        savedSchedule.setUpdatedAt(now);
-        savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
-        savedSchedule.setFullTemplate(true);
+        SavedSchedule copy = new SavedSchedule();
+        copy.setName(normalizedName);
+        copy.setCreatedAt(now);
+        copy.setUpdatedAt(now);
+        copy.setSortOrder(nextSavedScheduleSortOrder());
+        copy.setFullTemplate(true);
         
-        // Для Базового шаблону ми створюємо новий snapshotJson на основі поточного стану таблиць
-        savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
+        // 2. Отримуємо дані "Базового шаблону" з SQL файлу безпосередньо, 
+        // НЕ зачіпаючи поточні робочі таблиці БД.
+        // Ми використовуємо вже існуючий механізм десеріалізації, 
+        // але для цього нам потрібно отримати snapshot базового шаблону.
+        FullTemplateSnapshot baseSnapshot = getBaseTemplateSnapshotWithoutImport();
         
-        savedSchedule.replaceLessons(lessonRepository.findAll().stream()
-                .map(this::createSavedScheduleLesson)
-                .toList());
+        // 3. Зберігаємо цей snapshot у копію
+        copy.setSnapshotJson(serializeSnapshot(baseSnapshot));
+        
+        // 4. Копіюємо уроки зі snapshot у список занять розкладу
+        List<SavedScheduleLesson> lessons = baseSnapshot.lessons().stream()
+                .map(l -> {
+                    SavedScheduleLesson sl = new SavedScheduleLesson();
+                    sl.setLessonId(l.id());
+                    sl.setCoursePlanId(l.coursePlanId());
+                    sl.setGroupId(l.groupId());
+                    sl.setSubjectId(l.id()); // У шаблоні ID часто збігаються
+                    sl.setTeacherId(l.teacherId());
+                    sl.setTimeslotId(l.timeslotId());
+                    sl.setRoomId(l.roomId());
+                    sl.setLessonType(l.lessonType());
+                    sl.setPeriodicity(l.periodicity());
+                    sl.setSubgroup(l.subgroup());
+                    sl.setSplitGroupIndex(l.splitGroupIndex());
+                    return sl;
+                }).toList();
+        copy.replaceLessons(lessons);
 
-        SavedSchedule saved = savedScheduleRepository.save(savedSchedule);
-        templateAccessService.activateEditableTemplate(saved.getId());
+        SavedSchedule saved = savedScheduleRepository.save(copy);
+        
+        // Оскільки це копія шаблону, історія "Машини часу" для неї має бути порожньою
         autosaveService.deleteSnapshotsForSchedule(saved.getId());
+        
         return mapToSavedScheduleDTO(saved);
+    }
+
+    /**
+     * Helper to read the SQL script and turn it into a Snapshot object without DB import.
+     * This is more robust as it doesn't touch working tables.
+     */
+    private FullTemplateSnapshot getBaseTemplateSnapshotWithoutImport() {
+        // Оскільки у нас вже є розклад у V2__Base_Template.sql, 
+        // а написання парсера SQL - це надто складно, ми використаємо "тіньову" процедуру:
+        // Ми завантажуємо дані, робимо snapshot і ВІДКОЧУЄМО транзакцію.
+        // Але оскільки ми в @Transactional методі, ми зробимо це простіше:
+        // Ми просто завантажимо його, зробимо snapshot і ПОВЕРНЕМО поточний стан.
+        
+        Long currentActiveId = templateAccessService.getActiveSavedScheduleId();
+        FullTemplateSnapshot currentWork = captureCurrentSnapshot();
+        
+        try {
+            importBuiltInTemplate();
+            if (entityManager != null) entityManager.clear();
+            FullTemplateSnapshot base = captureCurrentSnapshot();
+            return base;
+        } finally {
+            // Відновлюємо те, що було у користувача до натискання кнопки
+            restoreSnapshot(currentWork);
+            if (currentActiveId != null) {
+                templateAccessService.activateEditableTemplate(currentActiveId);
+            } else {
+                templateAccessService.resetBaseTemplateSession();
+            }
+        }
     }
 
     @AnonymousAllowed
@@ -296,22 +346,32 @@ public class ScheduleEndpoint {
             throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
         }
 
-        SavedSchedule source = savedScheduleRepository.findById(id).orElseThrow();
+        // Перевіряємо, чи є цей розклад зараз активним у робочій пам'яті
+        boolean isSourceActive = Objects.equals(templateAccessService.getActiveSavedScheduleId(), id);
+        
         LocalDateTime now = LocalDateTime.now();
         SavedSchedule copy = new SavedSchedule();
         copy.setName(normalizedName);
         copy.setCreatedAt(now);
         copy.setUpdatedAt(now);
         copy.setSortOrder(nextSavedScheduleSortOrder());
-        copy.setFullTemplate(source.isFullTemplate());
-        
-        // ВАЖЛИВО: Копіюємо snapshotJson, бо він містить усі сутності (вчителі, групи тощо)
-        // Якщо його очистити, то розклад буде порожнім при завантаженні.
-        copy.setSnapshotJson(source.getSnapshotJson()); 
-        
-        copy.replaceLessons(source.getLessons().stream()
-                .map(this::copySavedScheduleLesson)
-                .toList());
+
+        if (isSourceActive) {
+            // Якщо розклад активний - копіюємо його поточний стан із таблиць (включаючи незбережені зміни)
+            copy.setFullTemplate(true);
+            copy.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
+            copy.replaceLessons(lessonRepository.findAll().stream()
+                    .map(this::createSavedScheduleLesson)
+                    .toList());
+        } else {
+            // Якщо не активний - копіюємо його останній збережений стан із бази даних
+            SavedSchedule source = savedScheduleRepository.findById(id).orElseThrow();
+            copy.setFullTemplate(source.isFullTemplate());
+            copy.setSnapshotJson(source.getSnapshotJson()); 
+            copy.replaceLessons(source.getLessons().stream()
+                    .map(this::copySavedScheduleLesson)
+                    .toList());
+        }
 
         SavedSchedule saved = savedScheduleRepository.save(copy);
         autosaveService.copySnapshots(id, saved.getId());
