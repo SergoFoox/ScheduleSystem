@@ -4,11 +4,12 @@ import { Button } from '@vaadin/react-components/Button.js';
 import { Select } from '@vaadin/react-components/Select.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { ScheduleEndpoint, RoomEndpoint, CoursePlanEndpoint } from '../generated/endpoints';
-import { refreshSchedule } from '../store/app-state';
+import { getMutationErrorMessage, refreshSchedule } from '../store/app-state';
 import type ReplacementCandidateDTO from '../generated/com/sergofoox/domain/ui/dto/ReplacementCandidateDTO';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
+import { formatPriority, formatRoomType } from '../utils/labels';
 
 interface ReplacementDialogProps {
   lesson: any;
@@ -74,7 +75,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
       onClose();
     } catch (err) {
       console.error('Failed to assign replacement:', err);
-      Notification.show('Помилка при збереженні змін', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час збереження змін'), { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -92,6 +93,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
       onClose();
     } catch (err) {
       console.error('Failed to unassign lesson:', err);
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час видалення заняття'), { theme: 'error' });
     } finally {
       setSaving(false);
     }
@@ -129,9 +131,9 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
             />
 
             <Select
-              label="Викладач (Кандидати на заміну)"
+              label="Викладач (кандидати на заміну)"
               items={candidates.map(c => ({
-                label: `${c.fullName} (${c.priority === 'PRIMARY' ? 'Осн.' : 'Заміна'}, нагр: ${c.currentWorkload})`,
+                label: `${c.fullName} (${formatPriority(c.priority)}, навантаження: ${c.currentWorkload})`,
                 value: (c.id || '').toString()
               }))}
               value={selectedTeacherId}
@@ -142,7 +144,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
             <Select
               label="Аудиторія"
               items={rooms.map(r => ({
-                label: `${r.name} (${r.type})`,
+                label: `${r.name} (${formatRoomType(r.type)})`,
                 value: (r.id || '').toString()
               }))}
               value={selectedRoomId}

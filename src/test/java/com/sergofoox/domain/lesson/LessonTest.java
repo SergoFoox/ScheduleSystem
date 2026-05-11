@@ -29,7 +29,7 @@ class LessonTest {
         assertNull(lesson.getTimeslot());
         assertNull(lesson.getRoom());
 
-        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0));
+        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
         Room room = new Room("101", 30, "Main", "Projector", RoomType.LECTURE_HALL);
 
         lesson.setTimeslot(timeslot);

@@ -100,7 +100,7 @@ export const AnalyticsSidebar: React.FC = () => {
                   </div>
                 ))
               ) : (
-                <div className="text-s text-gray-500 italic">Навчальні плани не знайдені</div>
+                <div className="text-s text-gray-500 italic">Навчальні плани не знайдено</div>
               )}
             </div>
 

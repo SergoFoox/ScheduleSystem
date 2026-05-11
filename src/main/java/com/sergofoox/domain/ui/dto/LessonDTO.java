@@ -15,5 +15,6 @@ public record LessonDTO(
     Long subjectId,
     Long roomId,
     Long teacherId,
+    boolean teacherArchived,
     Periodicity periodicity
 ) {}

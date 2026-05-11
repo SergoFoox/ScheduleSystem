@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from '@vaadin/react-components/Button.js';
 import { Icon } from '@vaadin/react-components/Icon.js';
+import { Notification } from '@vaadin/react-components/Notification.js';
 import { ReplacementDialog } from './ReplacementDialog';
-import { isPublished } from '../store/app-state';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked, isPublished } from '../store/app-state';
 
 interface GridCellProps {
   lessons: any[]; 
@@ -22,10 +23,15 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
   const first = lessons[0];
   const hasRealConflict = !suppressConflictIndicator && lessons.some((l: any) => l.hasConflict);
   const published = isPublished.value;
+  const baseTemplateLocked = isBaseTemplateLocked.value;
   const hasSplitSubgroups = lessons.length > 1 && lessons.some((l: any) => l.subgroup > 0);
 
   const handleReplacement = (e: React.MouseEvent, lesson: any) => {
     e.stopPropagation(); 
+    if (baseTemplateLocked) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setActiveLesson(lesson);
     setDialogOpened(true);
   };
@@ -41,16 +47,20 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
   // Збираємо унікальні номери аудиторій
   const uniqueRooms = Array.from(new Set(lessons.map(l => l.roomName || '—'))).join(', ');
 
-  const teacherNames = Array.from(new Set(lessons.map(l => l.teacherName || uniqueRooms)));
-  const displayLessons = hasSplitSubgroups ? teacherNames.map((teacherName, index) => ({ ...first, id: `${first.id}-${index}`, teacherName })) : lessons;
+  const displayLessons = hasSplitSubgroups
+    ? lessons.map((lesson) => ({ ...lesson, teacherName: lesson.teacherName || uniqueRooms }))
+    : lessons;
 
   return (
     <>
       <div 
-        draggable={!published && !!onDragStart}
+        draggable={!published && !baseTemplateLocked && !!onDragStart}
         onDragStart={(e) => {
-          if (published || !onDragStart) {
+          if (published || baseTemplateLocked || !onDragStart) {
             e.preventDefault();
+            if (baseTemplateLocked) {
+              Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+            }
             return;
           }
           e.stopPropagation();
@@ -81,8 +91,15 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
                   </Button>
                 )}
                 
-                <span className={`${teacherFontSize} font-normal font-serif text-black truncate`}>
+                <span className={`${teacherFontSize} font-normal font-serif text-black truncate flex items-center gap-1`}>
                   {l.teacherName || '—'}
+                  {l.teacherArchived && (
+                    <Icon 
+                      icon="vaadin:package" 
+                      className="w-3 h-3 text-gray-400" 
+                      title="Цей викладач в архіві" 
+                    />
+                  )}
                 </span>
                 
                 {(align === 'left' || align === 'center') && !published && (
@@ -101,11 +118,11 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
           {/* Combined Rooms and Conditional Subgroup label */}
           <div className={`${roomFontSize} text-black font-bold font-serif flex flex-col ${alignClasses} gap-0 mt-0.5`}>
             <div className={`flex flex-wrap ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'} leading-tight`}>
-               <span>ауд.№{uniqueRooms}</span>
+               <span>ауд. №{uniqueRooms}</span>
                {/* Показуємо підгрупу тільки якщо вона ОДНА у клітинці */}
                {!hasSplitSubgroups && lessons.length === 1 && first.subgroup > 0 && (
                  <span className="ml-1 italic font-normal text-[0.9em] whitespace-nowrap">
-                   {first.subgroup}-а підгр
+                   {first.subgroup}-а підгр.
                  </span>
                )}
             </div>

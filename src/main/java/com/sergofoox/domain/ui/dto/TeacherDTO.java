@@ -11,5 +11,6 @@ public record TeacherDTO(
     Integer weeklyHourLimit,
     Integer maxWorkingDaysPerWeek,
     Long assignedRoomId,
-    String assignedRoomName
+    String assignedRoomName,
+    boolean archived
 ) {}

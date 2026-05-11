@@ -4,6 +4,9 @@ import com.sergofoox.domain.ui.dto.GroupDTO;
 import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.lesson.LessonRepository;
+import com.sergofoox.domain.plan.CoursePlan;
+import com.sergofoox.domain.plan.CoursePlanRepository;
+import com.sergofoox.domain.ui.TemplateAccessService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.springframework.stereotype.Service;
@@ -19,11 +22,19 @@ public class GroupEndpoint {
     private final GroupRepository groupRepository;
     private final TeacherRepository teacherRepository;
     private final LessonRepository lessonRepository;
+    private final CoursePlanRepository coursePlanRepository;
+    private final TemplateAccessService templateAccessService;
 
-    public GroupEndpoint(GroupRepository groupRepository, TeacherRepository teacherRepository, LessonRepository lessonRepository) {
+    public GroupEndpoint(GroupRepository groupRepository,
+                         TeacherRepository teacherRepository,
+                         LessonRepository lessonRepository,
+                         CoursePlanRepository coursePlanRepository,
+                         TemplateAccessService templateAccessService) {
         this.groupRepository = groupRepository;
         this.teacherRepository = teacherRepository;
         this.lessonRepository = lessonRepository;
+        this.coursePlanRepository = coursePlanRepository;
+        this.templateAccessService = templateAccessService;
     }
 
     public List<GroupDTO> getAllGroups() {
@@ -34,6 +45,7 @@ public class GroupEndpoint {
 
     @Transactional
     public void saveGroup(GroupDTO dto) {
+        templateAccessService.requireWritableTemplate();
         System.out.println("Attempting to save group: " + dto.name());
         try {
             Group group;
@@ -62,10 +74,16 @@ public class GroupEndpoint {
 
     @Transactional
     public void deleteGroup(Long id) {
+        templateAccessService.requireWritableTemplate();
         try {
             Group group = groupRepository.findById(id).orElseThrow();
-            // Спершу видаляємо всі заняття цієї групи
+            List<CoursePlan> coursePlans = coursePlanRepository.findByGroup(group);
+
             lessonRepository.deleteByGroup(group);
+            for (CoursePlan coursePlan : coursePlans) {
+                lessonRepository.deleteByCoursePlan(coursePlan);
+            }
+            coursePlanRepository.deleteByGroup(group);
             groupRepository.delete(group);
             System.out.println("Group deleted successfully");
         } catch (Exception e) {

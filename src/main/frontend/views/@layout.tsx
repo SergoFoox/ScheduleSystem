@@ -1,21 +1,39 @@
 import { AppLayout, DrawerToggle, Icon, Scroller, SideNav, SideNavItem, Checkbox } from '@vaadin/react-components';
 import '@vaadin/icons/vaadin-iconset.js';
 import { Suspense, useEffect } from 'react';
-import { Outlet } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { ScheduleEndpoint } from '../generated/endpoints';
-import { isPublished, refreshSchedule } from '../store/app-state';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked, isPublished, refreshSchedule } from '../store/app-state';
+import { Notification } from '@vaadin/react-components/Notification.js';
 
 export default function MainLayout() {
   const userRole = useSignal<string | undefined>(undefined);
   const isDispatcher = userRole.value === 'DISPATCHER'; 
+  const location = useLocation();
 
   useEffect(() => {
-    refreshSchedule(); // This updates global isPublished and scheduleData
-    ScheduleEndpoint.getCurrentUserRole().then(role => userRole.value = role);
+    const init = async () => {
+      const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      if (navigationEntry?.type === 'reload') {
+        await ScheduleEndpoint.resetBaseTemplateOnPageReload();
+      }
+      await refreshSchedule(); // This updates global isPublished and scheduleData
+      userRole.value = await ScheduleEndpoint.getCurrentUserRole();
+    };
+    init().catch((err) => console.error('Failed to initialize layout:', err));
   }, []);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('side-nav-location-changed'));
+  }, [location.pathname, location.search]);
+
   const handleToggle = async () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      await refreshSchedule(false);
+      return;
+    }
     await ScheduleEndpoint.togglePublishedStatus();
     await refreshSchedule();
   };
@@ -23,7 +41,7 @@ export default function MainLayout() {
   return (
     <AppLayout primarySection="drawer">
       <div slot="navbar" className="flex items-center gap-4 px-4 w-full">
-        <DrawerToggle aria-label="Menu toggle"></DrawerToggle>
+        <DrawerToggle aria-label="Перемкнути меню"></DrawerToggle>
         <h1 className="text-lg m-0">ASMS V3</h1>
         
         <div className="ml-auto flex items-center gap-4">
@@ -75,7 +93,7 @@ export default function MainLayout() {
         </SideNav>
       </Scroller>
 
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<div>Завантаження...</div>}>
         <Outlet />
       </Suspense>
     </AppLayout>

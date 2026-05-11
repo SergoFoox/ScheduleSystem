@@ -7,6 +7,7 @@ import { Notification } from '@vaadin/react-components/Notification.js';
 import { SubjectEndpoint } from '../generated/endpoints';
 import Subject from '../generated/com/sergofoox/domain/subject/Subject';
 import { SubjectDialog } from '../components/SubjectDialog';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
 
 export default function SubjectsView() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -19,7 +20,7 @@ export default function SubjectsView() {
       setSubjects((data || []).filter(s => !!s) as Subject[]);
     } catch (err) {
       console.error(err);
-      Notification.show('Помилка завантаження предметів', { theme: 'error' });
+      Notification.show('Помилка завантаження дисциплін', { theme: 'error' });
     }
   };
 
@@ -28,24 +29,36 @@ export default function SubjectsView() {
   }, []);
 
   const handleAdd = () => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedSubject(undefined);
     setDialogOpened(true);
   };
 
   const handleEdit = (subject: Subject) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
     setSelectedSubject(subject);
     setDialogOpened(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Ви впевнені, що хочете видалити цей предмет? Увага: всі пов’язані плани навантаження та заняття також будуть видалені!')) {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
+    if (confirm('Ви впевнені, що хочете видалити цю дисципліну? Увага: всі повʼязані плани навантаження та заняття також будуть видалені!')) {
       try {
         await SubjectEndpoint.deleteSubject(id as any);
-        Notification.show('Предмет та всі пов’язані дані видалено', { theme: 'success' });
+        Notification.show('Дисципліну та всі повʼязані дані видалено', { theme: 'success' });
         refreshSubjects();
       } catch (err) {
         console.error(err);
-        Notification.show('Помилка видалення предмета', { theme: 'error' });
+        Notification.show(getMutationErrorMessage(err, 'Помилка видалення дисципліни'), { theme: 'error' });
       }
     }
   };
@@ -53,10 +66,10 @@ export default function SubjectsView() {
   return (
     <div className="p-m flex flex-col gap-m h-full">
       <div className="flex justify-between items-center px-4 pt-4">
-        <h2 className="text-xl font-bold">Дисципліни (Предмети)</h2>
+        <h2 className="text-xl font-bold">Дисципліни</h2>
         <Button theme="primary" onClick={handleAdd}>
           <Icon icon="vaadin:plus" slot="prefix" />
-          Додати предмет
+          Додати дисципліну
         </Button>
       </div>
 
@@ -75,7 +88,7 @@ export default function SubjectsView() {
               <div className="flex gap-2">
                 <Button
                   theme="tertiary icon"
-                  aria-label="Edit"
+                  aria-label="Редагувати"
                   onClick={() => handleEdit(item as Subject)}
                   title="Редагувати"
                 >
@@ -83,7 +96,7 @@ export default function SubjectsView() {
                 </Button>
                 <Button
                   theme="error tertiary icon"
-                  aria-label="Delete"
+                  aria-label="Видалити"
                   onClick={() => handleDelete(item.id!)}
                   title="Видалити"
                 >

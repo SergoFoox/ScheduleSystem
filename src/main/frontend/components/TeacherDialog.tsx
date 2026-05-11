@@ -11,6 +11,7 @@ import { RoomEndpoint, TeacherEndpoint } from '../generated/endpoints';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import PositionType from '../generated/com/sergofoox/domain/teacher/PositionType';
+import { getMutationErrorMessage } from '../store/app-state';
 
 interface TeacherDialogProps {
   opened: boolean;
@@ -28,7 +29,8 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
     weeklyHourLimit: 40,
     maxWorkingDaysPerWeek: 5,
     assignedRoomId: undefined,
-    assignedRoomName: undefined
+    assignedRoomName: undefined,
+    archived: false
   });
 
   const [saving, setSaving] = useState(false);
@@ -55,7 +57,8 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
         weeklyHourLimit: 40,
         maxWorkingDaysPerWeek: 5,
         assignedRoomId: undefined,
-        assignedRoomName: undefined
+        assignedRoomName: undefined,
+        archived: false
       });
     }
   }, [teacher, opened]);
@@ -74,7 +77,7 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
       onClose();
     } catch (err) {
       console.error('Failed to save teacher:', err);
-      Notification.show('Помилка при збереженні', { theme: 'error' });
+      Notification.show(getMutationErrorMessage(err, 'Помилка під час збереження'), { theme: 'error' });
     } finally {
       setSaving(false);
     }

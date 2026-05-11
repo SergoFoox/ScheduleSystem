@@ -4,6 +4,7 @@ import com.sergofoox.domain.teacher.Teacher;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.subject.Subject;
 import com.sergofoox.domain.subject.SubjectRepository;
+import com.sergofoox.domain.ui.TemplateAccessService;
 import com.sergofoox.domain.ui.dto.TeacherCompetenceDTO;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
@@ -20,13 +21,16 @@ public class TeacherCompetenceMatrixEndpoint {
     private final TeacherCompetenceMatrixRepository repository;
     private final TeacherRepository teacherRepository;
     private final SubjectRepository subjectRepository;
+    private final TemplateAccessService templateAccessService;
 
     public TeacherCompetenceMatrixEndpoint(TeacherCompetenceMatrixRepository repository,
                                           TeacherRepository teacherRepository,
-                                          SubjectRepository subjectRepository) {
+                                          SubjectRepository subjectRepository,
+                                          TemplateAccessService templateAccessService) {
         this.repository = repository;
         this.teacherRepository = teacherRepository;
         this.subjectRepository = subjectRepository;
+        this.templateAccessService = templateAccessService;
     }
 
     public List<TeacherCompetenceDTO> getCompetencesByTeacher(Long teacherId) {
@@ -38,6 +42,7 @@ public class TeacherCompetenceMatrixEndpoint {
 
     @Transactional
     public void saveCompetence(TeacherCompetenceDTO dto) {
+        templateAccessService.requireWritableTemplate();
         TeacherCompetenceMatrix matrix;
         if (dto.id() != null) {
             matrix = repository.findById(dto.id()).orElseThrow();
@@ -55,6 +60,7 @@ public class TeacherCompetenceMatrixEndpoint {
 
     @Transactional
     public void deleteCompetence(Long id) {
+        templateAccessService.requireWritableTemplate();
         repository.deleteById(id);
     }
 

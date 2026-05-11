@@ -40,6 +40,7 @@ public class ScheduleService {
     private final CoursePlanRepository coursePlanRepository;
     private final SubjectRepository subjectRepository;
     private final TransactionTemplate transactionTemplate;
+    private volatile Integer activeCourseFilter;
 
     public ScheduleService(SolverManager<Schedule, UUID> solverManager,
                            TeacherRepository teacherRepository,
@@ -63,14 +64,39 @@ public class ScheduleService {
 
     @Transactional
     public void generateLessonsFromPlans() {
+        generateLessonsFromPlans(null);
+    }
+
+    @Transactional
+    public void generateLessonsFromPlans(Integer course) {
         System.out.println("=== ГЕНЕРАЦИЯ УРОКОВ ===");
-        lessonRepository.deleteAll();
+        if (course == null) {
+            lessonRepository.deleteAll();
+        } else {
+            List<Group> groupsForCourse = groupRepository.findAll().stream()
+                    .filter(group -> course.equals(group.getCourse()))
+                    .toList();
+            if (groupsForCourse.isEmpty()) {
+                throw new IllegalArgumentException("Немає груп для " + course + " курсу");
+            }
+            groupsForCourse.forEach(lessonRepository::deleteByGroup);
+        }
         lessonRepository.flush();
         
         List<CoursePlan> allPlans = coursePlanRepository.findAll();
+        List<CoursePlan> plansForGeneration = course == null
+                ? allPlans
+                : allPlans.stream()
+                        .filter(plan -> plan.getGroup() != null && course.equals(plan.getGroup().getCourse()))
+                        .toList();
+        if (plansForGeneration.isEmpty()) {
+            throw new IllegalStateException(course == null
+                    ? "Немає навчальних планів для генерації"
+                    : "Немає навчальних планів для " + course + " курсу");
+        }
         List<Lesson> newLessons = new ArrayList<>();
 
-        for (CoursePlan plan : allPlans) {
+        for (CoursePlan plan : plansForGeneration) {
             if (getPrimaryTeacher(plan) == null) {
                 System.out.println("Skipping course plan without teacher: id=" + plan.getId());
                 continue;
@@ -87,7 +113,7 @@ public class ScheduleService {
                 addLessonsForPlan(newLessons, plan, LessonType.LABORATORY, plan.getLabPeriodicity(), i + 1);
             }
         }
-        if (newLessons.isEmpty() && !allPlans.isEmpty()) {
+        if (newLessons.isEmpty() && !plansForGeneration.isEmpty()) {
             throw new IllegalStateException("No lessons were generated. Check that course plans have teachers and weekly sessions.");
         }
         System.out.println("Создано уроков: " + newLessons.size());
@@ -137,6 +163,13 @@ public class ScheduleService {
     @Transactional
     @SuppressWarnings("deprecation")
     public void solve() {
+        solve(null);
+    }
+
+    @Transactional
+    @SuppressWarnings("deprecation")
+    public void solve(Integer course) {
+        activeCourseFilter = course;
         if (solverManager.getSolverStatus(SINGLETON_ID) != SolverStatus.NOT_SOLVING) {
             solverManager.terminateEarly(SINGLETON_ID);
         }
@@ -149,6 +182,7 @@ public class ScheduleService {
     }
 
     public Schedule findById(UUID id) {
+        Integer courseFilter = activeCourseFilter;
         // Загружаем все справочники
         List<Room> rooms = roomRepository.findAll();
         List<Timeslot> timeslots = timeslotRepository.findAll();
@@ -180,9 +214,16 @@ public class ScheduleService {
             lesson.setGroup(groupMap.get(lesson.getGroup().getId()));
             lesson.setSubject(subjectMap.get(lesson.getSubject().getId()));
             lesson.setCoursePlan(planMap.get(lesson.getCoursePlan().getId()));
+            lesson.setPinned(courseFilter != null && !isLessonInCourse(lesson, courseFilter));
         }
 
         // Перемешиваем для рандома
+        if (courseFilter != null) {
+            lessons = lessons.stream()
+                    .filter(lesson -> isLessonInCourse(lesson, courseFilter) || isScheduled(lesson))
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+
         Collections.shuffle(lessons);
         Collections.shuffle(timeslots);
         Collections.shuffle(rooms);
@@ -190,23 +231,33 @@ public class ScheduleService {
         return new Schedule(timeslots, rooms, lessons);
     }
 
+    private boolean isLessonInCourse(Lesson lesson, Integer course) {
+        return lesson.getGroup() != null && course.equals(lesson.getGroup().getCourse());
+    }
+
+    private boolean isScheduled(Lesson lesson) {
+        return lesson.getTimeslot() != null && lesson.getRoom() != null;
+    }
+
     public void saveSolution(Schedule schedule) {
         transactionTemplate.executeWithoutResult(status -> persistSolution(schedule));
     }
 
     private void persistSolution(Schedule schedule) {
-        syncSplitSubgroupLessons(schedule);
-        applyAssignedRooms(schedule);
-        resolveRoomConflicts(schedule);
         System.out.println("Найдено улучшение. Score: " + schedule.getScore());
+        Set<Long> lessonsToUnschedule = findTeacherConflictLessonIds(schedule.getLessons());
+        if (!lessonsToUnschedule.isEmpty()) {
+            System.out.println("Unscheduling lessons with remaining teacher conflicts: " + lessonsToUnschedule.size());
+        }
         int savedCount = 0;
         for (Lesson lesson : schedule.getLessons()) {
             if (lesson.getId() != null) {
                 lessonRepository.findById(lesson.getId()).ifPresent(dbLesson -> {
-                    Timeslot timeslot = lesson.getTimeslot() != null
+                    boolean unschedule = lessonsToUnschedule.contains(lesson.getId());
+                    Timeslot timeslot = !unschedule && lesson.getTimeslot() != null
                             ? timeslotRepository.getReferenceById(lesson.getTimeslot().getId())
                             : null;
-                    Room room = lesson.getRoom() != null
+                    Room room = !unschedule && lesson.getRoom() != null
                             ? roomRepository.getReferenceById(lesson.getRoom().getId())
                             : null;
                     dbLesson.setTimeslot(timeslot);
@@ -220,86 +271,36 @@ public class ScheduleService {
         System.out.println("Saved scheduled lessons: " + savedCount);
     }
 
-    private void syncSplitSubgroupLessons(Schedule schedule) {
-        Map<String, List<Lesson>> splitGroups = schedule.getLessons().stream()
-                .filter(lesson -> lesson.getSubgroup() != null && lesson.getSubgroup() > 0)
-                .filter(lesson -> lesson.getSplitGroupIndex() != null && lesson.getSplitGroupIndex() > 0)
-                .collect(Collectors.groupingBy(lesson -> lesson.getCoursePlan().getId()
-                        + "|" + lesson.getLessonType()
-                        + "|" + lesson.getPeriodicity()
-                        + "|" + lesson.getSplitGroupIndex()));
-
-        for (List<Lesson> splitLessons : splitGroups.values()) {
-            Lesson first = splitLessons.stream()
-                    .filter(lesson -> lesson.getSubgroup() == 1)
-                    .findFirst()
-                    .orElse(null);
-            Lesson second = splitLessons.stream()
-                    .filter(lesson -> lesson.getSubgroup() == 2)
-                    .findFirst()
-                    .orElse(null);
-
-            if (first == null || second == null || first.getTimeslot() == null) {
+    private Set<Long> findTeacherConflictLessonIds(List<Lesson> lessons) {
+        Set<Long> lessonIds = new HashSet<>();
+        for (int i = 0; i < lessons.size(); i++) {
+            Lesson first = lessons.get(i);
+            if (!canCheckTeacherConflict(first)) {
                 continue;
             }
-
-            second.setTimeslot(first.getTimeslot());
-            if (second.getRoom() == null || second.getRoom().equals(first.getRoom()) || isRoomBusy(schedule, second, second.getRoom())) {
-                findAvailableRoom(schedule, second, first.getRoom()).ifPresent(second::setRoom);
+            for (int j = i + 1; j < lessons.size(); j++) {
+                Lesson second = lessons.get(j);
+                if (!canCheckTeacherConflict(second)) {
+                    continue;
+                }
+                if (sameTeacher(first, second) && samePhysicalSlot(first, second) && weeksOverlap(first, second)) {
+                    Lesson lessonToUnschedule = chooseTeacherConflictLoser(first, second);
+                    lessonIds.add(lessonToUnschedule.getId());
+                }
             }
         }
+        return lessonIds;
     }
 
-    private void applyAssignedRooms(Schedule schedule) {
-        for (Lesson lesson : schedule.getLessons()) {
-            if (lesson.getTeacher() == null
-                    || lesson.getTeacher().getAssignedRoom() == null
-                    || lesson.getTimeslot() == null) {
-                continue;
-            }
-
-            Room assignedRoom = lesson.getTeacher().getAssignedRoom();
-            if (!isRoomBusy(schedule, lesson, assignedRoom)) {
-                lesson.setRoom(assignedRoom);
-            }
-        }
+    private boolean canCheckTeacherConflict(Lesson lesson) {
+        return lesson.getId() != null
+                && lesson.getTeacher() != null
+                && lesson.getTeacher().getId() != null
+                && lesson.getTimeslot() != null;
     }
 
-    private void resolveRoomConflicts(Schedule schedule) {
-        List<Lesson> orderedLessons = schedule.getLessons().stream()
-                .filter(lesson -> lesson.getTimeslot() != null)
-                .sorted(Comparator
-                        .comparing((Lesson lesson) -> lesson.getTimeslot().getDayOfWeek())
-                        .thenComparing(lesson -> lesson.getTimeslot().getLessonNumber())
-                        .thenComparing(lesson -> lesson.getId() == null ? Long.MAX_VALUE : lesson.getId()))
-                .toList();
-
-        for (Lesson lesson : orderedLessons) {
-            if (lesson.getRoom() == null || !isRoomBusy(schedule, lesson, lesson.getRoom())) {
-                continue;
-            }
-
-            Room conflictedRoom = lesson.getRoom();
-            lesson.setRoom(null);
-            findAvailableRoom(schedule, lesson, conflictedRoom).ifPresent(lesson::setRoom);
-        }
-    }
-
-    private Optional<Room> findAvailableRoom(Schedule schedule, Lesson lesson, Room excludedRoom) {
-        return schedule.getRooms().stream()
-                .filter(room -> excludedRoom == null || !room.equals(excludedRoom))
-                .filter(room -> !isRoomBusy(schedule, lesson, room))
-                .findFirst();
-    }
-
-    private boolean isRoomBusy(Schedule schedule, Lesson targetLesson, Room room) {
-        if (room == null || targetLesson.getTimeslot() == null) return false;
-        return schedule.getLessons().stream()
-                .filter(lesson -> lesson != targetLesson)
-                .filter(lesson -> lesson.getRoom() != null && lesson.getTimeslot() != null)
-                .filter(lesson -> room.equals(lesson.getRoom()))
-                .filter(lesson -> samePhysicalSlot(lesson, targetLesson))
-                .anyMatch(lesson -> weeksOverlap(lesson, targetLesson));
+    private boolean sameTeacher(Lesson first, Lesson second) {
+        return first.getTeacher().getId().equals(second.getTeacher().getId());
     }
 
     private boolean samePhysicalSlot(Lesson first, Lesson second) {
@@ -320,6 +321,16 @@ public class ScheduleService {
             return lesson.getTimeslot().getWeekParity();
         }
         return lesson.getPeriodicity();
+    }
+
+    private Lesson chooseTeacherConflictLoser(Lesson first, Lesson second) {
+        if (first.isPinned() && !second.isPinned()) {
+            return second;
+        }
+        if (second.isPinned() && !first.isPinned()) {
+            return first;
+        }
+        return first.getId() > second.getId() ? first : second;
     }
 
     public SolverStatus getSolverStatus() { return solverManager.getSolverStatus(SINGLETON_ID); }

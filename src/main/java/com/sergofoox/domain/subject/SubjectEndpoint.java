@@ -1,5 +1,6 @@
 package com.sergofoox.domain.subject;
 
+import com.sergofoox.domain.ui.TemplateAccessService;
 import com.sergofoox.domain.ui.dto.TeacherDTO;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
@@ -16,15 +17,18 @@ public class SubjectEndpoint {
     private final com.sergofoox.domain.plan.CoursePlanRepository coursePlanRepository;
     private final com.sergofoox.domain.lesson.LessonRepository lessonRepository;
     private final com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository matrixRepository;
+    private final TemplateAccessService templateAccessService;
 
     public SubjectEndpoint(SubjectRepository subjectRepository,
                           com.sergofoox.domain.plan.CoursePlanRepository coursePlanRepository,
                           com.sergofoox.domain.lesson.LessonRepository lessonRepository,
-                          com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository matrixRepository) {
+                          com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository matrixRepository,
+                          TemplateAccessService templateAccessService) {
         this.subjectRepository = subjectRepository;
         this.coursePlanRepository = coursePlanRepository;
         this.lessonRepository = lessonRepository;
         this.matrixRepository = matrixRepository;
+        this.templateAccessService = templateAccessService;
     }
 
     public List<Subject> getAllSubjects() {
@@ -33,11 +37,13 @@ public class SubjectEndpoint {
 
     @org.springframework.transaction.annotation.Transactional
     public Subject saveSubject(Subject subject) {
+        templateAccessService.requireWritableTemplate();
         return subjectRepository.save(subject);
     }
 
     @org.springframework.transaction.annotation.Transactional
     public void deleteSubject(Long id) {
+        templateAccessService.requireWritableTemplate();
         Subject subject = subjectRepository.findById(id).orElseThrow();
         
         // 1. Видаляємо всі заняття з цим предметом
