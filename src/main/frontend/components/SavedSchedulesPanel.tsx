@@ -6,6 +6,7 @@ import { TextField } from '@vaadin/react-components/TextField.js';
 import { Dialog } from '@vaadin/react-components/Dialog.js';
 import { AutosaveEndpoint, ScheduleEndpoint } from '../generated/endpoints';
 import {
+  activeSavedSchedule,
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
@@ -351,93 +352,99 @@ export const SavedSchedulesPanel: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-1">
-            {items.map((schedule) => (
-              <div
-                key={schedule.id}
-                role="button"
-                tabIndex={loading || published ? -1 : 0}
-                title="Натисніть, щоб відкрити"
-                draggable={isCustomSchedule(schedule) && !loading && !published}
-                onDragStart={(event) => handleDragStart(event, schedule)}
-                onDragOver={(event) => handleDragOver(event, schedule)}
-                onDragLeave={() => {
-                  if (dragOverId === schedule.id) {
-                    setDragOverId(undefined);
-                  }
-                }}
-                onDrop={(event) => handleDrop(event, schedule)}
-                onDragEnd={handleDragEnd}
-                onClick={() => handleLoad(schedule)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    handleLoad(schedule);
-                  }
-                }}
-                className={`group w-full border px-3 py-2 text-left hover:border-gray-400 hover:bg-gray-50 ${
-                  dragOverId === schedule.id
-                    ? 'border-gray-900 bg-gray-100'
-                    : schedule.isBuiltIn && baseTemplateLocked
-                      ? 'border-gray-900 bg-gray-50'
-                      : 'border-gray-200 bg-white'
-                } ${loading || published ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                } ${draggingId === schedule.id ? 'opacity-40' : ''
-                } ${isCustomSchedule(schedule) && !loading && !published ? 'cursor-grab active:cursor-grabbing' : ''
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-gray-900">{schedule.name}</div>
-                    <div className="mt-0.5 text-[11px] text-gray-500">
-                      {schedule.updatedAt || '—'} · {schedule.lessonCount ?? 0} занять
+            {items.map((schedule) => {
+              const isActive = activeSavedSchedule.value?.id === schedule.id;
+              
+              return (
+                <div
+                  key={schedule.id}
+                  role="button"
+                  tabIndex={loading || published ? -1 : 0}
+                  title={isActive ? "Поточний розклад" : "Натисніть, щоб відкрити"}
+                  draggable={isCustomSchedule(schedule) && !loading && !published}
+                  onDragStart={(event) => handleDragStart(event, schedule)}
+                  onDragOver={(event) => handleDragOver(event, schedule)}
+                  onDragLeave={() => {
+                    if (dragOverId === schedule.id) {
+                      setDragOverId(undefined);
+                    }
+                  }}
+                  onDrop={(event) => handleDrop(event, schedule)}
+                  onDragEnd={handleDragEnd}
+                  onClick={() => handleLoad(schedule)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      handleLoad(schedule);
+                    }
+                  }}
+                  className={`group w-full border px-3 py-2 text-left transition-all ${
+                    isActive 
+                      ? 'border-black ring-1 ring-black bg-gray-50 shadow-sm z-10' 
+                      : dragOverId === schedule.id
+                        ? 'border-gray-900 bg-gray-100'
+                        : schedule.isBuiltIn && baseTemplateLocked
+                          ? 'border-gray-900 bg-gray-50'
+                          : 'border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-50'
+                  } ${loading || published ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                  } ${draggingId === schedule.id ? 'opacity-40' : ''
+                  } ${isCustomSchedule(schedule) && !loading && !published ? 'cursor-grab active:cursor-grabbing' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-gray-900">{schedule.name}</div>
+                      <div className="mt-0.5 text-[11px] text-gray-500">
+                        {schedule.updatedAt || '—'} · {schedule.lessonCount ?? 0} занять
+                      </div>
                     </div>
-                  </div>
-                  {schedule.isBuiltIn && (
-                    <Button
-                      theme="tertiary-inline small"
-                      title="Скопіювати базовий шаблон"
-                      className="opacity-100"
-                      onClick={openCopyDialog}
-                    >
-                      <Icon icon="vaadin:copy" className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {schedule.id && schedule.id > 0 && (
-                    <div className="flex shrink-0 items-center gap-1">
+                    {schedule.isBuiltIn && (
                       <Button
                         theme="tertiary-inline small"
-                        title="Зберегти зміни"
-                        disabled={loading || published}
-                        onClick={(event) => handleSaveIntoSchedule(event, schedule)}
-                      >
-                        <Icon icon="vaadin:archive" className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        theme="tertiary-inline small"
-                        title="Скопіювати"
-                        disabled={loading}
-                        onClick={(event) => openCopyDialog(event, schedule)}
+                        title="Скопіювати базовий шаблон"
+                        className="opacity-100"
+                        onClick={openCopyDialog}
                       >
                         <Icon icon="vaadin:copy" className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        theme="tertiary-inline small"
-                        title="Перейменувати"
-                        onClick={(event) => openRenameDialog(event, schedule)}
-                      >
-                        <Icon icon="vaadin:edit" className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        theme="tertiary-inline small error"
-                        title="Видалити"
-                        onClick={(event) => handleDelete(event, schedule)}
-                      >
-                        <Icon icon="vaadin:trash" className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
+                    )}
+                    {schedule.id && schedule.id > 0 && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          theme="tertiary-inline small"
+                          title="Зберегти зміни"
+                          disabled={loading || published}
+                          onClick={(event) => handleSaveIntoSchedule(event, schedule)}
+                        >
+                          <Icon icon="vaadin:archive" className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          theme="tertiary-inline small"
+                          title="Скопіювати"
+                          disabled={loading}
+                          onClick={(event) => openCopyDialog(event, schedule)}
+                        >
+                          <Icon icon="vaadin:copy" className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          theme="tertiary-inline small"
+                          title="Перейменувати"
+                          onClick={(event) => openRenameDialog(event, schedule)}
+                        >
+                          <Icon icon="vaadin:edit" className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          theme="tertiary-inline small error"
+                          title="Видалити"
+                          onClick={(event) => handleDelete(event, schedule)}
+                        >
+                          <Icon icon="vaadin:trash" className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
