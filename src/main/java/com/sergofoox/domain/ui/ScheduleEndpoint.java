@@ -19,6 +19,7 @@ import com.sergofoox.domain.saved.SavedSchedule;
 import com.sergofoox.domain.saved.SavedScheduleLesson;
 import com.sergofoox.domain.saved.SavedScheduleRepository;
 import com.sergofoox.domain.solver.ScheduleService;
+import com.sergofoox.domain.autosave.AutosaveService;
 import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.subject.LessonType;
 import com.sergofoox.domain.subject.Subject;
@@ -68,6 +69,7 @@ public class ScheduleEndpoint {
     private final TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository;
     private final ScheduleService scheduleService;
     private final SavedScheduleRepository savedScheduleRepository;
+    private final AutosaveService autosaveService;
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
     private final TemplateAccessService templateAccessService;
@@ -85,6 +87,7 @@ public class ScheduleEndpoint {
             TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository,
             ScheduleService scheduleService,
             SavedScheduleRepository savedScheduleRepository,
+            AutosaveService autosaveService,
             DataSource dataSource,
             TemplateAccessService templateAccessService,
             ObjectMapper objectMapper) {
@@ -98,6 +101,7 @@ public class ScheduleEndpoint {
         this.teacherCompetenceMatrixRepository = teacherCompetenceMatrixRepository;
         this.scheduleService = scheduleService;
         this.savedScheduleRepository = savedScheduleRepository;
+        this.autosaveService = autosaveService;
         this.dataSource = dataSource;
         this.templateAccessService = templateAccessService;
         this.objectMapper = objectMapper;
@@ -216,6 +220,7 @@ public class ScheduleEndpoint {
         
         // Одразу активуємо цей новий розклад та очищуємо все робоче середовище
         templateAccessService.activateEditableTemplate(saved.getId());
+        autosaveService.deleteSnapshotsForSchedule(saved.getId());
         clearWorkingData(); 
         
         return mapToSavedScheduleDTO(saved);
@@ -260,13 +265,15 @@ public class ScheduleEndpoint {
         savedSchedule.setUpdatedAt(now);
         savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
         savedSchedule.setFullTemplate(true);
-        savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
+        // При копіюванні базового шаблону ми НЕ переносимо стару історію знімків
+        savedSchedule.setSnapshotJson(null); 
         savedSchedule.replaceLessons(lessonRepository.findAll().stream()
                 .map(this::createSavedScheduleLesson)
                 .toList());
 
         SavedSchedule saved = savedScheduleRepository.save(savedSchedule);
         templateAccessService.activateEditableTemplate(saved.getId());
+        autosaveService.deleteSnapshotsForSchedule(saved.getId());
         return mapToSavedScheduleDTO(saved);
     }
 
@@ -290,12 +297,18 @@ public class ScheduleEndpoint {
         copy.setUpdatedAt(now);
         copy.setSortOrder(nextSavedScheduleSortOrder());
         copy.setFullTemplate(source.isFullTemplate());
-        copy.setSnapshotJson(source.getSnapshotJson());
+        
+        // Ми очищуємо full template snapshot, але нижче скопіюємо історію "Машини часу",
+        // якщо це копія існуючого розкладу.
+        copy.setSnapshotJson(null); 
         copy.replaceLessons(source.getLessons().stream()
                 .map(this::copySavedScheduleLesson)
                 .toList());
 
-        return mapToSavedScheduleDTO(savedScheduleRepository.save(copy));
+        SavedSchedule saved = savedScheduleRepository.save(copy);
+        autosaveService.copySnapshots(id, saved.getId());
+        
+        return mapToSavedScheduleDTO(saved);
     }
 
     @AnonymousAllowed
@@ -352,6 +365,7 @@ public class ScheduleEndpoint {
         }
         boolean deletedScheduleIsActive = Objects.equals(templateAccessService.getActiveSavedScheduleId(), id);
         savedScheduleRepository.deleteById(id);
+        autosaveService.deleteSnapshotsForSchedule(id);
         if (deletedScheduleIsActive) {
             clearWorkingData();
             published = false;

@@ -468,6 +468,30 @@ public class AutosaveService {
         autosaveRepository.deleteById(id);
     }
 
+    @Transactional
+    public void deleteSnapshotsForSchedule(Long scheduleId) {
+        if (scheduleId != null) {
+            autosaveRepository.deleteByScheduleId(scheduleId);
+        }
+    }
+
+    @Transactional
+    public void copySnapshots(Long sourceId, Long targetId) {
+        if (sourceId == null || targetId == null) return;
+        
+        List<AutosaveSnapshot> sourceSnapshots = autosaveRepository.findByScheduleIdOrderByTimestampDesc(sourceId);
+        for (AutosaveSnapshot source : sourceSnapshots) {
+            AutosaveSnapshot copy = new AutosaveSnapshot(
+                source.getTimestamp(),
+                source.getSnapshotData(),
+                source.getEntityCount(),
+                source.isManual(),
+                targetId
+            );
+            autosaveRepository.save(copy);
+        }
+    }
+
     private Long getLong(Map<String, Object> map, String key) {
         Object val = map.get(key);
         if (val == null) return null;
