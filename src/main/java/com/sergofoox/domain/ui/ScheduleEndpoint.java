@@ -196,10 +196,29 @@ public class ScheduleEndpoint {
         savedSchedule.setUpdatedAt(now);
         savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
         savedSchedule.setFullTemplate(true);
-        savedSchedule.setSnapshotJson(serializeSnapshot(clearSnapshotLessonPlacements(captureCurrentSnapshot())));
+        
+        // Створюємо ПОВНІСТЮ порожній знімок (Absolute Zero)
+        FullTemplateSnapshot cleanSnapshot = new FullTemplateSnapshot(
+                Collections.emptyList(), // subjects
+                Collections.emptyList(), // rooms
+                Collections.emptyList(), // teachers
+                Collections.emptyList(), // groups
+                Collections.emptyList(), // coursePlans
+                Collections.emptyList(), // timeslots
+                Collections.emptyList(), // competences
+                Collections.emptyList()  // lessons
+        );
+
+        savedSchedule.setSnapshotJson(serializeSnapshot(cleanSnapshot));
         savedSchedule.replaceLessons(List.of());
 
-        return mapToSavedScheduleDTO(savedScheduleRepository.save(savedSchedule));
+        SavedSchedule saved = savedScheduleRepository.save(savedSchedule);
+        
+        // Одразу активуємо цей новий розклад та очищуємо все робоче середовище
+        templateAccessService.activateEditableTemplate(saved.getId());
+        clearWorkingData(); 
+        
+        return mapToSavedScheduleDTO(saved);
     }
 
     @AnonymousAllowed
