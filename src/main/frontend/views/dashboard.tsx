@@ -4,11 +4,14 @@ import { Button } from '@vaadin/react-components/Button.js';
 import { Icon } from '@vaadin/react-components/Icon.js';
 import { ProgressBar } from '@vaadin/react-components/ProgressBar.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
+import { Checkbox } from '@vaadin/react-components/Checkbox.js';
 import { ScheduleGrid } from '../components/ScheduleGrid';
 import { AnalyticsSidebar } from '../components/AnalyticsSidebar';
 import { SavedSchedulesPanel } from '../components/SavedSchedulesPanel';
+import { TimeMachineDialog } from '../components/TimeMachineDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import {
+  activeSavedSchedule,
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
@@ -24,9 +27,10 @@ type Mode = 'GROUP' | 'TEACHER' | 'ROOM';
 
 export default function DashboardView() {
   const mode = useSignal<Mode>('GROUP');
+  const timeMachineOpened = useSignal(false);
   const isSolving = solverStatus.value === 'SOLVING_ACTIVE' || solverStatus.value === 'SOLVING_SCHEDULED';
 
-  // Poll status when solving to see updates in real-time
+  // Опитуємо статус під час розв'язання, щоб бачити оновлення в реальному часі
   useEffect(() => {
     let interval: any;
     if (isSolving) {
@@ -87,7 +91,7 @@ export default function DashboardView() {
     <div className="flex h-full overflow-hidden bg-gray-50/50">
       <SavedSchedulesPanel />
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Modern Toolbar */}
+        {/* Сучасна панель інструментів */}
         <div className="flex justify-between items-center p-4 bg-white border-b shadow-sm gap-4">
           <div className="flex items-center gap-6">
             <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 whitespace-nowrap">
@@ -109,11 +113,11 @@ export default function DashboardView() {
 
           <div className="flex items-center gap-4">
             {isSolving && (
-              <div className="flex flex-col items-end mr-4 min-w-48">
+              <div className="flex flex-col items-end mr-4 min-w-[200px]">
                 <div className="flex items-center gap-2 mb-1">
                    <Icon icon="vaadin:refresh" className="w-3 h-3 text-blue-600 animate-spin" />
                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-                    Оптимізація Timefold...
+                    Оптимізація...
                   </span>
                 </div>
                 <ProgressBar indeterminate className="w-full h-1" />
@@ -127,25 +131,60 @@ export default function DashboardView() {
               className="shadow-md transition-transform active:scale-95"
             >
               <Icon icon="vaadin:play" slot="prefix" />
-              Згенерувати
+              <span className="hidden lg:inline">Згенерувати</span>
+              <span className="lg:hidden">Пуск</span>
             </Button>
 
-            <div className="flex gap-2 border-l pl-4 ml-2">
+            {/* Блок автозбереження: чіткий підпис та іконка історії */}
+            {!isBaseTemplateLocked.value && activeSavedSchedule.value && (
+              <div className="flex items-center gap-4 border-l border-r px-4 min-w-fit">
+                <Checkbox 
+                  label="Автозбереження" 
+                  className="whitespace-nowrap"
+                  checked={activeSavedSchedule.value.autosaveEnabled}
+                  onCheckedChanged={async (e) => {
+                    const enabled = e.detail.value;
+                    if (activeSavedSchedule.value?.id) {
+                      try {
+                        await ScheduleEndpoint.toggleAutosave(activeSavedSchedule.value.id, enabled);
+                        await refreshSchedule(false);
+                        Notification.show(enabled ? 'Автозбереження увімкнено' : 'Автозбереження вимкнено', {
+                          theme: enabled ? 'success' : 'contrast',
+                          position: 'bottom-center'
+                        });
+                      } catch (err) {
+                        Notification.show('Помилка', { theme: 'error' });
+                      }
+                    }
+                  }}
+                />
+                
+                <Button 
+                  theme="tertiary" 
+                  onClick={() => timeMachineOpened.value = true}
+                  title="Історія автозбережень та ручних копій"
+                  className="whitespace-nowrap"
+                >
+                  <Icon icon="vaadin:time-backward" slot="prefix" />
+                  <span className="hidden xl:inline">Історія</span>
+                </Button>
+              </div>
+            )}
+
+            <div className="flex gap-1 items-center">
               <Button 
                 theme="tertiary" 
-                onClick={() => Notification.show('Експорт HTML у розробці', { position: 'bottom-center' })}
+                onClick={() => Notification.show('Експорт HTML у розробці')}
                 title="Експорт у HTML"
               >
-                <Icon icon="vaadin:download" slot="prefix" />
-                HTML
+                <Icon icon="vaadin:download" />
               </Button>
               <Button 
                 theme="tertiary" 
-                onClick={() => Notification.show('Експорт PDF у розробці', { position: 'bottom-center' })}
+                onClick={() => Notification.show('Експорт PDF у розробці')}
                 title="Експорт у PDF"
               >
-                <Icon icon="vaadin:download" slot="prefix" />
-                PDF
+                <Icon icon="vaadin:file-text" />
               </Button>
             </div>
             
@@ -153,23 +192,26 @@ export default function DashboardView() {
               theme="error tertiary" 
               onClick={handleClear}
               disabled={isSolving || isPublished.value}
-              className="hover:bg-red-50"
+              title="Очистити розклад"
             >
-              <Icon icon="vaadin:trash" slot="prefix" />
-              Очистити
+              <Icon icon="vaadin:trash" />
             </Button>
           </div>
         </div>
         
-        {/* Grid Container */}
+        {/* Контейнер сітки */}
         <div className="flex-1 overflow-hidden p-6">
-          <div className="h-full border border-gray-200 rounded-2xl shadow-xl bg-white overflow-hidden">
+          <div className="h-full border border-gray-200 rounded-2xl shadow-xl bg-white overflow-hidden relative">
             <ScheduleGrid />
           </div>
         </div>
       </div>
       
       <AnalyticsSidebar />
+      <TimeMachineDialog 
+        opened={timeMachineOpened.value} 
+        onClose={() => timeMachineOpened.value = false} 
+      />
     </div>
   );
 }

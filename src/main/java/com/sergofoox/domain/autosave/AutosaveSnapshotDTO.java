@@ -6,5 +6,6 @@ package com.sergofoox.domain.autosave;
 public record AutosaveSnapshotDTO(
     Long id,
     String timestamp,
-    Integer entityCount
+    Integer entityCount,
+    boolean isManual
 ) {}

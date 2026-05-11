@@ -4,7 +4,7 @@ import { Icon } from '@vaadin/react-components/Icon.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { TextField } from '@vaadin/react-components/TextField.js';
 import { Dialog } from '@vaadin/react-components/Dialog.js';
-import { ScheduleEndpoint } from '../generated/endpoints';
+import { AutosaveEndpoint, ScheduleEndpoint } from '../generated/endpoints';
 import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
@@ -92,7 +92,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.loadSavedSchedule(schedule.id);
       await refreshSchedule();
-      Notification.show(schedule.builtIn ? 'Базовий шаблон відкрито для перегляду' : 'Шаблон завантажено', { theme: 'success', position: 'bottom-end' });
+      Notification.show(schedule.builtIn ? 'Базовий шаблон відкрито для перегляду' : 'Розклад завантажено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to load schedule:', err);
       Notification.show('Помилка під час завантаження розкладу', { theme: 'error', position: 'bottom-end' });
@@ -193,6 +193,14 @@ export const SavedSchedulesPanel: React.FC = () => {
     setLoading(true);
     try {
       await ScheduleEndpoint.saveCurrentScheduleToSavedSchedule(schedule.id);
+      
+      // Робимо ручний знімок у Машину Часу після успішного збереження
+      try {
+        await AutosaveEndpoint.captureManualSnapshot();
+      } catch (e) {
+        console.error('Failed to capture manual snapshot:', e);
+      }
+      
       await loadItems();
       Notification.show('Зміни збережено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {

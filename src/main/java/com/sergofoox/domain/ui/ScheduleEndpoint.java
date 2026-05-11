@@ -2,7 +2,6 @@ package com.sergofoox.domain.ui;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.sergofoox.domain.competence.Priority;
 import com.sergofoox.domain.competence.TeacherCompetenceMatrix;
 import com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository;
@@ -45,6 +44,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @BrowserCallable
@@ -69,7 +69,7 @@ public class ScheduleEndpoint {
     private final ScheduleService scheduleService;
     private final SavedScheduleRepository savedScheduleRepository;
     private final DataSource dataSource;
-    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final ObjectMapper objectMapper;
     private final TemplateAccessService templateAccessService;
 
     private boolean published = false;
@@ -86,7 +86,8 @@ public class ScheduleEndpoint {
             ScheduleService scheduleService,
             SavedScheduleRepository savedScheduleRepository,
             DataSource dataSource,
-            TemplateAccessService templateAccessService) {
+            TemplateAccessService templateAccessService,
+            ObjectMapper objectMapper) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
         this.roomRepository = roomRepository;
@@ -99,6 +100,7 @@ public class ScheduleEndpoint {
         this.savedScheduleRepository = savedScheduleRepository;
         this.dataSource = dataSource;
         this.templateAccessService = templateAccessService;
+        this.objectMapper = objectMapper;
     }
 
     @AnonymousAllowed
@@ -112,14 +114,11 @@ public class ScheduleEndpoint {
             if (published) {
                 throw new IllegalStateException("Неможливо згенерувати розклад: його вже опубліковано");
             }
-            // 1. Спочатку генеруємо об'єкти Lesson на основі навчальних планів
             Integer courseFilter = course != null && course > 0 ? course : null;
             if (courseFilter != null && courseFilter > 4) {
                 throw new IllegalArgumentException("Курс має бути від 1 до 4");
             }
             scheduleService.generateLessonsFromPlans(courseFilter);
-            
-            // 2. Запускаємо солвер для розстановки Timeslot та Room
             scheduleService.solve(courseFilter);
         } catch (Exception e) {
             e.printStackTrace();
@@ -150,19 +149,35 @@ public class ScheduleEndpoint {
     @AnonymousAllowed
     @Transactional(readOnly = true)
     public List<SavedScheduleDTO> getSavedSchedules() {
-        List<SavedScheduleDTO> savedSchedules = new ArrayList<>(savedScheduleRepository.findAllByOrderBySortOrderAscUpdatedAtDescIdAsc().stream()
-                .filter(savedSchedule -> !isBuiltInTemplateName(savedSchedule.getName()))
-                .map(this::mapToSavedScheduleDTO)
-                .toList());
-        savedSchedules.add(0, new SavedScheduleDTO(
-                BUILT_IN_TEMPLATE_ID,
-                BUILT_IN_TEMPLATE_NAME,
-                "",
-                "",
-                getBuiltInTemplateLessonCount(),
-                true,
-                true));
-        return savedSchedules;
+        try {
+            List<SavedScheduleDTO> savedSchedules = new ArrayList<>(savedScheduleRepository.findAllByOrderBySortOrderAscUpdatedAtDescIdAsc().stream()
+                    .filter(savedSchedule -> !isBuiltInTemplateName(savedSchedule.getName()))
+                    .map(this::mapToSavedScheduleDTO)
+                    .toList());
+            savedSchedules.add(0, new SavedScheduleDTO(
+                    BUILT_IN_TEMPLATE_ID,
+                    BUILT_IN_TEMPLATE_NAME,
+                    "",
+                    "",
+                    getBuiltInTemplateLessonCount(),
+                    true,
+                    true,
+                    false));
+            return savedSchedules;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
+    @AnonymousAllowed
+    @Transactional
+    public void toggleAutosave(Long id, boolean enabled) {
+        if (id == null || id < 0) return;
+        savedScheduleRepository.findById(id).ifPresent(s -> {
+            s.setAutosaveEnabled(enabled);
+            savedScheduleRepository.save(s);
+        });
     }
 
     @AnonymousAllowed
@@ -380,6 +395,11 @@ public class ScheduleEndpoint {
     }
 
     @AnonymousAllowed
+    public Long getActiveSavedScheduleId() {
+        return templateAccessService.getActiveSavedScheduleId();
+    }
+
+    @AnonymousAllowed
     public boolean isPublished() {
         return published;
     }
@@ -402,7 +422,7 @@ public class ScheduleEndpoint {
 
     @AnonymousAllowed
     public String getCurrentUserRole() {
-        return "DISPATCHER"; // Simplified for testing
+        return "DISPATCHER";
     }
 
     @AnonymousAllowed
@@ -412,28 +432,42 @@ public class ScheduleEndpoint {
     }
 
     @AnonymousAllowed
+    @Transactional(readOnly = true)
     public ScheduleGridDTO getScheduleGridData() {
         try {
+            System.out.println(">>> Завантаження даних для сітки...");
             List<Lesson> allLessons = lessonRepository.findAll();
             List<Timeslot> allTimeslots = timeslotRepository.findAll();
+            List<Teacher> allTeachers = teacherRepository.findAll();
+            List<Group> allGroups = groupRepository.findAll();
+            List<Room> allRooms = roomRepository.findAll();
             
-            System.out.println("Запрос данных сетки: уроков=" + allLessons.size() + 
-                               ", таймслотов=" + allTimeslots.size() + 
-                               ", групп=" + groupRepository.count());
+            Map<Long, Teacher> teachersById = allTeachers.stream()
+                    .filter(t -> t.getId() != null)
+                    .collect(Collectors.toMap(Teacher::getId, Function.identity(), (a, b) -> a));
+            
+            Map<Long, List<Lesson>> lessonsByTimeslot = allLessons.stream()
+                    .filter(l -> l.getTimeslot() != null && l.getTimeslot().getId() != null)
+                    .collect(Collectors.groupingBy(l -> l.getTimeslot().getId()));
 
             List<LessonDTO> lessons = allLessons.stream()
-                    .map(lesson -> mapToLessonDTO(lesson, allLessons))
+                    .map(lesson -> {
+                        List<Lesson> sameSlot = (lesson.getTimeslot() != null && lesson.getTimeslot().getId() != null)
+                            ? lessonsByTimeslot.getOrDefault(lesson.getTimeslot().getId(), Collections.emptyList())
+                            : Collections.emptyList();
+                        return mapToLessonDTO(lesson, sameSlot);
+                    })
                     .toList();
 
-            List<TeacherDTO> teachers = teacherRepository.findAll().stream()
+            List<TeacherDTO> teachers = allTeachers.stream()
                     .map(this::mapToTeacherDTO)
                     .toList();
 
-            List<GroupDTO> groups = groupRepository.findAll().stream()
-                    .map(this::mapToGroupDTO)
+            List<GroupDTO> groups = allGroups.stream()
+                    .map(g -> mapToGroupDTO(g, teachersById))
                     .toList();
 
-            List<RoomDTO> rooms = roomRepository.findAll().stream()
+            List<RoomDTO> rooms = allRooms.stream()
                     .map(this::mapToRoomDTO)
                     .toList();
 
@@ -443,12 +477,16 @@ public class ScheduleEndpoint {
 
             return new ScheduleGridDTO(lessons, teachers, groups, rooms, timeslots);
         } catch (Exception e) {
+            System.err.println("!!! Помилка в getScheduleGridData: " + e.getMessage());
             e.printStackTrace();
-            throw e;
+            return new ScheduleGridDTO(Collections.emptyList(), Collections.emptyList(), 
+                                     Collections.emptyList(), Collections.emptyList(), 
+                                     Collections.emptyList());
         }
     }
 
     @AnonymousAllowed
+    @Transactional(readOnly = true)
     public ScheduleAnalyticsDTO getAnalytics(Long entityId, String entityType) {
         try {
             String entityName = "Unknown";
@@ -601,7 +639,8 @@ public class ScheduleEndpoint {
                 formatSavedScheduleDate(savedSchedule.getUpdatedAt()),
                 savedSchedule.getLessons().size(),
                 false,
-                savedSchedule.isFullTemplate()
+                savedSchedule.isFullTemplate(),
+                savedSchedule.isAutosaveEnabled()
         );
     }
 
@@ -1056,7 +1095,6 @@ public class ScheduleEndpoint {
             com.sergofoox.domain.plan.Periodicity requestedPeriodicity = periodicity != null ? periodicity : oldPeriodicity;
             com.sergofoox.domain.plan.Periodicity newPeriodicity = requestedPeriodicity;
             
-            // Знаходимо всі частини цього заняття (всі підгрупи), щоб перенести їх разом
             List<Lesson> allLessons = lessonRepository.findAll();
             List<Lesson> lessonsToMove = allLessons.stream()
                     .filter(l -> shouldMoveWithPrimaryLesson(l, primaryLesson, oldTimeslot))
@@ -1083,7 +1121,6 @@ public class ScheduleEndpoint {
             for (Lesson lesson : lessonsToMove) {
                 lesson.setTimeslot(newTimeslot);
                 lesson.setPeriodicity(newPeriodicity);
-                // Якщо кімната вказана явно - змінюємо, інакше залишаємо поточну
                 if (roomName != null && !roomName.isBlank()) {
                     Room room = roomRepository.findByName(roomName).orElse(null);
                     lesson.setRoom(room);
@@ -1242,8 +1279,6 @@ public class ScheduleEndpoint {
             if (subjectId != null) {
                 Subject subject = subjectRepository.findById(subjectId).orElseThrow();
                 lesson.setSubject(subject);
-                
-                // Обов'язково оновлюємо навчальний план, бо Lesson прив'язаний до нього
                 CoursePlan plan = coursePlanRepository.findByGroup(lesson.getGroup()).stream()
                         .filter(p -> p.getSubject().getId().equals(subjectId))
                         .findFirst()
@@ -1313,27 +1348,43 @@ public class ScheduleEndpoint {
         }
     }
 
-    private LessonDTO mapToLessonDTO(Lesson lesson, List<Lesson> allLessons) {
+    private GroupDTO mapToGroupDTO(Group group, Map<Long, Teacher> teachersById) {
+        String curatorName = null;
+        if (group.getCuratorId() != null) {
+            Teacher curator = teachersById.get(group.getCuratorId());
+            if (curator != null) {
+                curatorName = curator.getFullName();
+            }
+        }
+        return new GroupDTO(
+                group.getId(),
+                group.getName(),
+                group.getSize(),
+                group.getCourse(),
+                group.getDepartment(),
+                group.getCuratorId(),
+                curatorName
+        );
+    }
+
+    private LessonDTO mapToLessonDTO(Lesson lesson, List<Lesson> sameSlotLessons) {
         boolean hasConflict = false;
         if (lesson.getTimeslot() != null && lesson.getId() != null) {
-            hasConflict = allLessons.stream()
+            hasConflict = sameSlotLessons.stream()
                     .filter(l -> l.getId() != null && !l.getId().equals(lesson.getId()))
-                    .filter(l -> samePhysicalSlot(l, lesson))
                     .anyMatch(l -> {
                         if (!weeksOverlap(l, lesson)) return false;
 
-                        // 1. Конфлікт викладача
                         boolean teacherConflict = l.getTeacher() != null && lesson.getTeacher() != null && 
                                                  l.getTeacher().getId().equals(lesson.getTeacher().getId());
                         
-                        // 2. Конфлікт аудиторії
                         boolean roomConflict = l.getRoom() != null && lesson.getRoom() != null && 
                                               l.getRoom().getId().equals(lesson.getRoom().getId());
+                        
                         boolean subjectConflict = l.getSubject() != null && lesson.getSubject() != null
                                 && l.getSubject().getId().equals(lesson.getSubject().getId())
                                 && !sameSplitGroupLesson(l, lesson);
                         
-                        // 3. Конфлікт групи
                         boolean groupConflict = l.getGroup() != null && lesson.getGroup() != null
                                 && l.getGroup().getId().equals(lesson.getGroup().getId())
                                 && !sameSplitGroupLesson(l, lesson);
@@ -1408,24 +1459,6 @@ public class ScheduleEndpoint {
                 teacher.getMaxWorkingDaysPerWeek(),
                 teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getId() : null,
                 teacher.getAssignedRoom() != null ? teacher.getAssignedRoom().getName() : null
-        );
-    }
-
-    private GroupDTO mapToGroupDTO(Group group) {
-        String curatorName = null;
-        if (group.getCuratorId() != null) {
-            curatorName = teacherRepository.findById(group.getCuratorId())
-                    .map(Teacher::getFullName)
-                    .orElse(null);
-        }
-        return new GroupDTO(
-                group.getId(),
-                group.getName(),
-                group.getSize(),
-                group.getCourse(),
-                group.getDepartment(),
-                group.getCuratorId(),
-                curatorName
         );
     }
 

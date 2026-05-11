@@ -19,12 +19,23 @@ public class AutosaveSnapshot {
     @Column(nullable = false)
     private Integer entityCount;
 
+    @Column(nullable = false)
+    private boolean isManual = false;
+
+    private Long scheduleId;
+
     public AutosaveSnapshot() {}
 
     public AutosaveSnapshot(LocalDateTime timestamp, String snapshotData, Integer entityCount) {
+        this(timestamp, snapshotData, entityCount, false, null);
+    }
+
+    public AutosaveSnapshot(LocalDateTime timestamp, String snapshotData, Integer entityCount, boolean isManual, Long scheduleId) {
         this.timestamp = timestamp;
         this.snapshotData = snapshotData;
         this.entityCount = entityCount;
+        this.isManual = isManual;
+        this.scheduleId = scheduleId;
     }
 
     public Long getId() { return id; }
@@ -35,6 +46,10 @@ public class AutosaveSnapshot {
     public void setSnapshotData(String snapshotData) { this.snapshotData = snapshotData; }
     public Integer getEntityCount() { return entityCount; }
     public void setEntityCount(Integer entityCount) { this.entityCount = entityCount; }
+    public boolean isManual() { return isManual; }
+    public void setManual(boolean manual) { isManual = manual; }
+    public Long getScheduleId() { return scheduleId; }
+    public void setScheduleId(Long scheduleId) { this.scheduleId = scheduleId; }
 
     @Override
     public boolean equals(Object o) {

@@ -49,6 +49,9 @@ public class SavedSchedule {
     @OneToMany(mappedBy = "savedSchedule", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<SavedScheduleLesson> lessons = new ArrayList<>();
 
+    @Column(nullable = false)
+    private boolean autosaveEnabled = true;
+
     public Long getId() {
         return id;
     }
@@ -119,5 +122,13 @@ public class SavedSchedule {
             lesson.setSavedSchedule(this);
             lessons.add(lesson);
         }
+    }
+
+    public boolean isAutosaveEnabled() {
+        return autosaveEnabled;
+    }
+
+    public void setAutosaveEnabled(boolean autosaveEnabled) {
+        this.autosaveEnabled = autosaveEnabled;
     }
 }

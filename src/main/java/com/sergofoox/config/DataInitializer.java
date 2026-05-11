@@ -32,9 +32,9 @@ public class DataInitializer {
         return args -> {
             /* Handled by Flyway migration V2__Base_Template.sql */
             System.out.println(">>> Ініціалізація бази даних тепер виконується через Flyway.");
-            System.out.println(">>> Слотов в базе: " + timeslotRepository.count());
-            System.out.println(">>> Групп в базе: " + groupRepository.count());
-            System.out.println(">>> Аудиторий в базе: " + roomRepository.count());
+            System.out.println(">>> Слотів у базі: " + timeslotRepository.count());
+            System.out.println(">>> Груп у базі: " + groupRepository.count());
+            System.out.println(">>> Аудиторій у базі: " + roomRepository.count());
         };
     }
 }

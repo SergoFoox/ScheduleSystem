@@ -7,4 +7,5 @@ import java.util.List;
 @Repository
 public interface AutosaveRepository extends JpaRepository<AutosaveSnapshot, Long> {
     List<AutosaveSnapshot> findAllByOrderByTimestampDesc();
+    List<AutosaveSnapshot> findByScheduleIdOrderByTimestampDesc(Long scheduleId);
 }

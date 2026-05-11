@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { GridCell } from './GridCell';
 import { Notification } from '@vaadin/react-components/Notification.js';
+import { ProgressBar } from '@vaadin/react-components/ProgressBar.js';
+import { Icon } from '@vaadin/react-components/Icon.js';
+import { Button } from '@vaadin/react-components/Button.js';
 import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
@@ -83,8 +86,27 @@ export const ScheduleGrid: React.FC = () => {
     }
   }, [selectedCourse, effectiveCourse]);
 
-  if (loading) return <div className="p-8 text-center text-gray-500 animate-pulse font-serif">Завантаження матриці розкладу...</div>;
-  if (!data) return <div className="p-8 text-red-500 text-center font-bold font-serif">Помилка: дані розкладу не завантажено</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 bg-gray-50/30 p-8">
+        <ProgressBar indeterminate className="w-64 h-1.5" />
+        <span className="text-sm font-bold text-blue-600 uppercase tracking-widest animate-pulse">Завантаження розкладу...</span>
+      </div>
+    );
+  }
+
+  if (!data || !data.groups) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white">
+         <Icon icon="vaadin:warning" className="w-12 h-12 text-amber-500 mb-4 opacity-50" />
+         <div className="text-xl font-black text-gray-800 font-serif">Розклад не завантажено</div>
+         <p className="text-gray-500 mt-2 max-w-md">Будь ласка, оберіть шаблон у панелі ліворуч або спробуйте оновити сторінку.</p>
+         <Button theme="primary tertiary" className="mt-6" onClick={() => refreshSchedule()}>
+           <Icon icon="vaadin:refresh" slot="prefix" /> Спробувати знову
+         </Button>
+      </div>
+    );
+  }
 
   const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
   const lessonNumbers = [1, 2, 3, 4];
