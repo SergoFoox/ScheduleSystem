@@ -19,8 +19,8 @@ type SavedSchedule = {
   createdAt?: string;
   updatedAt?: string;
   lessonCount?: number;
-  builtIn?: boolean;
-  fullTemplate?: boolean;
+  isBuiltIn?: boolean;
+  isFullTemplate?: boolean;
 };
 
 export const SavedSchedulesPanel: React.FC = () => {
@@ -40,7 +40,7 @@ export const SavedSchedulesPanel: React.FC = () => {
   const published = isPublished.value;
   const baseTemplateLocked = isBaseTemplateLocked.value;
 
-  const isCustomSchedule = (schedule: SavedSchedule) => !!schedule.id && schedule.id > 0 && !schedule.builtIn;
+  const isCustomSchedule = (schedule: SavedSchedule) => !!schedule.id && schedule.id > 0 && !schedule.isBuiltIn;
 
   const loadItems = async () => {
     const saved = await ScheduleEndpoint.getSavedSchedules();
@@ -92,7 +92,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.loadSavedSchedule(schedule.id);
       await refreshSchedule();
-      Notification.show(schedule.builtIn ? 'Базовий шаблон відкрито для перегляду' : 'Розклад завантажено', { theme: 'success', position: 'bottom-end' });
+      Notification.show(schedule.isBuiltIn ? 'Базовий шаблон відкрито для перегляду' : 'Розклад завантажено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to load schedule:', err);
       Notification.show('Помилка під час завантаження розкладу', { theme: 'error', position: 'bottom-end' });
@@ -133,12 +133,12 @@ export const SavedSchedulesPanel: React.FC = () => {
       if (!customScheduleId) {
         await refreshSchedule();
       }
-      Notification.show('Копію шаблону створено', { theme: 'success', position: 'bottom-end' });
+      Notification.show('Копію розкладу створено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to copy schedule:', err);
       const message = err instanceof Error && err.message.includes('існує')
-        ? 'Шаблон із такою назвою вже існує'
-        : 'Помилка під час копіювання шаблону';
+        ? 'Розклад із такою назвою вже існує'
+        : 'Помилка під час копіювання розкладу';
       Notification.show(message, { theme: 'error', position: 'bottom-end' });
     } finally {
       setLoading(false);
@@ -376,7 +376,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                 className={`group w-full border px-3 py-2 text-left hover:border-gray-400 hover:bg-gray-50 ${
                   dragOverId === schedule.id
                     ? 'border-gray-900 bg-gray-100'
-                    : schedule.builtIn && baseTemplateLocked
+                    : schedule.isBuiltIn && baseTemplateLocked
                       ? 'border-gray-900 bg-gray-50'
                       : 'border-gray-200 bg-white'
                 } ${loading || published ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
@@ -391,7 +391,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                       {schedule.updatedAt || '—'} · {schedule.lessonCount ?? 0} занять
                     </div>
                   </div>
-                  {schedule.builtIn && (
+                  {schedule.isBuiltIn && (
                     <Button
                       theme="tertiary-inline small"
                       title="Скопіювати базовий шаблон"

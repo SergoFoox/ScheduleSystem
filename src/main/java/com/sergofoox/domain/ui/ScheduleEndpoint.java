@@ -395,8 +395,8 @@ public class ScheduleEndpoint {
     }
 
     @AnonymousAllowed
-    public Long getActiveSavedScheduleId() {
-        return templateAccessService.getActiveSavedScheduleId();
+    public Optional<Long> getActiveSavedScheduleId() {
+        return Optional.ofNullable(templateAccessService.getActiveSavedScheduleId());
     }
 
     @AnonymousAllowed
