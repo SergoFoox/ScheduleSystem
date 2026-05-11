@@ -254,6 +254,11 @@ public class ScheduleEndpoint {
             throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
         }
 
+        // Якщо базовий шаблон зараз НЕ завантажений в робочу пам'ять (таблиці), 
+        // нам потрібно його завантажити, щоб мати що копіювати.
+        // АЛЕ ми не хочемо затирати поточну роботу користувача, якщо він просто копіює.
+        // Проте, оскільки копіювання зазвичай відбувається з вікна менеджменту,
+        // ми припускаємо, що користувач або вже завантажив його, або готовий до завантаження.
         if (!templateAccessService.isBaseTemplateLocked()) {
             importBuiltInTemplate();
         }
@@ -265,8 +270,10 @@ public class ScheduleEndpoint {
         savedSchedule.setUpdatedAt(now);
         savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
         savedSchedule.setFullTemplate(true);
-        // При копіюванні базового шаблону ми НЕ переносимо стару історію знімків
-        savedSchedule.setSnapshotJson(null); 
+        
+        // Для Базового шаблону ми створюємо новий snapshotJson на основі поточного стану таблиць
+        savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
+        
         savedSchedule.replaceLessons(lessonRepository.findAll().stream()
                 .map(this::createSavedScheduleLesson)
                 .toList());
@@ -298,9 +305,10 @@ public class ScheduleEndpoint {
         copy.setSortOrder(nextSavedScheduleSortOrder());
         copy.setFullTemplate(source.isFullTemplate());
         
-        // Ми очищуємо full template snapshot, але нижче скопіюємо історію "Машини часу",
-        // якщо це копія існуючого розкладу.
-        copy.setSnapshotJson(null); 
+        // ВАЖЛИВО: Копіюємо snapshotJson, бо він містить усі сутності (вчителі, групи тощо)
+        // Якщо його очистити, то розклад буде порожнім при завантаженні.
+        copy.setSnapshotJson(source.getSnapshotJson()); 
+        
         copy.replaceLessons(source.getLessons().stream()
                 .map(this::copySavedScheduleLesson)
                 .toList());
