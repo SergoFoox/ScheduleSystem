@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class TemplateAccessService {
 
-    public static final String BASE_TEMPLATE_EDIT_MESSAGE = "Для цього потрібно скопіювати шаблон.";
+    public static final String BASE_TEMPLATE_EDIT_MESSAGE = "Для редагування потрібно створити новий розклад або скопіювати існуючий шаблон.";
 
     private volatile boolean baseTemplateLocked = true;
     private volatile boolean baseTemplateOpened = false;

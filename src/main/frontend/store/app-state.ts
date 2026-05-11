@@ -18,7 +18,7 @@ export type CourseFilter = number | 'ALL';
 export const selectedCourseFilter = signal<CourseFilter>(1);
 export const activeSavedSchedule = signal<SavedScheduleDTO | null>(null);
 
-export const BASE_TEMPLATE_LOCKED_MESSAGE = 'Для цього потрібно скопіювати шаблон.';
+export const BASE_TEMPLATE_LOCKED_MESSAGE = 'Для редагування потрібно створити новий розклад або скопіювати існуючий шаблон.';
 
 export function isTemplateEditBlocked() {
   return isBaseTemplateLocked.value;
