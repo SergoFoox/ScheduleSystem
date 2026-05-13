@@ -42,6 +42,9 @@ public class Teacher {
 
     private boolean archived = false;
 
+    @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TeacherAvailability> availability = new java.util.ArrayList<>();
+
     public Teacher() {}
 
     public Teacher(String fullName, String department, PositionType positionType) {
@@ -82,6 +85,9 @@ public class Teacher {
     public void setArchived(boolean archived) {
         this.archived = archived;
     }
+
+    public java.util.List<TeacherAvailability> getAvailability() { return availability; }
+    public void setAvailability(java.util.List<TeacherAvailability> availability) { this.availability = availability; }
 
     @Override
     public boolean equals(Object o) {

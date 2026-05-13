@@ -12,6 +12,7 @@ import { TeacherEndpoint } from '../generated/endpoints';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import { TeacherDialog } from '../components/TeacherDialog';
 import { CompetenceDialog } from '../components/CompetenceDialog';
+import { AvailabilityDialog } from '../components/AvailabilityDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { formatPositionType } from '../utils/labels';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
@@ -21,6 +22,7 @@ export default function TeachersView() {
   const [filter, setFilter] = useState('');
   const [dialogOpened, setDialogOpened] = useState(false);
   const [competenceOpened, setCompetenceOpened] = useState(false);
+  const [availabilityOpened, setAvailabilityOpened] = useState(false);
   const [confirmOpened, setConfirmOpened] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherDTO | undefined>(undefined);
   const [teacherToDelete, setTeacherToDelete] = useState<number | undefined>(undefined);
@@ -77,6 +79,15 @@ export default function TeachersView() {
     }
     setSelectedTeacher(teacher);
     setCompetenceOpened(true);
+  };
+
+  const handleAvailability = (teacher: TeacherDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
+    setSelectedTeacher(teacher);
+    setAvailabilityOpened(true);
   };
 
   const openDeleteConfirm = (id: number) => {
@@ -196,6 +207,13 @@ export default function TeachersView() {
                   >
                     <Icon icon="vaadin:book" />
                   </Button>
+                  <Button
+                    theme="tertiary icon"
+                    onClick={() => handleAvailability(teacher)}
+                    title="Преференції часу"
+                  >
+                    <Icon icon="vaadin:clock" />
+                  </Button>
                   {!teacher.archived ? (
                     <Button 
                       theme="tertiary error icon" 
@@ -240,6 +258,15 @@ export default function TeachersView() {
         opened={competenceOpened}
         teacher={selectedTeacher}
         onClose={() => setCompetenceOpened(false)}
+      />
+
+      <AvailabilityDialog
+        opened={availabilityOpened}
+        teacher={selectedTeacher}
+        onClose={() => {
+          setAvailabilityOpened(false);
+          setSelectedTeacher(undefined);
+        }}
       />
 
       <ConfirmDialog
