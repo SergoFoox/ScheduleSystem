@@ -195,6 +195,155 @@ class ScheduleSolverTest {
     }
 
     @Test
+    void avoidsSameSubjectInAlternatingPhysicalSlotForDifferentGroups() {
+        Timeslot t1 = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
+        t1.setId(1L);
+        Timeslot t2 = new Timeslot(DayOfWeek.TUESDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
+        t2.setId(2L);
+
+        Room room = new Room("101", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        room.setId(1L);
+
+        Teacher teacher1 = new Teacher("Teacher One", "CS", PositionType.FULL_TIME);
+        teacher1.setId(1L);
+        Teacher teacher2 = new Teacher("Teacher Two", "CS", PositionType.FULL_TIME);
+        teacher2.setId(2L);
+        Group group1 = new Group("G-01", 20, 1, "CS");
+        group1.setId(1L);
+        Group group2 = new Group("G-02", 20, 1, "CS");
+        group2.setId(2L);
+        Subject subject = new Subject("Defense of Ukraine", "DU");
+        subject.setId(1L);
+
+        CoursePlan plan1 = new CoursePlan(subject, teacher1, group1, 8, 8, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
+        plan1.setId(1L);
+        CoursePlan plan2 = new CoursePlan(subject, teacher2, group2, 8, 8, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
+        plan2.setId(2L);
+
+        Lesson oddLesson = new Lesson(subject, LessonType.LECTURE, teacher1, group1, plan1);
+        oddLesson.setId(1L);
+        oddLesson.setPeriodicity(Periodicity.ODD_WEEKS);
+        Lesson evenLesson = new Lesson(subject, LessonType.LECTURE, teacher2, group2, plan2);
+        evenLesson.setId(2L);
+        evenLesson.setPeriodicity(Periodicity.EVEN_WEEKS);
+
+        Schedule solution = solverFactory.buildSolver().solve(new Schedule(
+                List.of(t1, t2),
+                List.of(room),
+                new ArrayList<>(List.of(oddLesson, evenLesson))));
+
+        assertTrue(solution.getScore().isFeasible(), "Schedule must be feasible");
+        assertFalse(samePhysicalSlot(lessonById(solution, 1L), lessonById(solution, 2L)),
+                "Same subject for different groups must not share one displayed timetable cell");
+    }
+
+    @Test
+    void detectsSwappedDiagonalSubjectPairAcrossGroupsAsConflict() {
+        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
+        timeslot.setId(1L);
+
+        Room r1 = new Room("101", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r1.setId(1L);
+        Room r2 = new Room("102", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r2.setId(2L);
+        Room r3 = new Room("103", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r3.setId(3L);
+        Room r4 = new Room("104", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r4.setId(4L);
+
+        Teacher t1 = new Teacher("Teacher One", "CS", PositionType.FULL_TIME);
+        t1.setId(1L);
+        Teacher t2 = new Teacher("Teacher Two", "CS", PositionType.FULL_TIME);
+        t2.setId(2L);
+        Teacher t3 = new Teacher("Teacher Three", "CS", PositionType.FULL_TIME);
+        t3.setId(3L);
+        Teacher t4 = new Teacher("Teacher Four", "CS", PositionType.FULL_TIME);
+        t4.setId(4L);
+
+        Group group1 = new Group("G-01", 20, 1, "CS");
+        group1.setId(1L);
+        Group group2 = new Group("G-02", 20, 1, "CS");
+        group2.setId(2L);
+        Subject defense = new Subject("Defense of Ukraine", "DU");
+        defense.setId(1L);
+        Subject civics = new Subject("Civics", "C");
+        civics.setId(2L);
+
+        CoursePlan defenseGroup1 = new CoursePlan(defense, t1, group1, 8, 8, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
+        defenseGroup1.setId(1L);
+        CoursePlan civicsGroup1 = new CoursePlan(civics, t2, group1, 8, 8, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
+        civicsGroup1.setId(2L);
+        CoursePlan civicsGroup2 = new CoursePlan(civics, t3, group2, 8, 8, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
+        civicsGroup2.setId(3L);
+        CoursePlan defenseGroup2 = new CoursePlan(defense, t4, group2, 8, 8, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
+        defenseGroup2.setId(4L);
+
+        Lesson g1Odd = new Lesson(defense, LessonType.LECTURE, t1, group1, defenseGroup1);
+        g1Odd.setId(1L);
+        g1Odd.setPeriodicity(Periodicity.ODD_WEEKS);
+        Lesson g1Even = new Lesson(civics, LessonType.LECTURE, t2, group1, civicsGroup1);
+        g1Even.setId(2L);
+        g1Even.setPeriodicity(Periodicity.EVEN_WEEKS);
+        Lesson g2Odd = new Lesson(civics, LessonType.LECTURE, t3, group2, civicsGroup2);
+        g2Odd.setId(3L);
+        g2Odd.setPeriodicity(Periodicity.ODD_WEEKS);
+        Lesson g2Even = new Lesson(defense, LessonType.LECTURE, t4, group2, defenseGroup2);
+        g2Even.setId(4L);
+        g2Even.setPeriodicity(Periodicity.EVEN_WEEKS);
+
+        Schedule solution = solverFactory.buildSolver().solve(new Schedule(
+                List.of(timeslot),
+                List.of(r1, r2, r3, r4),
+                new ArrayList<>(List.of(g1Odd, g1Even, g2Odd, g2Even))));
+
+        assertFalse(solution.getScore().isFeasible(),
+                "The same diagonal subject pair must not be duplicated across groups in one displayed cell");
+    }
+
+    @Test
+    void detectsSameSubjectConflictByIdEvenWhenEntityInstancesDiffer() {
+        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
+        timeslot.setId(1L);
+
+        Room r1 = new Room("101", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r1.setId(1L);
+        Room r2 = new Room("102", 30, "Main", "Projector", RoomType.LECTURE_HALL);
+        r2.setId(2L);
+
+        Teacher teacher1 = new Teacher("Teacher One", "CS", PositionType.FULL_TIME);
+        teacher1.setId(1L);
+        Teacher teacher2 = new Teacher("Teacher Two", "CS", PositionType.FULL_TIME);
+        teacher2.setId(2L);
+        Group group1 = new Group("G-01", 20, 1, "CS");
+        group1.setId(1L);
+        Group group2 = new Group("G-02", 20, 1, "CS");
+        group2.setId(2L);
+
+        Subject subjectInstanceA = new Subject("Math", "M");
+        subjectInstanceA.setId(1L);
+        Subject subjectInstanceB = new Subject("Mathematics", "MATH");
+        subjectInstanceB.setId(1L);
+
+        CoursePlan plan1 = new CoursePlan(subjectInstanceA, teacher1, group1, 30, 15, 15, 0, 1, 1, 0, RoomType.LECTURE_HALL);
+        plan1.setId(1L);
+        CoursePlan plan2 = new CoursePlan(subjectInstanceB, teacher2, group2, 30, 15, 15, 0, 1, 1, 0, RoomType.LECTURE_HALL);
+        plan2.setId(2L);
+
+        Lesson lesson1 = new Lesson(subjectInstanceA, LessonType.LECTURE, teacher1, group1, plan1);
+        lesson1.setId(1L);
+        Lesson lesson2 = new Lesson(subjectInstanceB, LessonType.LECTURE, teacher2, group2, plan2);
+        lesson2.setId(2L);
+
+        Schedule solution = solverFactory.buildSolver().solve(new Schedule(
+                List.of(timeslot),
+                List.of(r1, r2),
+                new ArrayList<>(List.of(lesson1, lesson2))));
+
+        assertFalse(solution.getScore().isFeasible(),
+                "Lessons with the same subject id in the same slot must be a hard conflict");
+    }
+
+    @Test
     void detectsSameTeacherConflictByIdEvenWhenEntityInstancesDiffer() {
         Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
         timeslot.setId(1L);

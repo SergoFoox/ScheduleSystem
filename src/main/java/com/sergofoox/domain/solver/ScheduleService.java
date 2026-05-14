@@ -493,22 +493,50 @@ public class ScheduleService {
     }
 
     private static boolean hasVisibleHardConflict(Lesson first, Lesson second) {
+        if (first.getTimeslot() == null || second.getTimeslot() == null) {
+            return false;
+        }
+
         if (sameGroupSubjectDay(first, second) && !sameSplitGroupLesson(first, second)) {
             return true;
         }
+
         if (!samePhysicalSlot(first, second)) {
             return false;
         }
-        if (isDuplicateAlternatingSubject(first, second)) {
+
+        if (sameSubject(first, second) && !sameSplitGroupLesson(first, second)) {
             return true;
         }
+
         if (!weeksOverlap(first, second)) {
             return false;
         }
-        return sameTeacher(first, second)
-                || sameRoom(first, second)
-                || (sameSubject(first, second) && !sameSplitGroupLesson(first, second))
-                || (sameGroup(first, second) && !sameSplitGroupLesson(first, second));
+
+        if (sameTeacher(first, second)) {
+            return true;
+        }
+
+        if (sameGroup(first, second) && !sameSplitGroupLesson(first, second)) {
+            return true;
+        }
+
+        boolean roomConflict = sameRoom(first, second);
+        if (roomConflict && first.getRoom() != null && first.getRoom().getType() == com.sergofoox.domain.plan.RoomType.SPORTS_HALL) {
+            roomConflict = false; // Sports halls allow multiple groups
+        }
+        if (roomConflict && sameSplitGroupLesson(first, second)) {
+            boolean t1SameRoom = first.getTeacher() != null && first.getTeacher().getAssignedRoom() != null && first.getRoom() != null && first.getRoom().getId().equals(first.getTeacher().getAssignedRoom().getId());
+            boolean t2SameRoom = second.getTeacher() != null && second.getTeacher().getAssignedRoom() != null && second.getRoom() != null && second.getRoom().getId().equals(second.getTeacher().getAssignedRoom().getId());
+            if (t1SameRoom && t2SameRoom) {
+                roomConflict = false;
+            }
+        }
+        if (roomConflict) {
+            return true;
+        }
+        
+        return false;
     }
 
     private static boolean removeInternalWindowConflict(List<Lesson> lessons, Set<Long> removedLessonIds) {
@@ -615,6 +643,7 @@ public class ScheduleService {
 
     private static boolean isForbiddenSecondThirdPairGapAt(Set<Integer> lessonNumbers, int lessonNumber) {
         return !lessonNumbers.contains(lessonNumber)
+                && lessonNumbers.stream().anyMatch(number -> number < lessonNumber)
                 && lessonNumbers.stream().anyMatch(number -> number > lessonNumber);
     }
 

@@ -20,9 +20,14 @@ import java.util.Set;
 public class ScheduleConstraintProvider implements ConstraintProvider {
 
     private static final int ACADEMIC_HOURS_PER_LESSON = 2;
-    private static final int REQUIRED_VARIABLE_HARD_WEIGHT = 500_000;
-    private static final int CRITICAL_CONFLICT_HARD_WEIGHT = 100_000;
-    private static final int GROUP_INTERNAL_WINDOW_HARD_WEIGHT = 10_000;
+    private static final int REQUIRED_VARIABLE_HARD_WEIGHT = 1_000_000;
+    private static final int CRITICAL_CONFLICT_HARD_WEIGHT = 500_000;
+    private static final int GROUP_INTERNAL_WINDOW_HARD_WEIGHT = 100_000;
+    private static final int ASSIGNED_TEACHER_ROOM_SOFT_WEIGHT = 8_000;
+    private static final int TEACHER_ROOM_STABILITY_SOFT_WEIGHT = 250;
+    private static final int TEACHER_PREFERRED_TIMESLOT_SOFT_WEIGHT = 300;
+    private static final int GROUP_DAY_OVERLOAD_SOFT_WEIGHT = 50;
+    private static final int TEACHER_DAY_OVERLOAD_SOFT_WEIGHT = 50;
     private static final int GROUP_SINGLE_LESSON_DAY_SOFT_WEIGHT = 2000;
     private static final int GROUP_USED_DAY_SOFT_WEIGHT = 50;
     private static final int GROUP_ORPHAN_BIWEEKLY_SOFT_WEIGHT = 8000;
@@ -68,6 +73,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 groupEvenWeekUsedDayCount(constraintFactory),
                 groupBiWeeklyOrphanSlot(constraintFactory),
                 loadBalance(constraintFactory),
+                teacherDailyLoadBalance(constraintFactory),
                 compactGroupBiWeekly(constraintFactory),
                 compactBiWeekly(constraintFactory)
         };
@@ -77,11 +83,11 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint subjectConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getSubject),
+                        Joiners.equal(this::subjectId),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
-                .filter((l1, l2) -> samePhysicalSlot(l1, l2)
-                        && weeksOverlap(l1, l2)
+                .filter((l1, l2) -> subjectId(l1) != null
+                        && samePhysicalSlot(l1, l2)
                         && !sameSplitGroupLesson(l1, l2))
                 .penalize(HardSoftScore.ofHard(CRITICAL_CONFLICT_HARD_WEIGHT))
                 .asConstraint("Subject conflict");
@@ -89,10 +95,11 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint noDuplicateSubjectsPerDay(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getGroup),
-                        Joiners.equal(Lesson::getSubject),
+                        Joiners.equal(this::groupId),
+                        Joiners.equal(this::subjectId),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
+                    if (groupId(l1) == null || subjectId(l1) == null) return false;
                     if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
                     // Если это разные подгруппы одного плана - это нормально
                     if (sameSplitGroupLesson(l1, l2)) return false;
@@ -219,10 +226,11 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint groupConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getGroup),
+                        Joiners.equal(this::groupId),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
-                .filter((l1, l2) -> samePhysicalSlot(l1, l2)
+                .filter((l1, l2) -> groupId(l1) != null
+                        && samePhysicalSlot(l1, l2)
                         && weeksOverlap(l1, l2)
                         && !sameSplitGroupLesson(l1, l2))
                 .penalize(HardSoftScore.ofHard(CRITICAL_CONFLICT_HARD_WEIGHT))
@@ -231,7 +239,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint splitGroupTimeslotSync(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getGroup),
+                        Joiners.equal(this::groupId),
                         Joiners.equal(l -> l.getCoursePlan() == null ? null : l.getCoursePlan().getId()),
                         Joiners.equal(Lesson::getLessonType),
                         Joiners.equal(Lesson::getSplitGroupIndex))
@@ -242,8 +250,8 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint noSameSubjectInAlternatingSlot(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                        Joiners.equal(Lesson::getGroup),
-                        Joiners.equal(Lesson::getSubject),
+                        Joiners.equal(this::groupId),
+                        Joiners.equal(this::subjectId),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
                 .filter(this::isDuplicateAlternatingSubject)
@@ -296,7 +304,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         && lesson.getTeacher() != null
                         && lesson.getTeacher().getAssignedRoom() != null
                         && !sameId(lesson.getRoom().getId(), lesson.getTeacher().getAssignedRoom().getId()))
-                .penalize(HardSoftScore.ofHard(5000))
+                .penalize(HardSoftScore.ofSoft(ASSIGNED_TEACHER_ROOM_SOFT_WEIGHT))
                 .asConstraint("Teacher assigned room");
     }
 
@@ -313,7 +321,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     Constraint timeslotWeekCompatibility(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
                 .filter(lesson -> lesson.getTimeslot() != null && !isTimeslotCompatible(lesson))
-                .penalize(HardSoftScore.ofHard(500))
+                .penalize(HardSoftScore.ofHard(CRITICAL_CONFLICT_HARD_WEIGHT))
                 .asConstraint("Timeslot week compatibility");
     }
 
@@ -346,7 +354,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         return constraintFactory.forEach(Lesson.class)
                 .filter(lesson -> lesson.getRoom() != null && 
                         lesson.getGroup().getSize() > lesson.getRoom().getCapacity())
-                .penalize(HardSoftScore.ofSoft(20))
+                .penalize(HardSoftScore.ofHard(CRITICAL_CONFLICT_HARD_WEIGHT))
                 .asConstraint("Room capacity");
     }
 
@@ -382,7 +390,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     Constraint teacherPreferredTimeslot(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
                 .filter(lesson -> hasTeacherAvailability(lesson, AvailabilityStatus.PREFERRED))
-                .reward(HardSoftScore.ofSoft(20))
+                .reward(HardSoftScore.ofSoft(TEACHER_PREFERRED_TIMESLOT_SOFT_WEIGHT))
                 .asConstraint("Teacher preferred timeslot");
     }
 
@@ -394,8 +402,20 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                          Lesson::getPeriodicity,
                          ConstraintCollectors.count())
                 .filter((group, day, periodicity, count) -> count > 4)
-                .penalize(HardSoftScore.ofSoft(10))
+                .penalize(HardSoftScore.ofSoft(GROUP_DAY_OVERLOAD_SOFT_WEIGHT), (group, day, periodicity, count) -> (int) (count - 4))
                 .asConstraint("Too many lessons per day");
+    }
+
+    Constraint teacherDailyLoadBalance(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> lesson.getTimeslot() != null && teacherId(lesson) != null)
+                .groupBy(this::teacherId,
+                        lesson -> lesson.getTimeslot().getDayOfWeek(),
+                        Lesson::getPeriodicity,
+                        ConstraintCollectors.count())
+                .filter((teacherId, day, periodicity, count) -> count > 4)
+                .penalize(HardSoftScore.ofSoft(TEACHER_DAY_OVERLOAD_SOFT_WEIGHT), (teacherId, day, periodicity, count) -> (int) (count - 4))
+                .asConstraint("Teacher daily load balance");
     }
 
     Constraint groupOddWeekSingleLessonDay(ConstraintFactory constraintFactory) {
@@ -446,15 +466,13 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint teacherRoomStability(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                Joiners.equal(this::teacherId),
-                Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
+                Joiners.equal(this::teacherId))
                 .filter((l1, l2) -> {
                     if (teacherId(l1) == null) return false;
-                    if (l1.getRoom() == null || l2.getRoom() == null || l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
-                    if (!weeksOverlap(l1, l2)) return false;
+                    if (l1.getRoom() == null || l2.getRoom() == null) return false;
                     return !sameId(l1.getRoom().getId(), l2.getRoom().getId());
                 })
-                .penalize(HardSoftScore.ONE_SOFT)
+                .penalize(HardSoftScore.ofSoft(TEACHER_ROOM_STABILITY_SOFT_WEIGHT))
                 .asConstraint("Teacher room stability");
     }
 
@@ -472,7 +490,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint compactGroupBiWeekly(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                Joiners.equal(Lesson::getGroup),
+                Joiners.equal(this::groupId),
                 Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
                 Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
                 .filter((l1, l2) -> samePhysicalSlot(l1, l2)
@@ -512,10 +530,18 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     }
 
     private boolean isDuplicateAlternatingSubject(Lesson l1, Lesson l2) {
-        return samePhysicalSlot(l1, l2)
-                && isComplementaryBiWeekly(l1, l2)
-                && sameGroupSubject(l1, l2)
-                && !sameSplitGroupLesson(l1, l2);
+        if (!samePhysicalSlot(l1, l2) || !isComplementaryBiWeekly(l1, l2) || !sameGroupSubject(l1, l2)) {
+            return false;
+        }
+        if (sameSplitGroupLesson(l1, l2)) {
+            // Если это подгруппы, у которых преподаватели привязаны к одной аудитории, это не дубликат
+            boolean t1SameRoom = l1.getTeacher() != null && l1.getTeacher().getAssignedRoom() != null && l1.getRoom() != null && l1.getRoom().getId().equals(l1.getTeacher().getAssignedRoom().getId());
+            boolean t2SameRoom = l2.getTeacher() != null && l2.getTeacher().getAssignedRoom() != null && l2.getRoom() != null && l2.getRoom().getId().equals(l2.getTeacher().getAssignedRoom().getId());
+            if (t1SameRoom && t2SameRoom) {
+                return false;
+            }
+        }
+        return !sameSplitGroupLesson(l1, l2);
     }
 
     private boolean sameGroupSubject(Lesson l1, Lesson l2) {
@@ -540,6 +566,14 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     private Long teacherId(Lesson lesson) {
         return lesson.getTeacher() != null ? lesson.getTeacher().getId() : null;
+    }
+
+    private Long groupId(Lesson lesson) {
+        return lesson.getGroup() != null ? lesson.getGroup().getId() : null;
+    }
+
+    private Long subjectId(Lesson lesson) {
+        return lesson.getSubject() != null ? lesson.getSubject().getId() : null;
     }
 
     private boolean hasTeacherAvailability(Lesson lesson, AvailabilityStatus status) {

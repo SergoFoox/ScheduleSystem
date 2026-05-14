@@ -164,6 +164,47 @@ class ScheduleServiceGenerationTest {
     }
 
     @Test
+    void finalCleanupAllowsDifferentSubjectsForSameGroupInOddEvenOneCell() {
+        Subject math = subject(1L, "Math");
+        Subject physics = subject(2L, "Physics");
+        Teacher firstTeacher = teacher(1L);
+        Teacher secondTeacher = teacher(2L);
+        Group group = group(1L);
+        CoursePlan mathPlan = coursePlan(1L, math, firstTeacher, group);
+        CoursePlan physicsPlan = coursePlan(2L, physics, secondTeacher, group);
+        Timeslot slot = timeslot(1L);
+        Room firstRoom = room(1L);
+        Room secondRoom = room(2L);
+
+        Lesson odd = lesson(1L, math, firstTeacher, group, mathPlan, slot, firstRoom, Periodicity.ODD_WEEKS);
+        Lesson even = lesson(2L, physics, secondTeacher, group, physicsPlan, slot, secondRoom, Periodicity.EVEN_WEEKS);
+
+        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(odd, even));
+
+        assertTrue(conflicts.isEmpty());
+    }
+
+    @Test
+    void finalCleanupUnschedulesSameSubjectAcrossDifferentGroupsInOneDisplayedCell() {
+        Subject subject = subject(1L, "Defense");
+        Teacher firstTeacher = teacher(1L);
+        Teacher secondTeacher = teacher(2L);
+        Group firstGroup = group(1L);
+        Group secondGroup = group(2L);
+        CoursePlan firstPlan = coursePlan(1L, subject, firstTeacher, firstGroup);
+        CoursePlan secondPlan = coursePlan(2L, subject, secondTeacher, secondGroup);
+        Timeslot slot = timeslot(1L);
+        Room room = room(1L);
+
+        Lesson odd = lesson(1L, subject, firstTeacher, firstGroup, firstPlan, slot, room, Periodicity.ODD_WEEKS);
+        Lesson even = lesson(2L, subject, secondTeacher, secondGroup, secondPlan, slot, room, Periodicity.EVEN_WEEKS);
+
+        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(odd, even));
+
+        assertEquals(Set.of(2L), conflicts);
+    }
+
+    @Test
     void finalCleanupUnschedulesSameSubjectTwiceOnOneDay() {
         Subject subject = subject(1L, "Biology");
         Teacher firstTeacher = teacher(1L);

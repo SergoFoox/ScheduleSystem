@@ -294,11 +294,31 @@ export const ScheduleGrid: React.FC = () => {
 
                     let numeratorLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'ODD_WEEKS');
                     let denominatorLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'EVEN_WEEKS');
-                    const weeklyLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+                    let weeklyLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+
+                    for (let i = numeratorLessons.length - 1; i >= 0; i--) {
+                      const numL = numeratorLessons[i];
+                      const denIndex = denominatorLessons.findIndex((denL: any) => denL.subjectName === numL.subjectName);
+                      if (denIndex !== -1) {
+                        const denL = denominatorLessons[denIndex];
+                        const merged = { ...numL, periodicity: 'WEEKLY' };
+                        if (numL.teacherName !== denL.teacherName && denL.teacherName) {
+                           if (!merged.teacherName) merged.teacherName = denL.teacherName;
+                           else if (!merged.teacherName.includes(denL.teacherName)) merged.teacherName += `, ${denL.teacherName}`;
+                        }
+                        if (numL.roomName !== denL.roomName && denL.roomName) {
+                           if (!merged.roomName) merged.roomName = denL.roomName;
+                           else if (!merged.roomName.includes(denL.roomName)) merged.roomName += `, ${denL.roomName}`;
+                        }
+                        weeklyLessons.push(merged);
+                        numeratorLessons.splice(i, 1);
+                        denominatorLessons.splice(denIndex, 1);
+                      }
+                    }
 
                     // If old/generated data already contains two lessons in one physical cell without
                     // ODD/EVEN metadata, render it as a numerator/denominator cell instead of a stack.
-                    const fallbackSplit = numeratorLessons.length === 0 && denominatorLessons.length === 0 && weeklyLessons.length > 1;
+                    const fallbackSplit = numeratorLessons.length === 0 && denominatorLessons.length === 0 && weeklyLessons.length > 1 && !slotLessons.some((l: any) => l.subgroup > 0);
                     if (fallbackSplit) {
                       numeratorLessons = [weeklyLessons[0]];
                       denominatorLessons = weeklyLessons.slice(1);
@@ -306,7 +326,7 @@ export const ScheduleGrid: React.FC = () => {
 
                     const hasNumerator = numeratorLessons.length > 0;
                     const hasDenominator = denominatorLessons.length > 0;
-                    const hasWeekly = slotLessons.some((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+                    const hasWeekly = weeklyLessons.length > 0;
                     const hasSplitSubgroups = slotLessons.length > 1 && slotLessons.some((l: any) => l.subgroup > 0);
                     
                     const isDiagonal = !hasSplitSubgroups && (fallbackSplit || (!hasWeekly && (hasNumerator || hasDenominator)));

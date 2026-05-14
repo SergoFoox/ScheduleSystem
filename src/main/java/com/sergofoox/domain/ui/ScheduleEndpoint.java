@@ -1071,6 +1071,9 @@ public class ScheduleEndpoint {
         } finally {
             DataSourceUtils.releaseConnection(connection, dataSource);
         }
+        if (entityManager != null) {
+            entityManager.clear();
+        }
     }
 
     private record FullTemplateSnapshot(
@@ -1475,6 +1478,13 @@ public class ScheduleEndpoint {
             hasConflict = sameSlotLessons.stream()
                     .filter(l -> l.getId() != null && !l.getId().equals(lesson.getId()))
                     .anyMatch(l -> {
+                        if (!samePhysicalSlot(l, lesson)) return false;
+
+                        boolean visibleSubjectConflict = l.getSubject() != null && lesson.getSubject() != null
+                                && l.getSubject().getId().equals(lesson.getSubject().getId())
+                                && !sameSplitGroupLesson(l, lesson);
+
+                        if (visibleSubjectConflict) return true;
                         if (!weeksOverlap(l, lesson)) return false;
 
                         boolean teacherConflict = l.getTeacher() != null && lesson.getTeacher() != null && 
@@ -1482,16 +1492,12 @@ public class ScheduleEndpoint {
                         
                         boolean roomConflict = l.getRoom() != null && lesson.getRoom() != null && 
                                               l.getRoom().getId().equals(lesson.getRoom().getId());
-                        
-                        boolean subjectConflict = l.getSubject() != null && lesson.getSubject() != null
-                                && l.getSubject().getId().equals(lesson.getSubject().getId())
-                                && !sameSplitGroupLesson(l, lesson);
-                        
+
                         boolean groupConflict = l.getGroup() != null && lesson.getGroup() != null
                                 && l.getGroup().getId().equals(lesson.getGroup().getId())
                                 && !sameSplitGroupLesson(l, lesson);
                         
-                        return teacherConflict || roomConflict || subjectConflict || groupConflict;
+                        return teacherConflict || roomConflict || groupConflict;
                     });
         }
 
