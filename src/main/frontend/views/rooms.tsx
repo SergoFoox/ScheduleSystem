@@ -12,6 +12,7 @@ import { RoomDialog } from '../components/RoomDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { formatRoomType } from '../utils/labels';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 export default function RoomsView() {
   const [rooms, setRooms] = useState<RoomDTO[]>([]);
@@ -38,6 +39,8 @@ export default function RoomsView() {
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  useCrossTabRefresh(() => fetchRooms());
 
   const filteredRooms = rooms.filter(room => 
     room.name?.toLowerCase().includes(filter.toLowerCase()) ||
@@ -77,7 +80,8 @@ export default function RoomsView() {
       await RoomEndpoint.deleteRoom(roomToDelete as any);
       Notification.show('Аудиторію видалено', { theme: 'success', position: 'bottom-end' });
       setConfirmOpened(false);
-      fetchRooms();
+      await fetchRooms();
+      notifyDataChanged('rooms');
     } catch (err) {
       console.error('Failed to delete room:', err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час видалення'), { theme: 'error', position: 'bottom-end' });

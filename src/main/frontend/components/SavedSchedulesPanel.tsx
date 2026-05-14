@@ -13,6 +13,7 @@ import {
   isPublished,
   refreshSchedule
 } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 type SavedSchedule = {
   id?: number;
@@ -54,6 +55,8 @@ export const SavedSchedulesPanel: React.FC = () => {
     });
   }, []);
 
+  useCrossTabRefresh(() => loadItems());
+
   const handleSave = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -66,6 +69,8 @@ export const SavedSchedulesPanel: React.FC = () => {
       await ScheduleEndpoint.saveCurrentSchedule(trimmed);
       setName('');
       await loadItems();
+      await refreshSchedule();
+      notifyDataChanged('all');
       Notification.show('Порожній розклад створено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to save schedule:', err);
@@ -94,6 +99,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       await ScheduleEndpoint.loadSavedSchedule(schedule.id);
       await refreshSchedule();
       await loadItems(); // Оновлюємо список, щоб побачити актуальні лічильники занять
+      notifyDataChanged('all');
       Notification.show(schedule.isBuiltIn ? 'Базовий шаблон відкрито для перегляду' : 'Розклад завантажено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to load schedule:', err);
@@ -135,6 +141,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       if (!customScheduleId) {
         await refreshSchedule();
       }
+      notifyDataChanged(customScheduleId ? 'savedSchedules' : 'all');
       Notification.show('Копію розкладу створено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to copy schedule:', err);
@@ -171,6 +178,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       setScheduleToRename(undefined);
       setRenameName('');
       await loadItems();
+      notifyDataChanged('savedSchedules');
       Notification.show('Назву змінено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to rename saved schedule:', err);
@@ -204,6 +212,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       }
       
       await loadItems();
+      notifyDataChanged('savedSchedules');
       Notification.show('Зміни збережено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to save changes into saved schedule:', err);
@@ -223,6 +232,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       await ScheduleEndpoint.deleteSavedSchedule(schedule.id);
       await loadItems();
       await refreshSchedule();
+      notifyDataChanged('all');
       Notification.show('Збережений розклад видалено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to delete saved schedule:', err);
@@ -276,6 +286,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     setLoading(true);
     try {
       await ScheduleEndpoint.reorderSavedSchedules(reorderedCustomItems.map((item) => item.id as number));
+      notifyDataChanged('savedSchedules');
     } catch (err) {
       console.error('Failed to reorder saved schedules:', err);
       setItems(previousItems);

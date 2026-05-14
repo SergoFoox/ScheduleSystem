@@ -9,6 +9,7 @@ import { SubjectEndpoint } from '../generated/endpoints';
 
 import Subject from '../generated/com/sergofoox/domain/subject/Subject';
 import { getMutationErrorMessage } from '../store/app-state';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 interface SubjectDialogProps {
   opened: boolean;
@@ -47,6 +48,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({ opened, subject, o
       const savedSubject = await (SubjectEndpoint as any).saveSubject(subjectToSave);
       Notification.show(subject ? 'Дисципліну оновлено' : 'Дисципліну створено', { theme: 'success' });
       onSaved(savedSubject.id as any);
+      notifyDataChanged('subjects');
       onClose();
     } catch (err) {
       console.error(err);

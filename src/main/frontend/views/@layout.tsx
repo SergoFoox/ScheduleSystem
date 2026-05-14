@@ -4,13 +4,15 @@ import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { ScheduleEndpoint } from '../generated/endpoints';
-import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked, isPublished, refreshSchedule } from '../store/app-state';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked, isPublished, refreshSchedule, solverStatus } from '../store/app-state';
 import { Notification } from '@vaadin/react-components/Notification.js';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 export default function MainLayout() {
   const userRole = useSignal<string | undefined>(undefined);
   const isDispatcher = userRole.value === 'DISPATCHER'; 
   const location = useLocation();
+  const isSolving = solverStatus.value === 'SOLVING_ACTIVE' || solverStatus.value === 'SOLVING_SCHEDULED';
 
   useEffect(() => {
     const init = async () => {
@@ -28,6 +30,18 @@ export default function MainLayout() {
     window.dispatchEvent(new CustomEvent('side-nav-location-changed'));
   }, [location.pathname, location.search]);
 
+  useEffect(() => {
+    if (!isSolving) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void refreshSchedule(false);
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [isSolving]);
+
+  useCrossTabRefresh(() => refreshSchedule(false));
+
   const handleToggle = async () => {
     if (isBaseTemplateLocked.value) {
       Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
@@ -36,6 +50,7 @@ export default function MainLayout() {
     }
     await ScheduleEndpoint.togglePublishedStatus();
     await refreshSchedule();
+    notifyDataChanged('schedule');
   };
 
   return (

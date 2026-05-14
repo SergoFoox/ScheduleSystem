@@ -12,6 +12,7 @@ import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import { Select } from '@vaadin/react-components/Select.js';
 import { getMutationErrorMessage } from '../store/app-state';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 interface GroupDialogProps {
   opened: boolean;
@@ -63,6 +64,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
       await GroupEndpoint.saveGroup(formData as any);
       Notification.show(group ? 'Групу оновлено' : 'Групу створено', { theme: 'success' });
       onSaved();
+      notifyDataChanged('groups');
       onClose();
     } catch (err) {
       console.error('Failed to save group:', err);
@@ -81,6 +83,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
       await GroupEndpoint.deleteGroup(group.id as any);
       Notification.show('Групу видалено', { theme: 'success' });
       onSaved();
+      notifyDataChanged('groups');
       onClose();
     } catch (err) {
       console.error('Failed to delete group:', err);

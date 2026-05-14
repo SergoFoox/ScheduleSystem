@@ -7,13 +7,14 @@ import { Icon } from '@vaadin/react-components/Icon.js';
 import { Button } from '@vaadin/react-components/Button.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import '@vaadin/vaadin-lumo-styles/vaadin-iconset.js';
+import { useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 export const AnalyticsSidebar: React.FC = () => {
   const [analytics, setAnalytics] = useState<ScheduleAnalyticsDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
+  const loadAnalytics = () => {
     if (selectedEntity.value) {
       setLoading(true);
       ScheduleEndpoint.getAnalytics(
@@ -29,7 +30,13 @@ export const AnalyticsSidebar: React.FC = () => {
     } else {
       setAnalytics(null);
     }
+  };
+
+  useEffect(() => {
+    loadAnalytics();
   }, [selectedEntity.value]);
+
+  useCrossTabRefresh(() => loadAnalytics());
 
   if (!isOpen) {
     return (

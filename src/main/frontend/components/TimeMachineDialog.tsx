@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@vaadin/react-components/ConfirmDialog.js';
 import { AutosaveEndpoint } from '../generated/endpoints';
 import type AutosaveSnapshotDTO from '../generated/com/sergofoox/domain/autosave/AutosaveSnapshotDTO';
 import { refreshSchedule } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 interface TimeMachineDialogProps {
   opened: boolean;
@@ -28,6 +29,12 @@ export const TimeMachineDialog: React.FC<TimeMachineDialogProps> = ({ opened, on
       fetchSnapshots();
     }
   }, [opened]);
+
+  useCrossTabRefresh(() => {
+    if (opened) {
+      void fetchSnapshots();
+    }
+  });
 
   const fetchSnapshots = async () => {
     try {
@@ -48,6 +55,7 @@ export const TimeMachineDialog: React.FC<TimeMachineDialogProps> = ({ opened, on
       await AutosaveEndpoint.restoreSnapshot(selectedSnapshot.id, asNewTemplate);
       Notification.show('Розклад успішно відновлено', { theme: 'success' });
       await refreshSchedule();
+      notifyDataChanged('all');
       setConfirmOpened(false);
       onClose();
     } catch (err) {
@@ -65,7 +73,8 @@ export const TimeMachineDialog: React.FC<TimeMachineDialogProps> = ({ opened, on
     try {
       await AutosaveEndpoint.deleteSnapshot(id);
       Notification.show('Знімок видалено', { theme: 'success' });
-      fetchSnapshots();
+      await fetchSnapshots();
+      notifyDataChanged('autosave');
     } catch (err) {
       console.error('Failed to delete snapshot:', err);
       Notification.show('Помилка при видаленні знімка', { theme: 'error' });

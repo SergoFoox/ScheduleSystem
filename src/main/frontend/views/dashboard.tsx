@@ -22,6 +22,7 @@ import {
   solverStatus
 } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 type Mode = 'GROUP' | 'TEACHER' | 'ROOM';
 
@@ -51,6 +52,7 @@ export default function DashboardView() {
         position: 'bottom-end' 
       });
       await refreshSchedule();
+      notifyDataChanged('schedule');
       const pollUntil = Date.now() + 35000;
       const poll = window.setInterval(async () => {
         await refreshSchedule(false);
@@ -75,6 +77,7 @@ export default function DashboardView() {
       await ScheduleEndpoint.clearSchedule();
       Notification.show('Розклад очищено', { theme: 'success' });
       await refreshSchedule();
+      notifyDataChanged('schedule');
     } catch (err) {
       console.error(err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час очищення розкладу'), { theme: 'error' });
@@ -148,6 +151,7 @@ export default function DashboardView() {
                       try {
                         await ScheduleEndpoint.toggleAutosave(activeSavedSchedule.value.id, enabled);
                         await refreshSchedule(false);
+                        notifyDataChanged('savedSchedules');
                         Notification.show(enabled ? 'Автозбереження увімкнено' : 'Автозбереження вимкнено', {
                           theme: enabled ? 'success' : 'contrast',
                           position: 'bottom-center'

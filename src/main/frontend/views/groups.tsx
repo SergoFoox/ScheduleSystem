@@ -11,6 +11,7 @@ import { GroupDialog } from '../components/GroupDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { useNavigate } from 'react-router';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked } from '../store/app-state';
+import { useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 export default function GroupsView() {
   const [groups, setGroups] = useState<GroupDTO[]>([]);
@@ -37,6 +38,8 @@ export default function GroupsView() {
   useEffect(() => {
     fetchGroups();
   }, []);
+
+  useCrossTabRefresh(() => fetchGroups());
 
   const filteredGroups = groups.filter(group => 
     group.name?.toLowerCase().includes(filter.toLowerCase()) ||

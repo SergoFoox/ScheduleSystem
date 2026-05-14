@@ -10,6 +10,7 @@ import type LessonDTO from '../generated/com/sergofoox/domain/ui/dto/LessonDTO';
 import AvailabilityStatus from '../generated/com/sergofoox/domain/teacher/AvailabilityStatus';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 interface AvailabilityDialogProps {
   opened: boolean;
@@ -98,6 +99,7 @@ export const AvailabilityDialog: React.FC<AvailabilityDialogProps> = ({ opened, 
     try {
       await TeacherAvailabilityEndpoint.saveAvailability(teacher.id as any, availabilities);
       Notification.show('Преференції збережено', { theme: 'success', position: 'bottom-end' });
+      notifyDataChanged('availability');
       onClose();
     } catch (err) {
       console.error('Failed to save availability:', err);

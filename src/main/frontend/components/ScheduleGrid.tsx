@@ -17,6 +17,7 @@ import {
 } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
 import AssignLessonDialog from './AssignLessonDialog';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 const dayNames: Record<string, string> = {
   MONDAY: 'понеділок',
@@ -162,6 +163,7 @@ export const ScheduleGrid: React.FC = () => {
     try {
       await (ScheduleEndpoint as any).moveLesson(lessonId as any, targetTimeslot.id as any, "", periodicity as any);
       await refreshSchedule();
+      notifyDataChanged('schedule');
     } catch (err) {
       console.error('Failed to move lesson:', err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час перенесення заняття'), { theme: 'error' });
