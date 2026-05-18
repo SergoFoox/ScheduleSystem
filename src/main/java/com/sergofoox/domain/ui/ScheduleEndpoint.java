@@ -83,6 +83,7 @@ public class ScheduleEndpoint {
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
     private final TemplateAccessService templateAccessService;
+    private final SchedulePdfExportService schedulePdfExportService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -105,6 +106,7 @@ public class ScheduleEndpoint {
             AutosaveService autosaveService,
             DataSource dataSource,
             TemplateAccessService templateAccessService,
+            SchedulePdfExportService schedulePdfExportService,
             ObjectMapper objectMapper) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
@@ -119,6 +121,7 @@ public class ScheduleEndpoint {
         this.autosaveService = autosaveService;
         this.dataSource = dataSource;
         this.templateAccessService = templateAccessService;
+        this.schedulePdfExportService = schedulePdfExportService;
         this.objectMapper = objectMapper;
     }
 
@@ -900,6 +903,18 @@ public class ScheduleEndpoint {
             return new ScheduleGridDTO(Collections.emptyList(), Collections.emptyList(),
                     Collections.emptyList(), Collections.emptyList(),
                     Collections.emptyList());
+        }
+    }
+
+    @AnonymousAllowed
+    @Transactional(readOnly = true)
+    public String exportSchedulePdf(String selectedCourse, String scheduleName) {
+        try {
+            ScheduleGridDTO data = getScheduleGridData();
+            byte[] pdf = schedulePdfExportService.exportPdf(data, selectedCourse, scheduleName);
+            return Base64.getEncoder().encodeToString(pdf);
+        } catch (IOException e) {
+            throw new IllegalStateException("Не вдалося створити PDF", e);
         }
     }
 

@@ -15,11 +15,13 @@ import {
   getMutationErrorMessage,
   isBaseTemplateLocked,
   refreshSchedule,
+  scheduleData,
   selectedCourseFilter,
   solverStatus
 } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
 import { notifyDataChanged } from '../utils/cross-tab-sync';
+import { downloadScheduleHtml, downloadSchedulePdf } from '../utils/schedule-export';
 
 type Mode = 'GROUP' | 'TEACHER' | 'ROOM';
 
@@ -78,6 +80,33 @@ export default function DashboardView() {
     } catch (err) {
       console.error(err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час очищення розкладу'), { theme: 'error' });
+    }
+  };
+
+  const getExportScheduleName = () => activeSavedSchedule.value?.name || 'Розклад занять';
+
+  const hasExportableSchedule = () => {
+    if (scheduleData.value?.groups?.length) {
+      return true;
+    }
+    Notification.show('Немає даних розкладу для експорту', { theme: 'error', position: 'bottom-end' });
+    return false;
+  };
+
+  const handleExportHtml = () => {
+    if (!hasExportableSchedule()) return;
+    downloadScheduleHtml(scheduleData.value, selectedCourseFilter.value, getExportScheduleName());
+    Notification.show('HTML експортовано', { theme: 'success', position: 'bottom-end' });
+  };
+
+  const handleExportPdf = async () => {
+    if (!hasExportableSchedule()) return;
+    try {
+      await downloadSchedulePdf(scheduleData.value, selectedCourseFilter.value, getExportScheduleName());
+      Notification.show('PDF експортовано', { theme: 'success', position: 'bottom-end' });
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+      Notification.show('Помилка під час експорту PDF', { theme: 'error', position: 'bottom-end' });
     }
   };
 
@@ -174,14 +203,14 @@ export default function DashboardView() {
             <div className="flex gap-1 items-center">
               <Button 
                 theme="tertiary" 
-                onClick={() => Notification.show('Експорт HTML у розробці')}
+                onClick={handleExportHtml}
                 title="Експорт у HTML"
               >
                 <Icon icon="vaadin:download" />
               </Button>
               <Button 
                 theme="tertiary" 
-                onClick={() => Notification.show('Експорт PDF у розробці')}
+                onClick={handleExportPdf}
                 title="Експорт у PDF"
               >
                 <Icon icon="vaadin:file-text" />

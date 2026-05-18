@@ -21,5 +21,6 @@ RUN chmod +x ./mvnw
 RUN ./mvnw clean package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache fontconfig ttf-dejavu
 COPY --from=build /app/target/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "/app.jar", "--spring.profiles.active=prod"]
