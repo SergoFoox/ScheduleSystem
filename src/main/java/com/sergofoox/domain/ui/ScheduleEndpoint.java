@@ -88,7 +88,6 @@ public class ScheduleEndpoint {
     @PersistenceContext
     private EntityManager entityManager;
 
-    private boolean published = false;
     private volatile FullTemplateSnapshot cachedBuiltInTemplateSnapshot;
     private final AtomicBoolean startupAutosaveRecoveryAttempted = new AtomicBoolean(false);
 
@@ -133,9 +132,6 @@ public class ScheduleEndpoint {
     @AnonymousAllowed
     public void generateScheduleForCourse(Integer course) {
         try {
-            if (published) {
-                throw new IllegalStateException("Неможливо згенерувати розклад: його вже опубліковано");
-            }
             Integer courseFilter = course != null && course > 0 ? course : null;
             if (courseFilter != null && courseFilter > 4) {
                 throw new IllegalArgumentException("Курс має бути від 1 до 4");
@@ -152,9 +148,6 @@ public class ScheduleEndpoint {
     @Transactional
     public void clearSchedule() {
         try {
-            if (published) {
-                throw new IllegalStateException("Неможливо очистити розклад: його вже опубліковано");
-            }
             templateAccessService.requireWritableTemplate();
             clearLessonPlacements();
         } catch (Exception e) {
@@ -701,10 +694,6 @@ public class ScheduleEndpoint {
     @AnonymousAllowed
     @Transactional
     public void loadSavedSchedule(Long id) {
-        if (published) {
-            throw new IllegalStateException("Неможливо завантажити збережений розклад: розклад вже опубліковано");
-        }
-
         if (Objects.equals(id, BUILT_IN_TEMPLATE_ID)) {
             importBuiltInTemplate();
             templateAccessService.lockBaseTemplate();
@@ -755,7 +744,6 @@ public class ScheduleEndpoint {
         autosaveService.deleteSnapshotsForSchedule(id);
         if (deletedScheduleIsActive) {
             clearWorkingData();
-            published = false;
             templateAccessService.resetBaseTemplateSession();
         }
     }
@@ -821,11 +809,6 @@ public class ScheduleEndpoint {
     }
 
     @AnonymousAllowed
-    public boolean isPublished() {
-        return published;
-    }
-
-    @AnonymousAllowed
     public boolean isBaseTemplateLocked() {
         return templateAccessService.isBaseTemplateLocked();
     }
@@ -837,19 +820,12 @@ public class ScheduleEndpoint {
             return;
         }
         clearWorkingData();
-        published = false;
         templateAccessService.resetBaseTemplateSession();
     }
 
     @AnonymousAllowed
     public String getCurrentUserRole() {
         return "DISPATCHER";
-    }
-
-    @AnonymousAllowed
-    public void togglePublishedStatus() {
-        templateAccessService.requireWritableTemplate();
-        this.published = !this.published;
     }
 
     @AnonymousAllowed
@@ -930,82 +906,6 @@ public class ScheduleEndpoint {
                 e.printStackTrace();
             }
         }
-    }
-
-    @AnonymousAllowed
-    @Transactional(readOnly = true)
-    public ScheduleAnalyticsDTO getAnalytics(Long entityId, String entityType) {
-        try {
-            String entityName = "Unknown";
-            List<CoursePlan> plans = Collections.emptyList();
-            List<Lesson> lessons = Collections.emptyList();
-
-            if ("GROUP".equals(entityType)) {
-                Group group = groupRepository.findById(entityId).orElse(null);
-                if (group != null) {
-                    entityName = group.getName();
-                    plans = coursePlanRepository.findByGroup(group);
-                    lessons = lessonRepository.findAll().stream()
-                            .filter(l -> l.getGroup() != null && l.getGroup().getId().equals(entityId))
-                            .toList();
-                }
-            } else if ("TEACHER".equals(entityType)) {
-                Teacher teacher = teacherRepository.findById(entityId).orElse(null);
-                if (teacher != null) {
-                    entityName = teacher.getFullName();
-                    plans = coursePlanRepository.findByTeacher(teacher);
-                    lessons = lessonRepository.findAll().stream()
-                            .filter(l -> l.getTeacher() != null && l.getTeacher().getId().equals(entityId))
-                            .toList();
-                }
-            } else if ("ROOM".equals(entityType)) {
-                Room room = roomRepository.findById(entityId).orElse(null);
-                if (room != null) {
-                    entityName = room.getName();
-                    lessons = lessonRepository.findAll().stream()
-                            .filter(l -> l.getRoom() != null && l.getRoom().getId().equals(entityId))
-                            .toList();
-                }
-            }
-
-            List<CourseWorkloadDTO> workloads = plans.stream()
-                    .map(cp -> new CourseWorkloadDTO(
-                            cp.getSubject().getName(),
-                            cp.getExecutedHours(),
-                            cp.getTotalHours(),
-                            cp.getCompletionPercentage()
-                    ))
-                    .toList();
-
-            int windows = calculateWindows(lessons);
-            return new ScheduleAnalyticsDTO(entityName, entityType, workloads, windows);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
-    }
-
-    private int calculateWindows(List<Lesson> entityLessons) {
-        Map<Object, List<Lesson>> byDay = entityLessons.stream()
-                .filter(l -> l.getTimeslot() != null)
-                .collect(Collectors.groupingBy(l -> l.getTimeslot().getDayOfWeek() + "-" + l.getTimeslot().getWeekParity()));
-
-        int totalWindows = 0;
-        for (List<Lesson> dayLessons : byDay.values()) {
-            if (dayLessons.size() < 2) continue;
-
-            List<Integer> slots = dayLessons.stream()
-                    .map(l -> l.getTimeslot().getStartTime().getHour() * 60 + l.getTimeslot().getStartTime().getMinute())
-                    .sorted()
-                    .toList();
-
-            for (int i = 0; i < slots.size() - 1; i++) {
-                if (slots.get(i+1) - slots.get(i) > 120) {
-                    totalWindows++;
-                }
-            }
-        }
-        return totalWindows;
     }
 
     private SavedScheduleLesson createSavedScheduleLesson(Lesson lesson) {
@@ -1580,9 +1480,6 @@ public class ScheduleEndpoint {
     @Transactional
     public void moveLesson(Long lessonId, Long timeslotId, String roomName, com.sergofoox.domain.plan.Periodicity periodicity) {
         try {
-            if (published) {
-                throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
-            }
             templateAccessService.requireWritableTemplate();
             Lesson primaryLesson = lessonRepository.findById(lessonId).orElseThrow();
             Timeslot newTimeslot = timeslotRepository.findById(timeslotId).orElseThrow();
@@ -1754,7 +1651,6 @@ public class ScheduleEndpoint {
     @Transactional
     public void unassignLesson(Long lessonId) {
         try {
-            if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
             templateAccessService.requireWritableTemplate();
             Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
             lesson.setTimeslot(null);
@@ -1770,7 +1666,6 @@ public class ScheduleEndpoint {
     @Transactional
     public LessonDTO assignReplacement(Long lessonId, Long teacherId, Long roomId, Long subjectId) {
         try {
-            if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
             templateAccessService.requireWritableTemplate();
             Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
 
@@ -1808,7 +1703,6 @@ public class ScheduleEndpoint {
     @Transactional
     public void assignManualLesson(Long groupId, Long subjectId, Long timeslotId, Long roomId, Long teacherId, Integer subgroup, com.sergofoox.domain.plan.Periodicity periodicity) {
         try {
-            if (published) throw new IllegalStateException("Розклад опубліковано");
             templateAccessService.requireWritableTemplate();
 
             Group group = groupRepository.findById(groupId).orElseThrow();

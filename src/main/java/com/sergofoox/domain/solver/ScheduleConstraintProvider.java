@@ -72,7 +72,6 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getGroup),
                         Joiners.equal(Lesson::getSubject),
-                        Joiners.equal(Lesson::getLessonType),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
                     if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;

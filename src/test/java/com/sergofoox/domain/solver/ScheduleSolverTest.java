@@ -572,9 +572,10 @@ class ScheduleSolverTest {
     }
 
     @Test
-    void allowsDifferentLessonTypesOfSameSubjectOnOneDayForGroup() {
+    void avoidsSameSubjectTwiceOnOneDayForGroup() {
         Timeslot mondayFirst = timeslot(1L, DayOfWeek.MONDAY, 1);
         Timeslot mondaySecond = timeslot(2L, DayOfWeek.MONDAY, 2);
+        Timeslot tuesdayFirst = timeslot(3L, DayOfWeek.TUESDAY, 1);
 
         Room room = new Room("101", 30, "Main", "Projector", RoomType.LECTURE_HALL);
         room.setId(1L);
@@ -594,14 +595,14 @@ class ScheduleSolverTest {
         practice.setId(2L);
 
         Schedule solution = solverFactory.buildSolver().solve(new Schedule(
-                List.of(mondayFirst, mondaySecond),
+                List.of(mondayFirst, mondaySecond, tuesdayFirst),
                 List.of(room),
                 new ArrayList<>(List.of(lecture, practice))));
 
         assertTrue(solution.getScore().isFeasible(), "Schedule must be feasible");
-        assertEquals(lessonById(solution, 1L).getTimeslot().getDayOfWeek(),
+        assertNotEquals(lessonById(solution, 1L).getTimeslot().getDayOfWeek(),
                 lessonById(solution, 2L).getTimeslot().getDayOfWeek(),
-                "The current duplicate-subject rule is scoped to the same lesson type");
+                "Same subject for one group must not be scheduled twice on the same day");
     }
 
     @Test
