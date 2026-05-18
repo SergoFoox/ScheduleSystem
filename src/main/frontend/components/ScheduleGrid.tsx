@@ -19,13 +19,13 @@ import AssignLessonDialog from './AssignLessonDialog';
 import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 const dayNames: Record<string, string> = {
-  MONDAY: 'понеділок',
-  TUESDAY: 'вівторок',
-  WEDNESDAY: 'середа',
-  THURSDAY: 'четвер',
-  FRIDAY: 'п\'ятниця',
-  SATURDAY: 'субота',
-  SUNDAY: 'неділя'
+  MONDAY: 'Понеділок',
+  TUESDAY: 'Вівторок',
+  WEDNESDAY: 'Середа',
+  THURSDAY: 'Четвер',
+  FRIDAY: 'П\'ятниця',
+  SATURDAY: 'Субота',
+  SUNDAY: 'Неділя'
 };
 
 const COURSE_FILTERS = [1, 2, 3, 4] as const;
@@ -265,7 +265,9 @@ export const ScheduleGrid: React.FC = () => {
                       className="border-r-[2.5px] border-b-[2.5px] border-black p-0 text-center align-middle bg-white w-12"
                     >
                       <div className="flex items-center justify-center h-full w-full" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                        <span className="text-[18px] font-black lowercase py-4 leading-none tracking-tight">{dayNames[day]}</span>
+                        <span className="text-[18px] font-black py-4 leading-none tracking-tight" style={{ fontWeight: 900 }}>
+                          {dayNames[day]}
+                        </span>
                       </div>
                     </td>
                   )}
