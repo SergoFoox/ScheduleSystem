@@ -2,13 +2,6 @@ import { signal } from '@vaadin/hilla-react-signals';
 import { ScheduleEndpoint } from '../generated/endpoints';
 import type SavedScheduleDTO from '../generated/com/sergofoox/domain/ui/dto/SavedScheduleDTO';
 
-export interface SelectedEntity {
-  id: number;
-  type: 'GROUP' | 'TEACHER' | 'ROOM';
-}
-
-export const selectedEntity = signal<SelectedEntity | null>(null);
-
 export const scheduleData = signal<any | null>(null);
 export const scheduleLoading = signal(false);
 export const isBaseTemplateLocked = signal(false);

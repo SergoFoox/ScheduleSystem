@@ -6,7 +6,6 @@ import { ProgressBar } from '@vaadin/react-components/ProgressBar.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { Checkbox } from '@vaadin/react-components/Checkbox.js';
 import { ScheduleGrid } from '../components/ScheduleGrid';
-import { AnalyticsSidebar } from '../components/AnalyticsSidebar';
 import { SavedSchedulesPanel } from '../components/SavedSchedulesPanel';
 import { TimeMachineDialog } from '../components/TimeMachineDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
@@ -17,7 +16,6 @@ import {
   isBaseTemplateLocked,
   refreshSchedule,
   selectedCourseFilter,
-  selectedEntity,
   solverStatus
 } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
@@ -106,7 +104,6 @@ export default function DashboardView() {
                 items={modeOptions}
                 onValueChanged={(e) => {
                   mode.value = e.detail.value as Mode;
-                  selectedEntity.value = null;
                 }}
                 className="w-44"
               />
@@ -209,8 +206,7 @@ export default function DashboardView() {
           </div>
         </div>
       </div>
-      
-      <AnalyticsSidebar />
+
       <TimeMachineDialog 
         opened={timeMachineOpened.value} 
         onClose={() => timeMachineOpened.value = false} 
