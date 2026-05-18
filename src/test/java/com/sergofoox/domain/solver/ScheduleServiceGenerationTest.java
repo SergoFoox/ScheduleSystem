@@ -1,324 +1,290 @@
 package com.sergofoox.domain.solver;
 
+import ai.timefold.solver.core.api.solver.SolverManager;
 import com.sergofoox.domain.group.Group;
+import com.sergofoox.domain.group.GroupRepository;
 import com.sergofoox.domain.lesson.Lesson;
+import com.sergofoox.domain.lesson.LessonRepository;
 import com.sergofoox.domain.plan.CoursePlan;
+import com.sergofoox.domain.plan.CoursePlanRepository;
 import com.sergofoox.domain.plan.Periodicity;
 import com.sergofoox.domain.plan.RoomType;
 import com.sergofoox.domain.room.Room;
+import com.sergofoox.domain.room.RoomRepository;
 import com.sergofoox.domain.subject.LessonType;
 import com.sergofoox.domain.subject.Subject;
+import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.teacher.PositionType;
 import com.sergofoox.domain.teacher.Teacher;
-import com.sergofoox.domain.timeslot.Timeslot;
+import com.sergofoox.domain.teacher.TeacherRepository;
+import com.sergofoox.domain.timeslot.TimeslotRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class ScheduleServiceGenerationTest {
 
-    @Test
-    void convertsEightLectureAndEightPracticeHoursToOnePairPerWeekAcrossOddAndEvenWeeks() {
-        CoursePlan plan = planWithHours(8, 8, 0);
+    @Mock
+    private SolverManager<Schedule, UUID> solverManager;
 
-        List<ScheduleService.GeneratedLessonSpec> specs = ScheduleService.buildLessonSpecs(plan);
+    @Mock
+    private TeacherRepository teacherRepository;
 
-        assertEquals(2, specs.size());
-        assertSpec(specs.get(0), LessonType.LECTURE, Periodicity.ODD_WEEKS, 1);
-        assertSpec(specs.get(1), LessonType.PRACTICE, Periodicity.EVEN_WEEKS, 1);
+    @Mock
+    private GroupRepository groupRepository;
+
+    @Mock
+    private RoomRepository roomRepository;
+
+    @Mock
+    private TimeslotRepository timeslotRepository;
+
+    @Mock
+    private LessonRepository lessonRepository;
+
+    @Mock
+    private CoursePlanRepository coursePlanRepository;
+
+    @Mock
+    private SubjectRepository subjectRepository;
+
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
+    private ScheduleService scheduleService;
+
+    @BeforeEach
+    void setUp() {
+        scheduleService = new ScheduleService(
+                solverManager,
+                teacherRepository,
+                groupRepository,
+                roomRepository,
+                timeslotRepository,
+                lessonRepository,
+                coursePlanRepository,
+                subjectRepository,
+                transactionTemplate);
     }
 
     @Test
-    void alternatesSingleBiWeeklyLessonsAcrossPlansForSameGroup() {
-        Group group = new Group("KB-41", 25, 4, "CS");
-        CoursePlan firstPlan = planWithHours(8, 0, 0);
-        CoursePlan secondPlan = planWithHours(8, 0, 0);
-        firstPlan.setGroup(group);
-        secondPlan.setGroup(group);
-        ScheduleService.BiWeeklyGenerationState state = new ScheduleService.BiWeeklyGenerationState();
+    void generatesLessonsFromConfiguredSessionCountsAndPeriodicity() {
+        CoursePlan plan = coursePlan(1L, "Math", 1, 2, 1, 1);
+        plan.setLecturePeriodicity(Periodicity.WEEKLY);
+        plan.setPracticePeriodicity(Periodicity.ODD_WEEKS);
+        plan.setLabPeriodicity(Periodicity.EVEN_WEEKS);
+        when(coursePlanRepository.findAll()).thenReturn(List.of(plan));
 
-        List<ScheduleService.GeneratedLessonSpec> firstSpecs = ScheduleService.buildLessonSpecs(firstPlan, state);
-        List<ScheduleService.GeneratedLessonSpec> secondSpecs = ScheduleService.buildLessonSpecs(secondPlan, state);
+        scheduleService.generateLessonsFromPlans();
 
-        assertEquals(1, firstSpecs.size());
-        assertEquals(1, secondSpecs.size());
-        assertSpec(firstSpecs.get(0), LessonType.LECTURE, Periodicity.ODD_WEEKS, 1);
-        assertSpec(secondSpecs.get(0), LessonType.LECTURE, Periodicity.EVEN_WEEKS, 1);
+        List<Lesson> lessons = capturedSavedLessons();
+        assertEquals(4, lessons.size());
+        assertLesson(lessons.get(0), plan, LessonType.LECTURE, Periodicity.WEEKLY, 1, 0, plan.getTeacher());
+        assertLesson(lessons.get(1), plan, LessonType.LECTURE, Periodicity.WEEKLY, 2, 0, plan.getTeacher());
+        assertLesson(lessons.get(2), plan, LessonType.PRACTICE, Periodicity.ODD_WEEKS, 1, 0, plan.getTeacher());
+        assertLesson(lessons.get(3), plan, LessonType.LABORATORY, Periodicity.EVEN_WEEKS, 1, 0, plan.getTeacher());
+        verify(lessonRepository).deleteAll();
     }
 
     @Test
-    void keepsSixteenLectureAndSixteenPracticeHoursAsTwoWeeklyPairs() {
-        CoursePlan plan = planWithHours(16, 16, 0);
+    void keepsLowHourWeeklyPlanWeeklyWhenPlanPeriodicityIsWeekly() {
+        CoursePlan plan = coursePlan(1L, "Defense", 1, 1, 0, 0);
+        plan.setTotalHours(8);
+        plan.setLectureHours(8);
+        plan.setLecturePeriodicity(Periodicity.WEEKLY);
+        when(coursePlanRepository.findAll()).thenReturn(List.of(plan));
 
-        List<ScheduleService.GeneratedLessonSpec> specs = ScheduleService.buildLessonSpecs(plan);
+        scheduleService.generateLessonsFromPlans();
 
-        assertEquals(2, specs.size());
-        assertSpec(specs.get(0), LessonType.LECTURE, Periodicity.WEEKLY, 1);
-        assertSpec(specs.get(1), LessonType.PRACTICE, Periodicity.WEEKLY, 1);
+        List<Lesson> lessons = capturedSavedLessons();
+        assertEquals(1, lessons.size());
+        assertLesson(lessons.get(0), plan, LessonType.LECTURE, Periodicity.WEEKLY, 1, 0, plan.getTeacher());
     }
 
     @Test
-    void generatesLecturePracticeAndLabLessonsFromPlannedHours() {
-        CoursePlan plan = planWithHours(16, 16, 16);
+    void usesExplicitBiWeeklyPeriodicityFromCoursePlan() {
+        CoursePlan plan = coursePlan(1L, "History", 1, 1, 1, 0);
+        plan.setLecturePeriodicity(Periodicity.ODD_WEEKS);
+        plan.setPracticePeriodicity(Periodicity.EVEN_WEEKS);
+        when(coursePlanRepository.findAll()).thenReturn(List.of(plan));
 
-        List<ScheduleService.GeneratedLessonSpec> specs = ScheduleService.buildLessonSpecs(plan);
+        scheduleService.generateLessonsFromPlans();
 
-        assertEquals(3, specs.size());
-        assertSpec(specs.get(0), LessonType.LECTURE, Periodicity.WEEKLY, 1);
-        assertSpec(specs.get(1), LessonType.PRACTICE, Periodicity.WEEKLY, 1);
-        assertSpec(specs.get(2), LessonType.LABORATORY, Periodicity.WEEKLY, 1);
+        List<Lesson> lessons = capturedSavedLessons();
+        assertEquals(2, lessons.size());
+        assertLesson(lessons.get(0), plan, LessonType.LECTURE, Periodicity.ODD_WEEKS, 1, 0, plan.getTeacher());
+        assertLesson(lessons.get(1), plan, LessonType.PRACTICE, Periodicity.EVEN_WEEKS, 1, 0, plan.getTeacher());
     }
 
     @Test
-    void addsWeeklyAndBiWeeklyLessonsForTwentyFourHours() {
-        CoursePlan plan = planWithHours(24, 0, 0);
-
-        List<ScheduleService.GeneratedLessonSpec> specs = ScheduleService.buildLessonSpecs(plan);
-
-        assertEquals(2, specs.size());
-        assertSpec(specs.get(0), LessonType.LECTURE, Periodicity.WEEKLY, 1);
-        assertSpec(specs.get(1), LessonType.LECTURE, Periodicity.ODD_WEEKS, 2);
-    }
-
-    @Test
-    void finalCleanupUnschedulesOneLessonFromVisibleGroupConflict() {
-        Subject math = subject(1L, "Math");
-        Subject physics = subject(2L, "Physics");
-        Teacher firstTeacher = teacher(1L);
+    void createsOneLessonForEachTeacherWhenPlanHasTwoTeachers() {
+        CoursePlan plan = coursePlan(1L, "English", 1, 0, 1, 0);
         Teacher secondTeacher = teacher(2L);
-        Group group = group(1L);
-        CoursePlan mathPlan = coursePlan(1L, math, firstTeacher, group);
-        CoursePlan physicsPlan = coursePlan(2L, physics, secondTeacher, group);
-        Timeslot slot = timeslot(1L);
-        Room firstRoom = room(1L);
-        Room secondRoom = room(2L);
+        plan.setSecondTeacher(secondTeacher);
+        plan.setPracticePeriodicity(Periodicity.WEEKLY);
+        when(coursePlanRepository.findAll()).thenReturn(List.of(plan));
 
-        Lesson first = lesson(1L, math, firstTeacher, group, mathPlan, slot, firstRoom, Periodicity.WEEKLY);
-        Lesson second = lesson(2L, physics, secondTeacher, group, physicsPlan, slot, secondRoom, Periodicity.WEEKLY);
+        scheduleService.generateLessonsFromPlans();
 
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(first, second));
-
-        assertEquals(Set.of(2L), conflicts);
+        List<Lesson> lessons = capturedSavedLessons();
+        assertEquals(2, lessons.size());
+        assertLesson(lessons.get(0), plan, LessonType.PRACTICE, Periodicity.WEEKLY, 1, 1, plan.getTeacher());
+        assertLesson(lessons.get(1), plan, LessonType.PRACTICE, Periodicity.WEEKLY, 1, 2, secondTeacher);
     }
 
     @Test
-    void finalCleanupUnschedulesSameSubjectOddEvenLessonsInOneCell() {
+    void courseFilterDeletesAndRegeneratesOnlySelectedCourseGroups() {
+        Group firstCourseGroup = group(1L, 1);
+        Group secondCourseGroup = group(2L, 2);
+        CoursePlan selectedPlan = coursePlan(1L, "Math", 1, 1, 0, 0);
+        CoursePlan otherPlan = coursePlan(2L, "Physics", 2, 1, 0, 0);
+        selectedPlan.setGroup(firstCourseGroup);
+        otherPlan.setGroup(secondCourseGroup);
+        when(groupRepository.findAll()).thenReturn(List.of(firstCourseGroup, secondCourseGroup));
+        when(coursePlanRepository.findAll()).thenReturn(List.of(selectedPlan, otherPlan));
+
+        scheduleService.generateLessonsFromPlans(1);
+
+        List<Lesson> lessons = capturedSavedLessons();
+        assertEquals(1, lessons.size());
+        assertSame(firstCourseGroup, lessons.get(0).getGroup());
+        verify(lessonRepository).deleteByGroup(firstCourseGroup);
+        verify(lessonRepository, never()).deleteByGroup(secondCourseGroup);
+        verify(lessonRepository, never()).deleteAll();
+    }
+
+    @Test
+    void throwsWhenSelectedCourseHasNoGroups() {
+        when(groupRepository.findAll()).thenReturn(List.of(group(1L, 1)));
+
+        assertThrows(IllegalArgumentException.class, () -> scheduleService.generateLessonsFromPlans(2));
+    }
+
+    @Test
+    void throwsWhenPlansHaveNoTeachersAndNothingCanBeGenerated() {
+        CoursePlan plan = coursePlan(1L, "Math", 1, 1, 0, 0);
+        plan.setTeacher(null);
+        plan.setSecondTeacher(null);
+        when(coursePlanRepository.findAll()).thenReturn(List.of(plan));
+
+        assertThrows(IllegalStateException.class, () -> scheduleService.generateLessonsFromPlans());
+    }
+
+    @Test
+    void saveSolutionUnschedulesTeacherConflictLoser() {
         Subject subject = subject(1L, "Math");
         Teacher teacher = teacher(1L);
-        Group group = group(1L);
-        CoursePlan plan = coursePlan(1L, subject, teacher, group);
-        Timeslot slot = timeslot(1L);
+        Group firstGroup = group(1L, 1);
+        Group secondGroup = group(2L, 1);
+        CoursePlan firstPlan = coursePlan(1L, subject, teacher, firstGroup);
+        CoursePlan secondPlan = coursePlan(2L, subject, teacher, secondGroup);
+        com.sergofoox.domain.timeslot.Timeslot timeslot = new com.sergofoox.domain.timeslot.Timeslot(
+                DayOfWeek.MONDAY,
+                LocalTime.of(8, 30),
+                LocalTime.of(10, 0),
+                1);
+        timeslot.setId(1L);
         Room room = room(1L);
+        Lesson first = lesson(1L, subject, teacher, firstGroup, firstPlan, timeslot, room);
+        Lesson second = lesson(2L, subject, teacher, secondGroup, secondPlan, timeslot, room);
+        Lesson firstDb = lesson(1L, subject, teacher, firstGroup, firstPlan, timeslot, room);
+        Lesson secondDb = lesson(2L, subject, teacher, secondGroup, secondPlan, timeslot, room);
+        mockTransactionTemplate();
+        when(lessonRepository.findById(1L)).thenReturn(Optional.of(firstDb));
+        when(lessonRepository.findById(2L)).thenReturn(Optional.of(secondDb));
+        when(timeslotRepository.getReferenceById(1L)).thenReturn(timeslot);
+        when(roomRepository.getReferenceById(1L)).thenReturn(room);
 
-        Lesson odd = lesson(1L, subject, teacher, group, plan, slot, room, Periodicity.ODD_WEEKS);
-        Lesson even = lesson(2L, subject, teacher, group, plan, slot, room, Periodicity.EVEN_WEEKS);
+        scheduleService.saveSolution(new Schedule(List.of(timeslot), List.of(room), List.of(first, second)));
 
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(odd, even));
-
-        assertEquals(Set.of(2L), conflicts);
+        assertSame(timeslot, firstDb.getTimeslot());
+        assertNull(secondDb.getTimeslot());
+        assertNull(secondDb.getRoom());
     }
 
-    @Test
-    void finalCleanupUnschedulesAlternatingLecturePracticeFromSameCoursePlanOneCell() {
-        Subject subject = subject(1L, "Math");
-        Teacher teacher = teacher(1L);
-        Group group = group(1L);
-        CoursePlan plan = coursePlan(1L, subject, teacher, group);
-        Timeslot slot = timeslot(1L);
-        Room room = room(1L);
-
-        Lesson lecture = lesson(1L, subject, teacher, group, plan, slot, room, Periodicity.ODD_WEEKS);
-        Lesson practice = lesson(2L, subject, teacher, group, plan, slot, room, Periodicity.EVEN_WEEKS);
-        practice.setLessonType(LessonType.PRACTICE);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(lecture, practice));
-
-        assertEquals(Set.of(2L), conflicts);
+    private List<Lesson> capturedSavedLessons() {
+        ArgumentCaptor<Iterable<Lesson>> captor = ArgumentCaptor.forClass(Iterable.class);
+        verify(lessonRepository).saveAll(captor.capture());
+        List<Lesson> lessons = new ArrayList<>();
+        captor.getValue().forEach(lessons::add);
+        return lessons;
     }
 
-    @Test
-    void finalCleanupAllowsDifferentSubjectsInOddEvenOneCell() {
-        Subject math = subject(1L, "Math");
-        Subject physics = subject(2L, "Physics");
-        Teacher firstTeacher = teacher(1L);
-        Teacher secondTeacher = teacher(2L);
-        Group firstGroup = group(1L);
-        Group secondGroup = group(2L);
-        CoursePlan mathPlan = coursePlan(1L, math, firstTeacher, firstGroup);
-        CoursePlan physicsPlan = coursePlan(2L, physics, secondTeacher, secondGroup);
-        Timeslot slot = timeslot(1L);
-        Room room = room(1L);
-
-        Lesson odd = lesson(1L, math, firstTeacher, firstGroup, mathPlan, slot, room, Periodicity.ODD_WEEKS);
-        Lesson even = lesson(2L, physics, secondTeacher, secondGroup, physicsPlan, slot, room, Periodicity.EVEN_WEEKS);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(odd, even));
-
-        assertTrue(conflicts.isEmpty());
+    private void mockTransactionTemplate() {
+        doAnswer(invocation -> {
+            Consumer<TransactionStatus> action = invocation.getArgument(0);
+            action.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
     }
 
-    @Test
-    void finalCleanupAllowsDifferentSubjectsForSameGroupInOddEvenOneCell() {
-        Subject math = subject(1L, "Math");
-        Subject physics = subject(2L, "Physics");
-        Teacher firstTeacher = teacher(1L);
-        Teacher secondTeacher = teacher(2L);
-        Group group = group(1L);
-        CoursePlan mathPlan = coursePlan(1L, math, firstTeacher, group);
-        CoursePlan physicsPlan = coursePlan(2L, physics, secondTeacher, group);
-        Timeslot slot = timeslot(1L);
-        Room firstRoom = room(1L);
-        Room secondRoom = room(2L);
-
-        Lesson odd = lesson(1L, math, firstTeacher, group, mathPlan, slot, firstRoom, Periodicity.ODD_WEEKS);
-        Lesson even = lesson(2L, physics, secondTeacher, group, physicsPlan, slot, secondRoom, Periodicity.EVEN_WEEKS);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(odd, even));
-
-        assertTrue(conflicts.isEmpty());
+    private void assertLesson(Lesson lesson,
+                              CoursePlan plan,
+                              LessonType lessonType,
+                              Periodicity periodicity,
+                              int splitGroupIndex,
+                              int subgroup,
+                              Teacher teacher) {
+        assertSame(plan.getSubject(), lesson.getSubject());
+        assertSame(plan.getGroup(), lesson.getGroup());
+        assertSame(plan, lesson.getCoursePlan());
+        assertSame(teacher, lesson.getTeacher());
+        assertEquals(lessonType, lesson.getLessonType());
+        assertEquals(periodicity, lesson.getPeriodicity());
+        assertEquals(splitGroupIndex, lesson.getSplitGroupIndex());
+        assertEquals(subgroup, lesson.getSubgroup());
     }
 
-    @Test
-    void finalCleanupUnschedulesSameSubjectAcrossDifferentGroupsInOneDisplayedCell() {
-        Subject subject = subject(1L, "Defense");
-        Teacher firstTeacher = teacher(1L);
-        Teacher secondTeacher = teacher(2L);
-        Group firstGroup = group(1L);
-        Group secondGroup = group(2L);
-        CoursePlan firstPlan = coursePlan(1L, subject, firstTeacher, firstGroup);
-        CoursePlan secondPlan = coursePlan(2L, subject, secondTeacher, secondGroup);
-        Timeslot slot = timeslot(1L);
-        Room room = room(1L);
-
-        Lesson odd = lesson(1L, subject, firstTeacher, firstGroup, firstPlan, slot, room, Periodicity.ODD_WEEKS);
-        Lesson even = lesson(2L, subject, secondTeacher, secondGroup, secondPlan, slot, room, Periodicity.EVEN_WEEKS);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(odd, even));
-
-        assertEquals(Set.of(2L), conflicts);
-    }
-
-    @Test
-    void finalCleanupUnschedulesSameSubjectTwiceOnOneDay() {
-        Subject subject = subject(1L, "Biology");
-        Teacher firstTeacher = teacher(1L);
-        Teacher secondTeacher = teacher(2L);
-        Group group = group(1L);
-        CoursePlan plan = coursePlan(1L, subject, firstTeacher, group);
-        Room firstRoom = room(1L);
-        Room secondRoom = room(2L);
-
-        Lesson first = lesson(1L, subject, firstTeacher, group, plan, timeslot(1L, 1), firstRoom, Periodicity.WEEKLY);
-        Lesson second = lesson(2L, subject, secondTeacher, group, plan, timeslot(2L, 2), secondRoom, Periodicity.WEEKLY);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(first, second));
-
-        assertEquals(Set.of(2L), conflicts);
-    }
-
-    @Test
-    void finalCleanupUnschedulesSameSubjectOddEvenTwiceOnDisplayedDay() {
-        Subject subject = subject(1L, "Biology");
-        Teacher firstTeacher = teacher(1L);
-        Teacher secondTeacher = teacher(2L);
-        Group group = group(1L);
-        CoursePlan plan = coursePlan(1L, subject, firstTeacher, group);
-        Room firstRoom = room(1L);
-        Room secondRoom = room(2L);
-
-        Lesson odd = lesson(1L, subject, firstTeacher, group, plan, timeslot(1L, 1), firstRoom, Periodicity.ODD_WEEKS);
-        Lesson even = lesson(2L, subject, secondTeacher, group, plan, timeslot(2L, 2), secondRoom, Periodicity.EVEN_WEEKS);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(odd, even));
-
-        assertEquals(Set.of(2L), conflicts);
-    }
-
-    @Test
-    void finalCleanupDoesNotDeleteLessonsToFixInternalGroupWindow() {
-        Subject math = subject(1L, "Math");
-        Subject history = subject(2L, "History");
-        Teacher firstTeacher = teacher(1L);
-        Teacher secondTeacher = teacher(2L);
-        Group group = group(1L);
-        CoursePlan mathPlan = coursePlan(1L, math, firstTeacher, group);
-        CoursePlan historyPlan = coursePlan(2L, history, secondTeacher, group);
-        Room firstRoom = room(1L);
-        Room secondRoom = room(2L);
-
-        Lesson first = lesson(1L, math, firstTeacher, group, mathPlan, timeslot(1L, 1), firstRoom, Periodicity.WEEKLY);
-        Lesson second = lesson(2L, history, secondTeacher, group, historyPlan, timeslot(2L, 3), secondRoom, Periodicity.WEEKLY);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(first, second));
-
-        assertTrue(conflicts.isEmpty());
-    }
-
-    @Test
-    void finalCleanupDoesNotDeleteFourthPairWhenThirdPairIsInternalWindow() {
-        Subject math = subject(1L, "Math");
-        Subject history = subject(2L, "History");
-        Subject chemistry = subject(3L, "Chemistry");
-        Teacher firstTeacher = teacher(1L);
-        Teacher secondTeacher = teacher(2L);
-        Teacher thirdTeacher = teacher(3L);
-        Group group = group(1L);
-        CoursePlan mathPlan = coursePlan(1L, math, firstTeacher, group);
-        CoursePlan historyPlan = coursePlan(2L, history, secondTeacher, group);
-        CoursePlan chemistryPlan = coursePlan(3L, chemistry, thirdTeacher, group);
-        Room firstRoom = room(1L);
-        Room secondRoom = room(2L);
-        Room thirdRoom = room(3L);
-
-        Lesson first = lesson(1L, math, firstTeacher, group, mathPlan, timeslot(1L, 1), firstRoom, Periodicity.WEEKLY);
-        Lesson second = lesson(2L, history, secondTeacher, group, historyPlan, timeslot(2L, 2), secondRoom, Periodicity.WEEKLY);
-        Lesson fourth = lesson(3L, chemistry, thirdTeacher, group, chemistryPlan, timeslot(4L, 4), thirdRoom, Periodicity.WEEKLY);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(first, second, fourth));
-
-        assertTrue(conflicts.isEmpty());
-    }
-
-    @Test
-    void finalCleanupDoesNotDeleteThirdPairWhenSecondPairIsEmpty() {
-        Subject math = subject(1L, "Math");
-        Teacher teacher = teacher(1L);
-        Group group = group(1L);
-        CoursePlan plan = coursePlan(1L, math, teacher, group);
-        Room room = room(1L);
-
-        Lesson third = lesson(1L, math, teacher, group, plan, timeslot(3L, 3), room, Periodicity.WEEKLY);
-
-        Set<Long> conflicts = ScheduleService.findFinalConflictLessonIds(List.of(third));
-
-        assertTrue(conflicts.isEmpty());
-    }
-
-    private CoursePlan planWithHours(int lectureHours, int practiceHours, int labHours) {
-        Subject subject = new Subject("Math", "M");
-        Teacher teacher = new Teacher("Smith", "CS", PositionType.FULL_TIME);
-        Group group = new Group("KB-41", 25, 4, "CS");
+    private CoursePlan coursePlan(Long id, String subjectName, long teacherId, int lectureSessions, int practiceSessions, int labSessions) {
+        Subject subject = subject(id, subjectName);
+        Teacher teacher = teacher(teacherId);
+        Group group = group(id, 1);
         CoursePlan plan = new CoursePlan(
                 subject,
                 teacher,
                 group,
-                lectureHours + practiceHours + labHours,
-                lectureHours,
-                practiceHours,
-                labHours,
-                1,
-                1,
-                1,
+                (lectureSessions + practiceSessions + labSessions) * 16,
+                lectureSessions * 16,
+                practiceSessions * 16,
+                labSessions * 16,
+                lectureSessions,
+                practiceSessions,
+                labSessions,
                 RoomType.LECTURE_HALL);
+        plan.setId(id);
         plan.setLecturePeriodicity(Periodicity.WEEKLY);
         plan.setPracticePeriodicity(Periodicity.WEEKLY);
         plan.setLabPeriodicity(Periodicity.WEEKLY);
+        return plan;
+    }
+
+    private CoursePlan coursePlan(Long id, Subject subject, Teacher teacher, Group group) {
+        CoursePlan plan = new CoursePlan(subject, teacher, group, 16, 16, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
+        plan.setId(id);
         return plan;
     }
 
@@ -334,27 +300,10 @@ class ScheduleServiceGenerationTest {
         return teacher;
     }
 
-    private Group group(Long id) {
-        Group group = new Group("KB-" + id, 25, 4, "CS");
+    private Group group(Long id, int course) {
+        Group group = new Group("G-" + id, 25, course, "CS");
         group.setId(id);
         return group;
-    }
-
-    private CoursePlan coursePlan(Long id, Subject subject, Teacher teacher, Group group) {
-        CoursePlan plan = new CoursePlan(subject, teacher, group, 16, 16, 0, 0, 1, 0, 0, RoomType.LECTURE_HALL);
-        plan.setId(id);
-        return plan;
-    }
-
-    private Timeslot timeslot(Long id) {
-        return timeslot(id, 1);
-    }
-
-    private Timeslot timeslot(Long id, int lessonNumber) {
-        LocalTime startTime = LocalTime.of(8, 30).plusMinutes((long) (lessonNumber - 1) * 105);
-        Timeslot timeslot = new Timeslot(DayOfWeek.MONDAY, startTime, startTime.plusMinutes(90), lessonNumber);
-        timeslot.setId(id);
-        return timeslot;
     }
 
     private Room room(Long id) {
@@ -368,24 +317,13 @@ class ScheduleServiceGenerationTest {
                           Teacher teacher,
                           Group group,
                           CoursePlan plan,
-                          Timeslot timeslot,
-                          Room room,
-                          Periodicity periodicity) {
+                          com.sergofoox.domain.timeslot.Timeslot timeslot,
+                          Room room) {
         Lesson lesson = new Lesson(subject, LessonType.LECTURE, teacher, group, plan);
         lesson.setId(id);
         lesson.setTimeslot(timeslot);
         lesson.setRoom(room);
-        lesson.setPeriodicity(periodicity);
-        lesson.setSplitGroupIndex(1);
+        lesson.setPeriodicity(Periodicity.WEEKLY);
         return lesson;
-    }
-
-    private void assertSpec(ScheduleService.GeneratedLessonSpec spec,
-                            LessonType lessonType,
-                            Periodicity periodicity,
-                            int splitGroupIndex) {
-        assertEquals(lessonType, spec.lessonType());
-        assertEquals(periodicity, spec.periodicity());
-        assertEquals(splitGroupIndex, spec.splitGroupIndex());
     }
 }

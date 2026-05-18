@@ -69,6 +69,16 @@ public class ScheduleService {
         generateLessonsFromPlans(null);
     }
 
+    /**
+     * Regenerates unscheduled lesson entities from course plans.
+     * <p>
+     * Lesson counts are taken from the per-week session fields on {@link CoursePlan};
+     * hour fields are plan metadata and do not automatically change periodicity.
+     * Each generated lesson copies the periodicity configured for its lesson type.
+     *
+     * @param course optional course filter; when present, only groups from that
+     *               course are cleared and regenerated
+     */
     @Transactional
     public void generateLessonsFromPlans(Integer course) {
         System.out.println("=== ГЕНЕРАЦИЯ УРОКОВ ===");
@@ -123,6 +133,13 @@ public class ScheduleService {
         lessonRepository.flush();
     }
 
+    /**
+     * Adds one planned weekly session to the generated lesson list.
+     * <p>
+     * If a course plan has two teachers, the session becomes two subgroup
+     * lessons with the same split-group index; otherwise it becomes one
+     * whole-group lesson.
+     */
     private void addLessonsForPlan(List<Lesson> lessons, CoursePlan plan, LessonType lessonType, com.sergofoox.domain.plan.Periodicity periodicity, int splitGroupIndex) {
         Teacher primaryTeacher = getPrimaryTeacher(plan);
         if (primaryTeacher == null) {
