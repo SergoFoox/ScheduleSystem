@@ -51,9 +51,16 @@ export const SavedSchedulesPanel: React.FC = () => {
 
   const isCustomSchedule = (schedule: SavedSchedule) => !!schedule.id && schedule.id > 0 && !schedule.isBuiltIn;
 
-  const loadItems = async () => {
-    const saved = await ScheduleEndpoint.getSavedSchedules();
-    setItems((saved || []) as SavedSchedule[]);
+  const withEnsuredSchedule = (schedules: SavedSchedule[], schedule?: SavedSchedule | null) => {
+    if (!schedule?.id || schedules.some((item) => item.id === schedule.id)) {
+      return schedules;
+    }
+    return [...schedules, schedule];
+  };
+
+  const loadItems = async (ensureSchedule?: SavedSchedule | null) => {
+    const saved = ((await ScheduleEndpoint.getSavedSchedules()) || []) as SavedSchedule[];
+    setItems(withEnsuredSchedule(saved, ensureSchedule));
   };
 
   useEffect(() => {
@@ -136,15 +143,17 @@ export const SavedSchedulesPanel: React.FC = () => {
 
     setLoading(true);
     try {
+      let createdSchedule: SavedSchedule | null = null;
       if (customScheduleId) {
-        await ScheduleEndpoint.copySavedSchedule(customScheduleId, trimmed);
+        createdSchedule = (await ScheduleEndpoint.copySavedSchedule(customScheduleId, trimmed)) as SavedSchedule;
       } else {
-        await ScheduleEndpoint.copyBuiltInTemplate(trimmed);
+        createdSchedule = (await ScheduleEndpoint.copyBuiltInTemplate(trimmed)) as SavedSchedule;
       }
+      setItems((current) => withEnsuredSchedule(current, createdSchedule));
       setCopyDialogOpened(false);
       setScheduleToCopy(undefined);
       setCopyName('');
-      await loadItems();
+      await loadItems(createdSchedule);
       if (!customScheduleId) {
         await refreshSchedule();
       }
