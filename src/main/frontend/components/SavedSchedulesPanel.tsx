@@ -25,6 +25,13 @@ type SavedSchedule = {
   isFullTemplate?: boolean;
 };
 
+const compactIconButtonStyle: React.CSSProperties = {
+  minWidth: '1.5rem',
+  width: '1.5rem',
+  height: '1.5rem',
+  padding: 0
+};
+
 export const SavedSchedulesPanel: React.FC = () => {
   const [items, setItems] = useState<SavedSchedule[]>([]);
   const [name, setName] = useState('');
@@ -320,19 +327,19 @@ export const SavedSchedulesPanel: React.FC = () => {
   }
 
   return (
-    <aside className="relative w-64 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0">
-      <button
-        type="button"
-        title="Сховати збережені розклади"
-        onClick={() => setCollapsed(true)}
-        className="absolute -right-3 top-1/2 z-20 flex h-9 w-6 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-gray-300 bg-white text-gray-600 shadow-sm transition-colors hover:border-gray-500 hover:bg-gray-50 hover:text-gray-900"
-      >
-        <Icon icon="vaadin:angle-left" className="h-4 w-4" />
-      </button>
-
-      <div className="border-b border-gray-200 px-4 py-3">
+    <aside className="w-64 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0">
+      <div className="border-b border-gray-200 px-3 py-3">
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-800">
-          <Icon icon="vaadin:calendar-clock" className="h-4 w-4 text-gray-500" />
+          <Icon icon="vaadin:calendar-clock" className="h-4 w-4 shrink-0 text-gray-500" />
+          <button
+            type="button"
+            title="Сховати збережені розклади"
+            aria-label="Сховати збережені розклади"
+            onClick={() => setCollapsed(true)}
+            className="order-last ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 shadow-sm transition-colors hover:border-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          >
+            <Icon icon="vaadin:angle-left" className="h-4 w-4" />
+          </button>
           Збережені розклади
         </div>
       </div>
@@ -357,7 +364,7 @@ export const SavedSchedulesPanel: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
         {items.length === 0 ? (
           <div className="px-3 py-6 text-center text-sm text-gray-500">
             Немає збережених розкладів
@@ -389,9 +396,9 @@ export const SavedSchedulesPanel: React.FC = () => {
                       handleLoad(schedule);
                     }
                   }}
-                  className={`group w-full border px-3 py-2 text-left transition-all ${
+                  className={`group box-border w-full max-w-full border py-2 pl-3 pr-3 text-left transition-all ${
                     isActive 
-                      ? 'border-black ring-1 ring-black bg-gray-50 shadow-sm z-10' 
+                      ? 'border-black ring-1 ring-inset ring-black bg-gray-50 shadow-sm z-10'
                       : dragOverId === schedule.id
                         ? 'border-gray-900 bg-gray-100'
                         : schedule.isBuiltIn && baseTemplateLocked
@@ -402,8 +409,8 @@ export const SavedSchedulesPanel: React.FC = () => {
                   } ${isCustomSchedule(schedule) && !loading && !published ? 'cursor-grab active:cursor-grabbing' : ''
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="truncate text-sm font-semibold text-gray-900">{schedule.name}</div>
                       <div className="mt-0.5 text-[11px] text-gray-500">
                         {schedule.updatedAt || '—'} · {schedule.lessonCount ?? 0} занять
@@ -414,17 +421,19 @@ export const SavedSchedulesPanel: React.FC = () => {
                         theme="tertiary-inline small"
                         title="Скопіювати базовий шаблон"
                         className="opacity-100"
+                        style={compactIconButtonStyle}
                         onClick={openCopyDialog}
                       >
                         <Icon icon="vaadin:copy" className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     {schedule.id && schedule.id > 0 && (
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="grid w-28 shrink-0 grid-cols-4 gap-1">
                         <Button
                           theme="tertiary-inline small"
                           title="Зберегти зміни"
                           disabled={loading || published}
+                          style={compactIconButtonStyle}
                           onClick={(event) => handleSaveIntoSchedule(event, schedule)}
                         >
                           <Icon icon="vaadin:archive" className="h-3.5 w-3.5" />
@@ -433,6 +442,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                           theme="tertiary-inline small"
                           title="Скопіювати"
                           disabled={loading}
+                          style={compactIconButtonStyle}
                           onClick={(event) => openCopyDialog(event, schedule)}
                         >
                           <Icon icon="vaadin:copy" className="h-3.5 w-3.5" />
@@ -440,6 +450,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                         <Button
                           theme="tertiary-inline small"
                           title="Перейменувати"
+                          style={compactIconButtonStyle}
                           onClick={(event) => openRenameDialog(event, schedule)}
                         >
                           <Icon icon="vaadin:edit" className="h-3.5 w-3.5" />
@@ -447,6 +458,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                         <Button
                           theme="tertiary-inline small error"
                           title="Видалити"
+                          style={compactIconButtonStyle}
                           onClick={(event) => handleDelete(event, schedule)}
                         >
                           <Icon icon="vaadin:trash" className="h-3.5 w-3.5" />
