@@ -5,12 +5,18 @@ const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 const LESSON_NUMBERS = [1, 2, 3, 4];
 const COURSE_FILTERS = [1, 2, 3, 4] as const;
 
+const GROUP_NAME_FONT_SIZE = 11.0;
+const CURATOR_FONT_SIZE = 10.0;
+const NORMAL_LESSON_FONT_SIZES = { subject: 10.0, teacher: 8.0, room: 8.0 };
+const COMPACT_LESSON_FONT_SIZES = { subject: 7.0, teacher: 6.0, room: 5.8 };
+const DIAGONAL_LESSON_FONT_SIZES = { subject: 8.2, teacher: 7.5, room: 7.0 };
+
 const DAY_NAMES: Record<string, string> = {
-  MONDAY: 'понеділок',
-  TUESDAY: 'вівторок',
-  WEDNESDAY: 'середа',
-  THURSDAY: 'четвер',
-  FRIDAY: 'п’ятниця'
+  MONDAY: 'Понеділок',
+  TUESDAY: 'Вівторок',
+  WEDNESDAY: 'Середа',
+  THURSDAY: 'Четвер',
+  FRIDAY: 'П’ятниця'
 };
 
 type ExportOptions = {
@@ -147,9 +153,15 @@ const renderNormalCell = (slotLessons: any[]) => {
     }, new Map<string, any[]>())
   ) as Array<[string, any[]]>;
 
-  return groupedBySubject
-    .map(([, lessons], index) => `${index > 0 ? '<div class="lesson-divider"></div>' : ''}${renderLessonGroup(lessons)}`)
-    .join('');
+  if (groupedBySubject.length === 1) {
+    return renderLessonGroup(groupedBySubject[0][1]);
+  }
+
+  return `
+    <div class="split-lessons">
+      ${groupedBySubject.map(([, lessons]) => `<div class="split-lesson">${renderLessonGroup(lessons, true)}</div>`).join('')}
+    </div>
+  `;
 };
 
 const renderSlotCell = (data: any, group: any, day: string, lessonNumber: number, timeslotById: Map<number, any>) => {
@@ -198,49 +210,61 @@ const renderSlotCell = (data: any, group: any, day: string, lessonNumber: number
   return `<td class="slot">${renderNormalCell(slotLessons)}</td>`;
 };
 
-const buildScheduleTable = (data: any, selectedCourse: CourseFilter) => {
-  const { groups, effectiveCourse } = getExportGroups(data, selectedCourse);
-  const timeslotById = getTimeslotById(data);
-
+const buildDayTable = (data: any, groups: any[], day: string, timeslotById: Map<number, any>) => {
   const headerGroups = groups.map((group) => `<th class="group-name">${escapeHtml(group.name)}</th>`).join('');
   const headerCurators = groups.map((group) => `<th class="curator">${escapeHtml(group.curatorName || '—')}</th>`).join('');
-  const dayBlocks = DAY_ORDER.map((day) => `
-    <tbody class="day-block">
-      ${LESSON_NUMBERS.map((lessonNumber, index) => `
+
+  return `
+    <table class="schedule-table">
+      <thead>
+        <tr>
+          <th class="corner" colspan="2" rowspan="2"></th>
+          ${headerGroups}
+        </tr>
+        <tr>${headerCurators}</tr>
+      </thead>
+      <tbody class="day-block">
+        ${LESSON_NUMBERS.map((lessonNumber, index) => `
       <tr class="${index === 0 ? 'day-start' : ''}">
         ${index === 0 ? `<td class="day" rowspan="${LESSON_NUMBERS.length}"><span>${escapeHtml(DAY_NAMES[day])}</span></td>` : ''}
         <td class="lesson-number">${lessonNumber}</td>
         ${groups.map((group) => renderSlotCell(data, group, day, lessonNumber, timeslotById)).join('')}
       </tr>
     `).join('')}
-    </tbody>
-  `).join('');
-
-  return {
-    effectiveCourse,
-    groupCount: groups.length,
-    table: `
-      <table class="schedule-table">
-        <thead>
-          <tr>
-            <th class="corner" colspan="2" rowspan="2"></th>
-            ${headerGroups}
-          </tr>
-          <tr>${headerCurators}</tr>
-        </thead>
-        ${dayBlocks}
-      </table>
-    `
-  };
+      </tbody>
+    </table>
+  `;
 };
 
 export const buildScheduleExportHtml = (data: any, selectedCourse: CourseFilter, options: ExportOptions = {}) => {
-  const { effectiveCourse, groupCount, table } = buildScheduleTable(data, selectedCourse);
+  const { groups, effectiveCourse } = getExportGroups(data, selectedCourse);
+  const timeslotById = getTimeslotById(data);
   const title = options.scheduleName?.trim() || 'Розклад занять';
   const courseLabel = effectiveCourse === 'ALL' ? 'усі курси' : `${effectiveCourse} курс`;
+  const generatedAt = formatGeneratedAt();
   const printScript = options.autoPrint
     ? '<script>window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 250); });</script>'
     : '';
+  const renderPageHeader = () => `
+    <div class="header">
+      <div>
+        <h1>${escapeHtml(title)}</h1>
+        <div class="meta course-label">${escapeHtml(courseLabel)}</div>
+      </div>
+      <div class="meta">Сформовано: ${escapeHtml(generatedAt)}</div>
+    </div>
+  `;
+  const pages = groups.length > 0
+    ? DAY_ORDER.map((day) => `
+  <main class="page">
+    ${renderPageHeader()}
+    ${buildDayTable(data, groups, day, timeslotById)}
+  </main>`).join('')
+    : `
+  <main class="page">
+    ${renderPageHeader()}
+    <div class="empty-state">Немає даних розкладу для експорту</div>
+  </main>`;
 
   return `<!doctype html>
 <html lang="uk">
@@ -253,41 +277,69 @@ export const buildScheduleExportHtml = (data: any, selectedCourse: CourseFilter,
     body {
       margin: 0;
       color: #000;
-      background: #fff;
+      background: #e5e7eb;
       font-family: "Times New Roman", Times, serif;
     }
     .page {
-      padding: 18px;
-      min-width: ${Math.max(900, 120 + groupCount * 128)}px;
+      width: 297mm;
+      min-height: 210mm;
+      margin: 0 auto 12mm;
+      padding: 8.5mm;
+      background: #fff;
+      page-break-after: always;
+      --group-name-font-size: ${GROUP_NAME_FONT_SIZE}pt;
+      --curator-font-size: ${CURATOR_FONT_SIZE}pt;
+      --normal-subject-font-size: ${NORMAL_LESSON_FONT_SIZES.subject}pt;
+      --normal-teacher-font-size: ${NORMAL_LESSON_FONT_SIZES.teacher}pt;
+      --normal-room-font-size: ${NORMAL_LESSON_FONT_SIZES.room}pt;
+      --compact-subject-font-size: ${COMPACT_LESSON_FONT_SIZES.subject}pt;
+      --compact-teacher-font-size: ${COMPACT_LESSON_FONT_SIZES.teacher}pt;
+      --compact-room-font-size: ${COMPACT_LESSON_FONT_SIZES.room}pt;
+      --diagonal-subject-font-size: ${DIAGONAL_LESSON_FONT_SIZES.subject}pt;
+      --diagonal-teacher-font-size: ${DIAGONAL_LESSON_FONT_SIZES.teacher}pt;
+      --diagonal-room-font-size: ${DIAGONAL_LESSON_FONT_SIZES.room}pt;
+    }
+    .page:last-of-type {
+      page-break-after: auto;
     }
     .header {
       display: flex;
-      align-items: flex-end;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 24px;
-      margin-bottom: 14px;
-      border-bottom: 2px solid #111;
-      padding-bottom: 10px;
+      gap: 24pt;
+      margin-bottom: 14mm;
+      border-bottom: 1.4pt solid #000;
+      padding-bottom: 3mm;
     }
     h1 {
       margin: 0;
       font-family: Arial, sans-serif;
-      font-size: 24px;
+      font-size: 14pt;
+      font-weight: 800;
       line-height: 1.1;
       letter-spacing: 0;
     }
     .meta {
       font-family: Arial, sans-serif;
-      font-size: 12px;
-      color: #444;
+      font-size: 7.5pt;
+      color: #000;
       text-align: right;
       white-space: nowrap;
     }
+    .course-label {
+      margin-top: 2.5pt;
+      text-align: left;
+    }
+    .empty-state {
+      font-size: 13pt;
+      margin-top: 14mm;
+    }
     .schedule-table {
       width: 100%;
+      height: 166.9mm;
       border-collapse: collapse;
       table-layout: fixed;
-      border: 3px solid #000;
+      border: 1.6pt solid #000;
       background: #fff;
     }
     thead {
@@ -302,130 +354,143 @@ export const buildScheduleExportHtml = (data: any, selectedCourse: CourseFilter,
       page-break-inside: avoid;
     }
     th, td {
-      border: 1px solid #000;
+      border: 0.8pt solid #000;
       padding: 0;
       vertical-align: middle;
     }
     .corner {
-      width: 72px;
-      border-right-width: 3px;
-      border-bottom-width: 3px;
+      width: 18.7mm;
+      border-right-width: 1.1pt;
+      border-bottom-width: 1.1pt;
       background: #fff;
     }
     .group-name {
-      min-width: 126px;
-      height: 42px;
-      padding: 6px 8px;
+      height: 32pt;
+      padding: 2pt 4pt;
       font-family: Arial, sans-serif;
-      font-size: 17px;
+      font-size: var(--group-name-font-size);
       font-weight: 800;
       text-transform: uppercase;
       text-align: center;
-      border-bottom-width: 1px;
+      border-bottom-width: 0.8pt;
     }
     .curator {
-      height: 28px;
-      padding: 4px 6px;
-      font-size: 12px;
+      height: 20pt;
+      padding: 2pt 4pt;
+      font-size: var(--curator-font-size);
       font-weight: 400;
       text-align: center;
-      border-bottom-width: 3px;
+      border-bottom-width: 1.1pt;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
     }
     .day {
-      width: 42px;
-      border-right-width: 3px;
-      border-bottom-width: 3px;
+      width: 9.5mm;
+      border-width: 1.4pt;
       text-align: center;
     }
     .day span {
       display: inline-block;
       writing-mode: vertical-rl;
       transform: rotate(180deg);
-      font-size: 18px;
+      font-size: 11pt;
       font-weight: 900;
       line-height: 1;
-      text-transform: lowercase;
     }
     .lesson-number {
-      width: 34px;
-      height: 88px;
-      border: 3px solid #000;
-      font-size: 28px;
+      width: 9.2mm;
+      height: 37.1mm;
+      border: 1.1pt solid #000;
+      font-size: 18pt;
       font-weight: 900;
       text-align: center;
     }
     .slot {
-      height: 92px;
-      min-width: 126px;
-      padding: 4px;
+      height: 37.1mm;
+      padding: 4pt;
       position: relative;
       text-align: center;
       vertical-align: top;
       overflow: visible;
     }
-    tr:nth-child(4n) .slot {
-      border-bottom-width: 3px;
-    }
     .empty { background: #fff; }
     .lesson {
       display: flex;
-      min-height: 76px;
+      min-height: 0;
+      height: 100%;
       width: 100%;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 2px;
+      justify-content: flex-start;
+      gap: 1pt;
       line-height: 1.08;
       overflow: visible;
     }
     .lesson-compact {
-      min-height: 34px;
-      align-items: flex-start;
+      min-height: 0;
       justify-content: flex-start;
-      text-align: left;
       gap: 0;
     }
     .subject {
       max-width: 100%;
-      font-size: 13px;
+      font-size: var(--normal-subject-font-size);
       font-weight: 900;
       text-transform: uppercase;
       text-decoration: underline;
-      line-height: 1.05;
+      line-height: 1.08;
       overflow: visible;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: normal;
+      word-break: normal;
+      hyphens: none;
       white-space: normal;
     }
-    .lesson-compact .subject { font-size: 9.5px; }
+    .lesson-compact .subject { font-size: var(--compact-subject-font-size); }
     .teacher {
       max-width: 100%;
-      font-size: 12px;
+      font-size: var(--normal-teacher-font-size);
       font-weight: 400;
-      line-height: 1.05;
+      line-height: 1.08;
       overflow: visible;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: normal;
+      word-break: normal;
+      hyphens: none;
       white-space: normal;
     }
-    .lesson-compact .teacher { font-size: 8.5px; }
+    .lesson-compact .teacher { font-size: var(--compact-teacher-font-size); }
     .room {
       max-width: 100%;
-      font-size: 11px;
+      font-size: var(--normal-room-font-size);
       font-weight: 800;
-      line-height: 1.05;
+      line-height: 1.08;
       overflow: visible;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: normal;
+      word-break: normal;
+      hyphens: none;
       white-space: normal;
     }
-    .lesson-compact .room { font-size: 8px; }
+    .lesson-compact .room { font-size: var(--compact-room-font-size); }
     .subgroup {
       font-style: italic;
       font-weight: 400;
+    }
+    .split-lessons {
+      display: flex;
+      height: 100%;
+      min-height: 0;
+      flex-direction: column;
+      overflow: visible;
+    }
+    .split-lesson {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: visible;
+    }
+    .split-lesson + .split-lesson {
+      border-top: 0.45pt solid #000;
+      padding-top: 1pt;
+    }
+    .split-lesson .lesson {
+      height: auto;
     }
     .lesson-divider {
       width: 100%;
@@ -434,7 +499,7 @@ export const buildScheduleExportHtml = (data: any, selectedCourse: CourseFilter,
     }
     .diagonal {
       padding: 0;
-      overflow: hidden;
+      overflow: visible;
       background: #fff;
     }
     .diagonal-line {
@@ -447,29 +512,30 @@ export const buildScheduleExportHtml = (data: any, selectedCourse: CourseFilter,
       pointer-events: none;
     }
     .diagonal-line line {
-      stroke: #555;
-      stroke-width: 1.35;
+      stroke: #000;
+      stroke-width: 1.1;
       stroke-linecap: square;
     }
     .diagonal-part {
       position: absolute;
       z-index: 1;
       display: flex;
-      width: 58%;
-      height: 42%;
+      height: 38%;
       min-height: 0;
-      overflow: hidden;
+      overflow: visible;
     }
     .diagonal-top {
-      top: 3px;
-      left: 4px;
+      top: 4pt;
+      left: 4pt;
+      width: 48%;
       align-items: flex-start;
       justify-content: flex-start;
       text-align: left;
     }
     .diagonal-bottom {
-      right: 4px;
-      bottom: 3px;
+      right: 4pt;
+      bottom: 4pt;
+      width: 44%;
       align-items: flex-end;
       justify-content: flex-end;
       text-align: right;
@@ -477,8 +543,8 @@ export const buildScheduleExportHtml = (data: any, selectedCourse: CourseFilter,
     .diagonal .lesson {
       min-height: 0;
       gap: 0;
-      line-height: 1;
-      overflow: hidden;
+      line-height: 1.08;
+      overflow: visible;
     }
     .diagonal-top .lesson {
       align-items: flex-start;
@@ -491,63 +557,39 @@ export const buildScheduleExportHtml = (data: any, selectedCourse: CourseFilter,
       text-align: right;
     }
     .diagonal .subject {
-      font-size: 8.8px;
-      line-height: 1;
-      max-height: 2.15em;
-      overflow: hidden;
+      font-size: var(--diagonal-subject-font-size);
+      line-height: 1.08;
+      overflow: visible;
     }
     .diagonal .teacher {
-      font-size: 7.8px;
-      line-height: 1;
-      max-height: 2.05em;
-      overflow: hidden;
+      font-size: var(--diagonal-teacher-font-size);
+      line-height: 1.08;
+      overflow: visible;
     }
     .diagonal .room {
-      font-size: 7.4px;
-      line-height: 1;
-      max-height: 2.05em;
-      overflow: hidden;
+      font-size: var(--diagonal-room-font-size);
+      line-height: 1.08;
+      overflow: visible;
     }
     @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body {
+        background: #fff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
       .page {
         width: 297mm;
         min-height: 210mm;
-        padding: 9mm;
-        min-width: 0;
+        margin: 0;
+        padding: 8.5mm;
+        page-break-after: always;
       }
-      .header {
-        margin-bottom: 7mm;
-        padding-bottom: 3mm;
-      }
-      h1 { font-size: 20px; }
-      .meta { font-size: 10px; }
-      .group-name { font-size: 13px; }
-      .subject { font-size: 9px; }
-      .teacher { font-size: 9px; }
-      .room { font-size: 8px; }
-      .lesson-compact .subject { font-size: 8.8px; }
-      .lesson-compact .teacher { font-size: 7.8px; }
-      .lesson-compact .room { font-size: 7.3px; }
-      .diagonal .subject { font-size: 8.2px; }
-      .diagonal .teacher { font-size: 7.3px; }
-      .diagonal .room { font-size: 6.9px; }
-      .slot { height: 84px; }
-      .lesson-number { height: 84px; font-size: 24px; }
+      .page:last-of-type { page-break-after: auto; }
     }
   </style>
 </head>
 <body>
-  <main class="page">
-    <div class="header">
-      <div>
-        <h1>${escapeHtml(title)}</h1>
-        <div class="meta" style="text-align:left;margin-top:4px;">${escapeHtml(courseLabel)}</div>
-      </div>
-      <div class="meta">Сформовано: ${escapeHtml(formatGeneratedAt())}</div>
-    </div>
-    ${table}
-  </main>
+  ${pages}
   ${printScript}
 </body>
 </html>`;
