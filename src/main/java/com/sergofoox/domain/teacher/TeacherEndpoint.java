@@ -1,5 +1,6 @@
 package com.sergofoox.domain.teacher;
 
+import com.sergofoox.domain.autosave.AutosaveService;
 import com.sergofoox.domain.ui.dto.TeacherDTO;
 import com.sergofoox.domain.lesson.LessonRepository;
 import com.sergofoox.domain.room.RoomRepository;
@@ -21,17 +22,20 @@ public class TeacherEndpoint {
     private final RoomRepository roomRepository;
     private final com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository competenceRepository;
     private final TemplateAccessService templateAccessService;
+    private final AutosaveService autosaveService;
 
     public TeacherEndpoint(TeacherRepository teacherRepository, 
                            LessonRepository lessonRepository, 
                            RoomRepository roomRepository,
                            com.sergofoox.domain.competence.TeacherCompetenceMatrixRepository competenceRepository,
-                           TemplateAccessService templateAccessService) {
+                           TemplateAccessService templateAccessService,
+                           AutosaveService autosaveService) {
         this.teacherRepository = teacherRepository;
         this.lessonRepository = lessonRepository;
         this.roomRepository = roomRepository;
         this.competenceRepository = competenceRepository;
         this.templateAccessService = templateAccessService;
+        this.autosaveService = autosaveService;
     }
 
     @Transactional(readOnly = true)
@@ -76,6 +80,7 @@ public class TeacherEndpoint {
             Teacher teacher = teacherRepository.findById(id).orElseThrow();
             teacher.setArchived(true);
             teacherRepository.save(teacher);
+            autosaveService.captureSnapshotAfterCommitAsync(false);
             System.out.println("Teacher archived successfully");
         } catch (Exception e) {
             e.printStackTrace();
@@ -90,6 +95,7 @@ public class TeacherEndpoint {
             Teacher teacher = teacherRepository.findById(id).orElseThrow();
             teacher.setArchived(false);
             teacherRepository.save(teacher);
+            autosaveService.captureSnapshotAfterCommitAsync(false);
             System.out.println("Teacher restored successfully");
         } catch (Exception e) {
             e.printStackTrace();

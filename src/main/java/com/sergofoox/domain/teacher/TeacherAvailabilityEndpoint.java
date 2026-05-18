@@ -1,6 +1,7 @@
 package com.sergofoox.domain.teacher;
 
 import com.sergofoox.domain.ui.TemplateAccessService;
+import com.sergofoox.domain.autosave.AutosaveService;
 import com.sergofoox.domain.ui.dto.AvailabilityDTO;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
@@ -16,13 +17,16 @@ public class TeacherAvailabilityEndpoint {
     private final TeacherAvailabilityRepository repository;
     private final TeacherRepository teacherRepository;
     private final TemplateAccessService templateAccessService;
+    private final AutosaveService autosaveService;
 
     public TeacherAvailabilityEndpoint(TeacherAvailabilityRepository repository,
                                        TeacherRepository teacherRepository,
-                                       TemplateAccessService templateAccessService) {
+                                       TemplateAccessService templateAccessService,
+                                       AutosaveService autosaveService) {
         this.repository = repository;
         this.teacherRepository = teacherRepository;
         this.templateAccessService = templateAccessService;
+        this.autosaveService = autosaveService;
     }
 
     @Transactional(readOnly = true)
@@ -46,5 +50,6 @@ public class TeacherAvailabilityEndpoint {
             return a;
         }).toList();
         repository.saveAll(entities);
+        autosaveService.captureSnapshotAfterCommitAsync(false);
     }
 }
