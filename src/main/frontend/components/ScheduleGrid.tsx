@@ -8,7 +8,6 @@ import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
-  isPublished,
   refreshSchedule,
   scheduleData,
   scheduleLoading,
@@ -34,7 +33,6 @@ const COURSE_FILTERS = [1, 2, 3, 4] as const;
 export const ScheduleGrid: React.FC = () => {
   const data = scheduleData.value;
   const loading = scheduleLoading.value;
-  const published = isPublished.value;
   const baseTemplateLocked = isBaseTemplateLocked.value;
   const selectedCourse = selectedCourseFilter.value;
 
@@ -123,7 +121,7 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleDragStart = (e: React.DragEvent, lessonId: number) => {
-    if (published || baseTemplateLocked) {
+    if (baseTemplateLocked) {
       e.preventDefault();
       if (baseTemplateLocked) {
         Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
@@ -135,13 +133,13 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (published || baseTemplateLocked) return;
+    if (baseTemplateLocked) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = async (e: React.DragEvent, day: string, lessonNum: number, groupId: number, periodicity = 'WEEKLY') => {
-    if (published || baseTemplateLocked) {
+    if (baseTemplateLocked) {
       if (baseTemplateLocked) {
         Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
       }
@@ -171,7 +169,6 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleCellClick = (day: string, lessonNum: number, groupId: number) => {
-    if (published) return;
     if (baseTemplateLocked) {
       Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
       return;

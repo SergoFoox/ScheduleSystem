@@ -15,7 +15,6 @@ import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
-  isPublished,
   refreshSchedule,
   selectedCourseFilter,
   selectedEntity,
@@ -130,7 +129,7 @@ export default function DashboardView() {
             <Button 
               theme="primary" 
               onClick={handleGenerate} 
-              disabled={isSolving || isPublished.value}
+              disabled={isSolving}
               className="shadow-md transition-transform active:scale-95"
             >
               <Icon icon="vaadin:play" slot="prefix" />
@@ -195,7 +194,7 @@ export default function DashboardView() {
             <Button 
               theme="error tertiary" 
               onClick={handleClear}
-              disabled={isSolving || isPublished.value}
+              disabled={isSolving}
               title="Очистити розклад"
             >
               <Icon icon="vaadin:trash" />

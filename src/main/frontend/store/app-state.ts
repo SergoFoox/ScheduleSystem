@@ -11,7 +11,6 @@ export const selectedEntity = signal<SelectedEntity | null>(null);
 
 export const scheduleData = signal<any | null>(null);
 export const scheduleLoading = signal(false);
-export const isPublished = signal(false);
 export const isBaseTemplateLocked = signal(false);
 export const solverStatus = signal<string>('NOT_SOLVING');
 export type CourseFilter = number | 'ALL';
@@ -43,7 +42,6 @@ export async function refreshSchedule(showLoading = true) {
 
     // 2. Потім завантажуємо інші статуси асинхронно
     Promise.all([
-      ScheduleEndpoint.isPublished().then(v => isPublished.value = v),
       ScheduleEndpoint.getSolverStatus().then(v => solverStatus.value = v as any),
       ScheduleEndpoint.isBaseTemplateLocked().then(v => isBaseTemplateLocked.value = !!v),
       ScheduleEndpoint.getActiveSavedScheduleId().then(async (activeId) => {

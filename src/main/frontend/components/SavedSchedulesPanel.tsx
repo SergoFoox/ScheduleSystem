@@ -10,7 +10,6 @@ import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
-  isPublished,
   refreshSchedule
 } from '../store/app-state';
 import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
@@ -46,7 +45,6 @@ export const SavedSchedulesPanel: React.FC = () => {
   const [draggingId, setDraggingId] = useState<number | undefined>(undefined);
   const [dragOverId, setDragOverId] = useState<number | undefined>(undefined);
   const suppressNextClickRef = useRef(false);
-  const published = isPublished.value;
   const baseTemplateLocked = isBaseTemplateLocked.value;
 
   const isCustomSchedule = (schedule: SavedSchedule) => !!schedule.id && schedule.id > 0 && !schedule.isBuiltIn;
@@ -102,7 +100,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       suppressNextClickRef.current = false;
       return;
     }
-    if (!schedule.id || published || loading) return;
+    if (!schedule.id || loading) return;
     const confirmMessage = baseTemplateLocked
       ? `Відкрити "${schedule.name}"?`
       : `Якщо не зберегти поточні зміни, вони будуть втрачені. Відкрити "${schedule.name}"?`;
@@ -209,7 +207,7 @@ export const SavedSchedulesPanel: React.FC = () => {
 
   const handleSaveIntoSchedule = async (event: React.MouseEvent, schedule: SavedSchedule) => {
     event.stopPropagation();
-    if (!schedule.id || schedule.id < 0 || loading || published) return;
+    if (!schedule.id || schedule.id < 0 || loading) return;
     if (baseTemplateLocked) {
       Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
       return;
@@ -259,7 +257,7 @@ export const SavedSchedulesPanel: React.FC = () => {
   };
 
   const handleDragStart = (event: React.DragEvent, schedule: SavedSchedule) => {
-    if (!isCustomSchedule(schedule) || loading || published) {
+    if (!isCustomSchedule(schedule) || loading) {
       event.preventDefault();
       return;
     }
@@ -387,9 +385,9 @@ export const SavedSchedulesPanel: React.FC = () => {
                 <div
                   key={schedule.id}
                   role="button"
-                  tabIndex={loading || published ? -1 : 0}
+                  tabIndex={loading ? -1 : 0}
                   title={isActive ? "Поточний розклад" : "Натисніть, щоб відкрити"}
-                  draggable={isCustomSchedule(schedule) && !loading && !published}
+                  draggable={isCustomSchedule(schedule) && !loading}
                   onDragStart={(event) => handleDragStart(event, schedule)}
                   onDragOver={(event) => handleDragOver(event, schedule)}
                   onDragLeave={() => {
@@ -413,9 +411,9 @@ export const SavedSchedulesPanel: React.FC = () => {
                         : schedule.isBuiltIn && baseTemplateLocked
                           ? 'border-gray-900 bg-gray-50'
                           : 'border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-50'
-                  } ${loading || published ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                  } ${loading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                   } ${draggingId === schedule.id ? 'opacity-40' : ''
-                  } ${isCustomSchedule(schedule) && !loading && !published ? 'cursor-grab active:cursor-grabbing' : ''
+                  } ${isCustomSchedule(schedule) && !loading ? 'cursor-grab active:cursor-grabbing' : ''
                   }`}
                 >
                   <div className="flex min-w-0 items-start justify-between gap-2">
@@ -441,7 +439,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                         <Button
                           theme="tertiary-inline small"
                           title="Зберегти зміни"
-                          disabled={loading || published}
+                          disabled={loading}
                           style={compactIconButtonStyle}
                           onClick={(event) => handleSaveIntoSchedule(event, schedule)}
                         >
