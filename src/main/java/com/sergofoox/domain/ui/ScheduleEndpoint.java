@@ -1,5 +1,7 @@
 package com.sergofoox.domain.ui;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sergofoox.domain.competence.Priority;
@@ -357,7 +359,8 @@ public class ScheduleEndpoint {
                         sqlEnum(row, "position_type", PositionType.class),
                         sqlInteger(row, "weekly_hour_limit"),
                         sqlInteger(row, "max_working_days_per_week"),
-                        sqlLong(row, "assigned_room_id")))
+                        sqlLong(row, "assigned_room_id"),
+                        false))
                 .sorted(Comparator.comparing(TeacherSnapshot::id, Comparator.nullsLast(Long::compareTo)))
                 .toList();
 
@@ -1161,7 +1164,8 @@ public class ScheduleEndpoint {
                         teacher.getPositionType(),
                         teacher.getWeeklyHourLimit(),
                         teacher.getMaxWorkingDaysPerWeek(),
-                        idOf(teacher.getAssignedRoom())))
+                        idOf(teacher.getAssignedRoom()),
+                        teacher.isArchived()))
                 .toList();
 
         List<GroupSnapshot> groups = groupRepository.findAll().stream()
@@ -1275,6 +1279,14 @@ public class ScheduleEndpoint {
     }
 
     private void restoreSnapshot(FullTemplateSnapshot snapshot) {
+        List<TimeslotSnapshot> timeslotSources = snapshot.timeslots();
+        if (timeslotSources.isEmpty()) {
+            timeslotSources = currentTimeslotSnapshots();
+        }
+        if (timeslotSources.isEmpty()) {
+            timeslotSources = getBaseTemplateSnapshotWithoutImport().timeslots();
+        }
+
         clearWorkingData();
         clearPersistenceContext();
 
@@ -1307,6 +1319,7 @@ public class ScheduleEndpoint {
             teacher.setWeeklyHourLimit(source.weeklyHourLimit());
             teacher.setMaxWorkingDaysPerWeek(source.maxWorkingDaysPerWeek());
             teacher.setAssignedRoom(roomsByOldId.get(source.assignedRoomId()));
+            teacher.setArchived(Boolean.TRUE.equals(source.archived()));
             teachersByOldId.put(source.id(), teacherRepository.save(teacher));
         }
 
@@ -1345,7 +1358,7 @@ public class ScheduleEndpoint {
         }
 
         Map<Long, Timeslot> timeslotsByOldId = new HashMap<>();
-        for (TimeslotSnapshot source : snapshot.timeslots()) {
+        for (TimeslotSnapshot source : timeslotSources) {
             Timeslot timeslot = new Timeslot();
             timeslot.setDayOfWeek(source.dayOfWeek());
             timeslot.setStartTime(source.startTime());
@@ -1386,6 +1399,19 @@ public class ScheduleEndpoint {
         }
     }
 
+    private List<TimeslotSnapshot> currentTimeslotSnapshots() {
+        return timeslotRepository.findAll().stream()
+                .sorted(Comparator.comparing(Timeslot::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(timeslot -> new TimeslotSnapshot(
+                        timeslot.getId(),
+                        timeslot.getDayOfWeek(),
+                        timeslot.getStartTime(),
+                        timeslot.getEndTime(),
+                        timeslot.getWeekParity(),
+                        timeslot.getLessonNumber()))
+                .toList();
+    }
+
     private void clearWorkingData() {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         try (Statement statement = connection.createStatement()) {
@@ -1410,6 +1436,7 @@ public class ScheduleEndpoint {
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record FullTemplateSnapshot(
             List<SubjectSnapshot> subjects,
             List<RoomSnapshot> rooms,
@@ -1417,9 +1444,20 @@ public class ScheduleEndpoint {
             List<GroupSnapshot> groups,
             List<CoursePlanSnapshot> coursePlans,
             List<TimeslotSnapshot> timeslots,
+            @JsonAlias("matrix")
             List<CompetenceSnapshot> competences,
             List<LessonSnapshot> lessons
     ) {
+        private FullTemplateSnapshot {
+            subjects = listOrEmpty(subjects);
+            rooms = listOrEmpty(rooms);
+            teachers = listOrEmpty(teachers);
+            groups = listOrEmpty(groups);
+            coursePlans = listOrEmpty(coursePlans);
+            timeslots = listOrEmpty(timeslots);
+            competences = listOrEmpty(competences);
+            lessons = listOrEmpty(lessons);
+        }
     }
 
     private record SubjectSnapshot(Long id, String name, String abbreviation) {
@@ -1428,6 +1466,7 @@ public class ScheduleEndpoint {
     private record RoomSnapshot(Long id, String name, Integer capacity, String building, String equipment, RoomType type) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record TeacherSnapshot(
             Long id,
             String fullName,
@@ -1436,7 +1475,8 @@ public class ScheduleEndpoint {
             PositionType positionType,
             Integer weeklyHourLimit,
             Integer maxWorkingDaysPerWeek,
-            Long assignedRoomId
+            Long assignedRoomId,
+            Boolean archived
     ) {
     }
 
@@ -1511,6 +1551,10 @@ public class ScheduleEndpoint {
         if (entity instanceof Timeslot timeslot) return timeslot.getId();
         if (entity instanceof Room room) return room.getId();
         return null;
+    }
+
+    private static <T> List<T> listOrEmpty(List<T> items) {
+        return items != null ? items : Collections.emptyList();
     }
 
     private boolean sameId(Long firstId, Long secondId) {
