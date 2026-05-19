@@ -91,7 +91,7 @@ public class CoursePlan {
     }
 
     /**
-     * Відсоток виконання навчального плану (згідно з ТЗ 3.3)
+     * Completion percentage for the course plan according to requirement 3.3.
      */
     public double getCompletionPercentage() {
         if (totalHours == null || totalHours == 0) return 0;

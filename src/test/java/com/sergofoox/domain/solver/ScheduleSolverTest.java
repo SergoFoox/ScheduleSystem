@@ -36,7 +36,7 @@ class ScheduleSolverTest {
 
     @Test
     void solveBasicSchedule() {
-        // 1. Створюємо дані (Facts)
+        // 1. Create problem facts.
         Timeslot t1 = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(8, 30), LocalTime.of(10, 0), 1);
         t1.setId(1L);
         Timeslot t2 = new Timeslot(DayOfWeek.MONDAY, LocalTime.of(10, 15), LocalTime.of(11, 45), 2);
@@ -60,7 +60,7 @@ class ScheduleSolverTest {
         CoursePlan plan = new CoursePlan(subject, teacher, group1, 30, 15, 15, 0, 1, 1, 0, RoomType.LECTURE_HALL);
         plan.setId(1L);
 
-        // 2. Створюємо заняття (Entities), які треба спланувати
+        // 2. Create planning entities that need to be scheduled.
         List<Lesson> lessons = new ArrayList<>();
         Lesson lesson1 = new Lesson(subject, LessonType.LECTURE, teacher, group1, plan);
         lesson1.setId(1L);
@@ -72,11 +72,11 @@ class ScheduleSolverTest {
 
         Schedule problem = new Schedule(timeslots, rooms, lessons);
 
-        // 3. Викликаємо Solver
+        // 3. Run the solver.
         Solver<Schedule> solver = solverFactory.buildSolver();
         Schedule solution = solver.solve(problem);
 
-        // 4. Перевірка результату
+        // 4. Verify the result.
         assertNotNull(solution.getScore());
         assertTrue(solution.getScore().isFeasible(), "Розклад має бути реалістичним (без жорстких конфліктів)");
         
@@ -85,7 +85,7 @@ class ScheduleSolverTest {
             assertNotNull(lesson.getRoom(), "Кожне заняття повинно мати аудиторію");
         }
 
-        // Перевірка, що один вчитель не в двох місцях одночасно
+        // Verify that one teacher is not assigned to two places at the same time.
         Lesson l1 = solution.getLessons().get(0);
         Lesson l2 = solution.getLessons().get(1);
         assertNotEquals(l1.getTimeslot(), l2.getTimeslot(), "Вчитель не може вести дві пари одночасно");

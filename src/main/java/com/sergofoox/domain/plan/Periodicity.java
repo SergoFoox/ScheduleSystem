@@ -1,10 +1,10 @@
 package com.sergofoox.domain.plan;
 
 /**
- * Параметр періодичності занять (згідно з ТЗ 3.1)
+ * Lesson periodicity setting according to requirement 3.1.
  */
 public enum Periodicity {
-    WEEKLY,      // Щотижня
-    ODD_WEEKS,   // Чисельник (непарні тижні)
-    EVEN_WEEKS   // Знаменник (парні тижні)
+    WEEKLY,      // Every week
+    ODD_WEEKS,   // Numerator, odd weeks
+    EVEN_WEEKS   // Denominator, even weeks
 }

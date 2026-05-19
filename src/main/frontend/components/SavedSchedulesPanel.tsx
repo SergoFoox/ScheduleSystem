@@ -110,7 +110,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.loadSavedSchedule(schedule.id);
       await refreshSchedule();
-      await loadItems(); // Оновлюємо список, щоб побачити актуальні лічильники занять
+      await loadItems(); // Refresh the list to show the latest lesson counters.
       notifyDataChanged('all');
       Notification.show(schedule.isBuiltIn ? 'Базовий шаблон відкрито для перегляду' : 'Розклад завантажено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
@@ -218,7 +218,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.saveCurrentScheduleToSavedSchedule(schedule.id);
       
-      // Робимо ручний знімок у Машину Часу після успішного збереження
+      // Create a manual Time Machine snapshot after a successful save.
       try {
         await AutosaveEndpoint.captureManualSnapshot();
       } catch (e) {

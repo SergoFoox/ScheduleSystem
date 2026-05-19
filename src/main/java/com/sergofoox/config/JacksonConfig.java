@@ -16,7 +16,7 @@ public class JacksonConfig {
     public ObjectMapper objectMapper() {
         return JsonMapper.builder()
                 .addModule(new JavaTimeModule())
-                // Важливо: додаємо модулі для підтримки стандартних типів Java 8+
+                // Register modules for standard Java 8+ types.
                 .findAndAddModules() 
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)

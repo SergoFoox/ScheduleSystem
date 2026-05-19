@@ -43,7 +43,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
                        align === 'right' ? 'items-end text-right' : 
                        'items-center text-center';
 
-  // Збираємо унікальні номери аудиторій
+  // Collect unique room numbers.
   const uniqueRooms = Array.from(new Set(lessons.map(l => l.roomName || '—'))).join(', ');
 
   const displayLessons = hasSplitSubgroups
@@ -118,7 +118,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
           <div className={`${roomFontSize} text-black font-bold font-serif flex flex-col ${alignClasses} gap-0 mt-0.5`}>
             <div className={`flex flex-wrap ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'} leading-tight`}>
                <span>ауд. №{uniqueRooms}</span>
-               {/* Показуємо підгрупу тільки якщо вона ОДНА у клітинці */}
+               {/* Show the subgroup only when there is exactly one in the cell. */}
                {!hasSplitSubgroups && lessons.length === 1 && first.subgroup > 0 && (
                  <span className="ml-1 italic font-normal text-[0.9em] whitespace-nowrap">
                    {first.subgroup}-а підгр.

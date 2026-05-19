@@ -30,7 +30,7 @@ export default function DashboardView() {
   const timeMachineOpened = useSignal(false);
   const isSolving = solverStatus.value === 'SOLVING_ACTIVE' || solverStatus.value === 'SOLVING_SCHEDULED';
 
-  // Опитуємо статус під час розв'язання, щоб бачити оновлення в реальному часі
+  // Poll the solver status while solving so the UI can show live updates.
   useEffect(() => {
     let interval: any;
     if (isSolving) {
@@ -120,7 +120,7 @@ export default function DashboardView() {
     <div className="flex h-full overflow-hidden bg-gray-50/50">
       <SavedSchedulesPanel />
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Сучасна панель інструментів */}
+        {/* Modern toolbar */}
         <div className="flex justify-between items-center p-4 bg-white border-b shadow-sm gap-4">
           <div className="flex items-center gap-6">
             <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 whitespace-nowrap">
@@ -163,7 +163,7 @@ export default function DashboardView() {
               <span className="lg:hidden">Пуск</span>
             </Button>
 
-            {/* Блок автозбереження: чіткий підпис та іконка історії */}
+            {/* Autosave block with a clear label and history icon */}
             {!isBaseTemplateLocked.value && activeSavedSchedule.value && (
               <div className="flex items-center gap-4 border-l border-r px-4 min-w-fit">
                 <Checkbox 
@@ -228,7 +228,7 @@ export default function DashboardView() {
           </div>
         </div>
         
-        {/* Контейнер сітки */}
+        {/* Grid container */}
         <div className="flex-1 overflow-hidden p-6">
           <div className="h-full border border-gray-200 rounded-2xl shadow-xl bg-white overflow-hidden relative">
             <ScheduleGrid />

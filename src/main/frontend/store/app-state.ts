@@ -29,11 +29,11 @@ export async function refreshSchedule(showLoading = true) {
     scheduleLoading.value = true;
   }
   try {
-    // 1. Спочатку завантажуємо основні дані розкладу (це критично для Grid)
+    // 1. Load the core schedule data first, because the grid depends on it.
     const result = await ScheduleEndpoint.getScheduleGridData();
     scheduleData.value = result;
 
-    // 2. Потім завантажуємо інші статуси асинхронно
+    // 2. Then load the remaining statuses asynchronously.
     Promise.all([
       ScheduleEndpoint.getSolverStatus().then(v => solverStatus.value = v as any),
       ScheduleEndpoint.isBaseTemplateLocked().then(v => isBaseTemplateLocked.value = !!v),
@@ -46,7 +46,7 @@ export async function refreshSchedule(showLoading = true) {
     
   } catch (err) {
     console.error('Критична помилка завантаження розкладу:', err);
-    // Якщо дані вже були, не зануляємо їх при помилці оновлення
+    // If data already exists, keep it when a refresh fails.
     if (!scheduleData.value) {
         scheduleData.value = null; 
     }

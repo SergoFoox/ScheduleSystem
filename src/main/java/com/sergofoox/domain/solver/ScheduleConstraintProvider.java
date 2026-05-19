@@ -24,7 +24,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     @Override
     public Constraint @NonNull [] defineConstraints(@NonNull ConstraintFactory constraintFactory) {
         return new Constraint[] {
-                // HARD: КРИТИЧЕСКИЕ (Нельзя нарушать)
+                // HARD: Critical rules that must not be violated.
                 teacherConflict(constraintFactory),
                 groupConflict(constraintFactory),
                 splitGroupTimeslotSync(constraintFactory),
@@ -35,11 +35,11 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 groupOddWeekInternalWindow(constraintFactory),
                 groupEvenWeekInternalWindow(constraintFactory),
 
-                // HARD: СРЕДНИЕ (Обязательно к заполнению)
+                // HARD: Required assignment rules.
                 requiredVariables(constraintFactory),
                 timeslotWeekCompatibility(constraintFactory),
 
-                // SOFT: ПРАВИЛА ИЗ ТЗ И РАСПРЕДЕЛЕНИЕ
+                // SOFT: Requirement-driven rules and distribution preferences.
                 assignedTeacherRoom(constraintFactory),
                 roomTypeCompatibility(constraintFactory),
                 roomCapacity(constraintFactory),
@@ -76,16 +76,16 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .filter((l1, l2) -> {
                     if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
                     if (!weeksOverlap(l1, l2)) return false;
-                    // Если это разные подгруппы одного плана - это нормально
+                    // Different subgroups from the same plan are allowed.
                     if (sameSplitGroupLesson(l1, l2)) return false;
-                    // Если это разные номера пар в один день - штрафуем
+                    // Penalize different lesson numbers on the same day.
                     return !l1.getTimeslot().getLessonNumber().equals(l2.getTimeslot().getLessonNumber());
                 })
                 .penalize(HardSoftScore.ofHard(5000))
                 .asConstraint("No duplicate subjects per day");
     }
 
-    // Используем ссылки на методы для корректного отслеживания изменений движком
+    // Use method references so the solver can track changes correctly.
     Constraint teacherConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(this::teacherId),
@@ -172,7 +172,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .asConstraint("Teacher assigned room");
     }
 
-    // subjectConflict удален, так как он слишком ограничивает расписание
+    // subjectConflict used to be removed because it made the timetable too restrictive.
 
 
     Constraint requiredVariables(ConstraintFactory constraintFactory) {
@@ -191,12 +191,12 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     // --- SOFT CONSTRAINTS ---
 
-    // Поощряем использование разных аудиторий
+    // Encourage spreading lessons across different rooms.
     Constraint spreadRooms(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
                 .filter(l -> l.getRoom() != null)
                 .groupBy(Lesson::getRoom, ConstraintCollectors.count())
-                .filter((room, count) -> count > 2) // Если в одной комнате больше 2 пар в день (в среднем)
+                .filter((room, count) -> count > 2) // More than two lessons in one room per day on average.
                 .penalize(HardSoftScore.ofSoft(10))
                 .asConstraint("Spread lessons across rooms");
     }

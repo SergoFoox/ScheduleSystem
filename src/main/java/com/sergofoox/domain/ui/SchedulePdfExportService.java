@@ -375,9 +375,9 @@ public class SchedulePdfExportService {
     }
 
     private TextBlock buildTextBlock(PdfFonts fonts, LessonText lesson, float width, LessonTextSizes textSizes) throws IOException {
-        float subjectSize = textSizes.subjectSize(); // Назва дісципліни
-        float teacherSize = textSizes.teacherSize(); // Вчитель
-        float roomSize = textSizes.roomSize(); // Аудитория
+        float subjectSize = textSizes.subjectSize(); // Subject name
+        float teacherSize = textSizes.teacherSize(); // Teacher
+        float roomSize = textSizes.roomSize(); // Room
         int subjectLines = SUBJECT_MAX_LINES;
         int teacherLines = TEACHER_MAX_LINES;
         int roomLines = ROOM_MAX_LINES;

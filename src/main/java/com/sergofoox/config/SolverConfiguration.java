@@ -23,7 +23,7 @@ public class SolverConfiguration {
 
     @Bean
     public SolverConfig solverConfig() {
-        // Убираем фиксированный RandomSeed, чтобы Timefold генерировал новый при каждом запуске
+        // Leave the random seed unset so Timefold generates a new one on each run.
         return new SolverConfig()
                 .withEnvironmentMode(EnvironmentMode.NON_REPRODUCIBLE)
                 .withSolutionClass(Schedule.class)

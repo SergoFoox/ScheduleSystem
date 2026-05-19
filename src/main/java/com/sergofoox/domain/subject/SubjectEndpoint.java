@@ -46,16 +46,16 @@ public class SubjectEndpoint {
         templateAccessService.requireWritableTemplate();
         Subject subject = subjectRepository.findById(id).orElseThrow();
         
-        // 1. Видаляємо всі заняття з цим предметом
+        // 1. Delete all lessons for this subject.
         lessonRepository.deleteBySubject(subject);
         
-        // 2. Видаляємо всі компетенції викладачів
+        // 2. Delete all teacher competence entries.
         matrixRepository.deleteBySubject(subject);
         
-        // 3. Видаляємо плани навантаження
+        // 3. Delete all workload plans.
         coursePlanRepository.deleteBySubject(subject);
         
-        // 4. Тепер можна видалити сам предмет
+        // 4. The subject itself can now be deleted.
         subjectRepository.delete(subject);
     }
 }

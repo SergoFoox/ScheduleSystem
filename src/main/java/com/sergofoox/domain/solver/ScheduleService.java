@@ -114,7 +114,7 @@ public class ScheduleService {
                 continue;
             }
 
-            // Генерируем уроки согласно часам и периодичности из плана
+            // Generate lessons from the session counts and periodicity configured in the plan.
             for (int i = 0; i < plan.getLectureSessionsPerWeek(); i++) {
                 addLessonsForPlan(newLessons, plan, LessonType.LECTURE, plan.getLecturePeriodicity(), i + 1);
             }
@@ -202,7 +202,7 @@ public class ScheduleService {
 
     public Schedule findById(UUID id) {
         Integer courseFilter = activeCourseFilter;
-        // Загружаем все справочники
+        // Load all reference data.
         List<Room> rooms = roomRepository.findAll();
         List<Timeslot> timeslots = timeslotRepository.findAll();
         List<Teacher> teachers = teacherRepository.findAll();
@@ -211,7 +211,7 @@ public class ScheduleService {
         List<CoursePlan> plans = coursePlanRepository.findAll();
         List<Lesson> lessons = lessonRepository.findAll();
 
-        // Создаем карты для быстрой унификации объектов (чтобы ссылки в памяти совпадали)
+        // Build maps to reuse entity instances and keep in-memory references consistent.
         Map<Long, Room> roomMap = rooms.stream().collect(Collectors.toMap(Room::getId, Function.identity()));
         Map<Long, Timeslot> timeslotMap = timeslots.stream().collect(Collectors.toMap(Timeslot::getId, Function.identity()));
         Map<Long, Teacher> teacherMap = teachers.stream().collect(Collectors.toMap(Teacher::getId, Function.identity()));
@@ -225,7 +225,7 @@ public class ScheduleService {
             }
         }
 
-        // Принудительная прошивка ссылок
+        // Force all lesson references to point to the unified entity instances.
         for (Lesson lesson : lessons) {
             if (lesson.getRoom() != null) lesson.setRoom(roomMap.get(lesson.getRoom().getId()));
             if (lesson.getTimeslot() != null) lesson.setTimeslot(timeslotMap.get(lesson.getTimeslot().getId()));
@@ -236,7 +236,7 @@ public class ScheduleService {
             lesson.setPinned(courseFilter != null && !isLessonInCourse(lesson, courseFilter));
         }
 
-        // Перемешиваем для рандома
+        // Shuffle inputs to make solver runs non-deterministic.
         if (courseFilter != null) {
             lessons = lessons.stream()
                     .filter(lesson -> isLessonInCourse(lesson, courseFilter) || isScheduled(lesson))

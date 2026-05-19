@@ -212,7 +212,7 @@ public class ScheduleEndpoint {
         savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
         savedSchedule.setFullTemplate(true);
 
-        // Створюємо ПОВНІСТЮ порожній знімок (Absolute Zero)
+        // Create a completely empty snapshot, the absolute zero state.
         FullTemplateSnapshot cleanSnapshot = new FullTemplateSnapshot(
                 Collections.emptyList(), // subjects
                 Collections.emptyList(), // rooms
@@ -229,7 +229,7 @@ public class ScheduleEndpoint {
 
         SavedSchedule saved = savedScheduleRepository.save(savedSchedule);
 
-        // Одразу активуємо цей новий розклад та очищуємо все робоче середовище
+        // Activate the new schedule immediately and clear the working state.
         templateAccessService.activateEditableTemplate(saved.getId());
         autosaveService.deleteSnapshotsForSchedule(saved.getId());
         clearWorkingData();
@@ -265,7 +265,7 @@ public class ScheduleEndpoint {
             throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
         }
 
-        // 1. Створюємо новий порожній розклад
+        // 1. Create a new empty schedule.
         LocalDateTime now = LocalDateTime.now();
         SavedSchedule copy = new SavedSchedule();
         copy.setName(normalizedName);
@@ -274,16 +274,16 @@ public class ScheduleEndpoint {
         copy.setSortOrder(nextSavedScheduleSortOrder());
         copy.setFullTemplate(true);
 
-        // 2. Отримуємо дані "Базового шаблону" з SQL файлу безпосередньо,
-        // НЕ зачіпаючи поточні робочі таблиці БД.
-        // Ми використовуємо вже існуючий механізм десеріалізації,
-        // але для цього нам потрібно отримати snapshot базового шаблону.
+        // 2. Read base template data directly from the SQL file without touching
+        // the current working database tables.
+        // This reuses the existing deserialization path, but first needs a base
+        // template snapshot.
         FullTemplateSnapshot baseSnapshot = getBaseTemplateSnapshotWithoutImport();
 
-        // 3. Зберігаємо цей snapshot у копію
+        // 3. Store this snapshot in the copy.
         copy.setSnapshotJson(serializeSnapshot(baseSnapshot));
 
-        // 4. Копіюємо уроки зі snapshot у список занять розкладу
+        // 4. Copy lessons from the snapshot into the saved schedule lesson list.
         List<SavedScheduleLesson> lessons = baseSnapshot.lessons().stream()
                 .map(l -> {
                     SavedScheduleLesson sl = new SavedScheduleLesson();
@@ -304,7 +304,7 @@ public class ScheduleEndpoint {
 
         SavedSchedule saved = savedScheduleRepository.save(copy);
 
-        // Оскільки це копія шаблону, історія "Машини часу" для неї має бути порожньою
+        // Template copies should start with an empty Time Machine history.
         autosaveService.deleteSnapshotsForSchedule(saved.getId());
 
         return mapToSavedScheduleDTO(saved);
@@ -658,7 +658,7 @@ public class ScheduleEndpoint {
             throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
         }
 
-        // Перевіряємо, чи є цей розклад зараз активним у робочій пам'яті
+        // Check whether this schedule is currently active in the working state.
         boolean isSourceActive = Objects.equals(templateAccessService.getActiveSavedScheduleId(), id);
 
         LocalDateTime now = LocalDateTime.now();
@@ -669,14 +669,14 @@ public class ScheduleEndpoint {
         copy.setSortOrder(nextSavedScheduleSortOrder());
 
         if (isSourceActive) {
-            // Якщо розклад активний - копіюємо його поточний стан із таблиць (включаючи незбережені зміни)
+            // If the schedule is active, copy its current table state, including unsaved changes.
             copy.setFullTemplate(true);
             copy.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
             copy.replaceLessons(lessonRepository.findAll().stream()
                     .map(this::createSavedScheduleLesson)
                     .toList());
         } else {
-            // Якщо не активний - копіюємо його останній збережений стан із бази даних
+            // If it is not active, copy its last saved database state.
             SavedSchedule source = savedScheduleRepository.findById(id).orElseThrow();
             copy.setFullTemplate(source.isFullTemplate());
             copy.setSnapshotJson(source.getSnapshotJson());

@@ -418,8 +418,8 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
         opened={subjectDialogOpen} 
         onClose={() => setSubjectOpened(false)} 
         onSaved={(id) => {
-          fetchData(); // Оновити список дисциплін
-          setNewPlan({...newPlan, subjectId: id}); // Одразу обрати створену дисципліну
+          fetchData(); // Refresh the subject list.
+          setNewPlan({...newPlan, subjectId: id}); // Select the newly created subject immediately.
         }}
       />
     </Dialog>

@@ -111,11 +111,11 @@ public class AutosaveService {
         try {
             Long activeId = templateAccessService.getActiveSavedScheduleId();
             
-            // Якщо активний "Базовий шаблон" (null) — пропускаємо автоматичне збереження
+            // Skip autosave when the active schedule is the base template (null).
             if (activeId == null) {
                 if (!isManual) return;
             } else {
-                // Перевіряємо, чи увімкнено автозбереження для конкретного розкладу
+                // Check whether autosave is enabled for the active schedule.
                 SavedSchedule schedule = savedScheduleRepository.findById(activeId).orElse(null);
                 if (!isManual && schedule != null && !schedule.isAutosaveEnabled()) {
                     return;

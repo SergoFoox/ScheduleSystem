@@ -39,7 +39,7 @@ export const TimeMachineDialog: React.FC<TimeMachineDialogProps> = ({ opened, on
   const fetchSnapshots = async () => {
     try {
       const data = await AutosaveEndpoint.getLatestSnapshots();
-      // Фільтруємо undefined для відповідності типу AutosaveSnapshotDTO[]
+      // Filter out undefined values to match the AutosaveSnapshotDTO[] type.
       const validSnapshots = (data || []).filter((s): s is AutosaveSnapshotDTO => !!s);
       setSnapshots(validSnapshots);
     } catch (err) {
