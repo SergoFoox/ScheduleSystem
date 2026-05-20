@@ -17,7 +17,7 @@ bundles/
 schedule.mv.db
 schedule.trace.db
 bug.txt
-memory-bank/
+memory-bank
 .gemini
 documentation
 GEMINI.md
