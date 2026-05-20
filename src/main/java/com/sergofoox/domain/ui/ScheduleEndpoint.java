@@ -25,8 +25,11 @@ import com.sergofoox.domain.autosave.AutosaveService;
 import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.subject.LessonType;
 import com.sergofoox.domain.subject.Subject;
+import com.sergofoox.domain.teacher.AvailabilityStatus;
 import com.sergofoox.domain.teacher.PositionType;
 import com.sergofoox.domain.teacher.Teacher;
+import com.sergofoox.domain.teacher.TeacherAvailability;
+import com.sergofoox.domain.teacher.TeacherAvailabilityRepository;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.timeslot.Timeslot;
 import com.sergofoox.domain.timeslot.TimeslotRepository;
@@ -77,6 +80,7 @@ public class ScheduleEndpoint {
     private final LessonRepository lessonRepository;
     private final CoursePlanRepository coursePlanRepository;
     private final TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository;
+    private final TeacherAvailabilityRepository teacherAvailabilityRepository;
     private final ScheduleService scheduleService;
     private final SavedScheduleRepository savedScheduleRepository;
     private final AutosaveService autosaveService;
@@ -100,6 +104,7 @@ public class ScheduleEndpoint {
             LessonRepository lessonRepository,
             CoursePlanRepository coursePlanRepository,
             TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository,
+            TeacherAvailabilityRepository teacherAvailabilityRepository,
             ScheduleService scheduleService,
             SavedScheduleRepository savedScheduleRepository,
             AutosaveService autosaveService,
@@ -115,6 +120,7 @@ public class ScheduleEndpoint {
         this.lessonRepository = lessonRepository;
         this.coursePlanRepository = coursePlanRepository;
         this.teacherCompetenceMatrixRepository = teacherCompetenceMatrixRepository;
+        this.teacherAvailabilityRepository = teacherAvailabilityRepository;
         this.scheduleService = scheduleService;
         this.savedScheduleRepository = savedScheduleRepository;
         this.autosaveService = autosaveService;
@@ -221,6 +227,7 @@ public class ScheduleEndpoint {
                 Collections.emptyList(), // coursePlans
                 Collections.emptyList(), // timeslots
                 Collections.emptyList(), // competences
+                Collections.emptyList(), // availability
                 Collections.emptyList()  // lessons
         );
 
@@ -247,9 +254,8 @@ public class ScheduleEndpoint {
 
         SavedSchedule savedSchedule = savedScheduleRepository.findById(id).orElseThrow();
         savedSchedule.setUpdatedAt(LocalDateTime.now());
-        if (savedSchedule.isFullTemplate()) {
-            savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
-        }
+        savedSchedule.setFullTemplate(true);
+        savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
         savedSchedule.replaceLessons(lessonRepository.findAll().stream()
                 .map(this::createSavedScheduleLesson)
                 .toList());
@@ -453,7 +459,7 @@ public class ScheduleEndpoint {
                     .toList();
         }
 
-        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, lessons);
+        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, Collections.emptyList(), lessons);
     }
 
     private String readBuiltInTemplateSql() {
@@ -701,6 +707,10 @@ public class ScheduleEndpoint {
         }
 
         SavedSchedule savedSchedule = savedScheduleRepository.findById(id).orElseThrow();
+        if (autosaveService.restoreLatestSnapshotForSchedule(savedSchedule.getId())) {
+            return;
+        }
+
         if (savedSchedule.isFullTemplate() && savedSchedule.getSnapshotJson() != null && !savedSchedule.getSnapshotJson().isBlank()) {
             restoreSnapshot(deserializeSnapshot(savedSchedule.getSnapshotJson()));
             templateAccessService.activateEditableTemplate(savedSchedule.getId());
@@ -821,11 +831,6 @@ public class ScheduleEndpoint {
         }
         clearWorkingData();
         templateAccessService.resetBaseTemplateSession();
-    }
-
-    @AnonymousAllowed
-    public String getCurrentUserRole() {
-        return "DISPATCHER";
     }
 
     @AnonymousAllowed
@@ -1038,6 +1043,7 @@ public class ScheduleEndpoint {
             statement.execute("""
                     TRUNCATE TABLE
                         lesson,
+                        teacher_availability,
                         teacher_competence_matrix,
                         course_plan,
                         student_group,
@@ -1131,6 +1137,16 @@ public class ScheduleEndpoint {
                         matrix.getPriority()))
                 .toList();
 
+        List<AvailabilitySnapshot> availability = teacherAvailabilityRepository.findAll().stream()
+                .sorted(Comparator.comparing(TeacherAvailability::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(item -> new AvailabilitySnapshot(
+                        item.getId(),
+                        idOf(item.getTeacher()),
+                        item.getDayOfWeek(),
+                        item.getLessonNumber(),
+                        item.getStatus()))
+                .toList();
+
         List<LessonSnapshot> lessons = lessonRepository.findAll().stream()
                 .sorted(Comparator.comparing(Lesson::getId, Comparator.nullsLast(Long::compareTo)))
                 .map(lesson -> new LessonSnapshot(
@@ -1147,7 +1163,7 @@ public class ScheduleEndpoint {
                         lesson.getSplitGroupIndex()))
                 .toList();
 
-        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, lessons);
+        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, availability, lessons);
     }
 
     private FullTemplateSnapshot clearSnapshotLessonPlacements(FullTemplateSnapshot snapshot) {
@@ -1174,6 +1190,7 @@ public class ScheduleEndpoint {
                 snapshot.coursePlans(),
                 snapshot.timeslots(),
                 snapshot.competences(),
+                snapshot.availability(),
                 emptyLessons);
     }
 
@@ -1236,6 +1253,20 @@ public class ScheduleEndpoint {
             teacher.setAssignedRoom(roomsByOldId.get(source.assignedRoomId()));
             teacher.setArchived(Boolean.TRUE.equals(source.archived()));
             teachersByOldId.put(source.id(), teacherRepository.save(teacher));
+        }
+
+        for (AvailabilitySnapshot source : snapshot.availability()) {
+            Teacher teacher = teachersByOldId.get(source.teacherId());
+            if (teacher == null) {
+                continue;
+            }
+
+            TeacherAvailability availability = new TeacherAvailability();
+            availability.setTeacher(teacher);
+            availability.setDayOfWeek(source.dayOfWeek());
+            availability.setLessonNumber(source.lessonNumber());
+            availability.setStatus(source.status());
+            teacherAvailabilityRepository.save(availability);
         }
 
         Map<Long, Group> groupsByOldId = new HashMap<>();
@@ -1333,6 +1364,7 @@ public class ScheduleEndpoint {
             statement.execute("""
                     TRUNCATE TABLE
                         lesson,
+                        teacher_availability,
                         teacher_competence_matrix,
                         course_plan,
                         student_group,
@@ -1361,6 +1393,7 @@ public class ScheduleEndpoint {
             List<TimeslotSnapshot> timeslots,
             @JsonAlias("matrix")
             List<CompetenceSnapshot> competences,
+            List<AvailabilitySnapshot> availability,
             List<LessonSnapshot> lessons
     ) {
         private FullTemplateSnapshot {
@@ -1371,6 +1404,7 @@ public class ScheduleEndpoint {
             coursePlans = listOrEmpty(coursePlans);
             timeslots = listOrEmpty(timeslots);
             competences = listOrEmpty(competences);
+            availability = listOrEmpty(availability);
             lessons = listOrEmpty(lessons);
         }
     }
@@ -1435,6 +1469,15 @@ public class ScheduleEndpoint {
             Long subjectId,
             LessonType lessonType,
             Priority priority
+    ) {
+    }
+
+    private record AvailabilitySnapshot(
+            Long id,
+            Long teacherId,
+            DayOfWeek dayOfWeek,
+            Integer lessonNumber,
+            AvailabilityStatus status
     ) {
     }
 

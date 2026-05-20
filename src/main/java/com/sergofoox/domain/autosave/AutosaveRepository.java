@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface AutosaveRepository extends JpaRepository<AutosaveSnapshot, Long> {
     Optional<AutosaveSnapshot> findFirstByOrderByTimestampDesc();
+    Optional<AutosaveSnapshot> findFirstByScheduleIdOrderByTimestampDesc(Long scheduleId);
     List<AutosaveSnapshot> findAllByOrderByTimestampDesc();
     List<AutosaveSnapshot> findByScheduleIdOrderByTimestampDesc(Long scheduleId);
     

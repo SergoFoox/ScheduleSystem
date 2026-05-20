@@ -290,12 +290,32 @@ public class AutosaveService {
             return false;
         }
 
+        restoreSnapshotData(snapshot);
+        activateSnapshotSchedule(snapshot);
+        return true;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean restoreLatestSnapshotForSchedule(Long scheduleId) {
+        if (scheduleId == null) {
+            return false;
+        }
+
+        AutosaveSnapshot snapshot = autosaveRepository.findFirstByScheduleIdOrderByTimestampDesc(scheduleId).orElse(null);
+        if (snapshot == null) {
+            return false;
+        }
+
+        restoreSnapshotData(snapshot);
+        activateSnapshotSchedule(snapshot);
+        return true;
+    }
+
+    private void restoreSnapshotData(AutosaveSnapshot snapshot) {
         try {
             Map<String, List<Map<String, Object>>> data = objectMapper.readValue(
                     snapshot.getSnapshotData(), new TypeReference<>() {});
             restoreAsFullRollback(data);
-            activateSnapshotSchedule(snapshot);
-            return true;
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to deserialize autosave snapshot", e);
         }
