@@ -55,7 +55,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
 
   const handleSave = async () => {
     if (!formData.name || !formData.department) {
-      Notification.show('Будь ласка, заповніть назву та кафедру', { theme: 'error' });
+      Notification.show('Будь ласка, заповніть назву та відділення', { theme: 'error' });
       return;
     }
 
@@ -142,7 +142,7 @@ export const GroupDialog: React.FC<GroupDialogProps> = ({ opened, group, onClose
           stepButtonsVisible
         />
         <TextField
-          label="Кафедра"
+          label="Відділення"
           required
           value={formData.department || ''}
           onValueChanged={(e) => setFormData({ ...formData, department: e.detail.value })}

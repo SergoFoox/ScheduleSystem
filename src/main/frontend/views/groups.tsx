@@ -85,7 +85,7 @@ export default function GroupsView() {
             Список груп
           </h2>
           <TextField
-            placeholder="Пошук за назвою або кафедрою..."
+            placeholder="Пошук за назвою або відділенням..."
             value={filter}
             onValueChanged={(e) => setFilter(e.detail.value)}
             className="w-96"
@@ -109,7 +109,7 @@ export default function GroupsView() {
           <GridColumn header="Назва групи" path="name" autoWidth />
           <GridColumn header="Курс" path="course" autoWidth textAlign="center" />
           <GridColumn header="Кількість студентів" path="size" autoWidth textAlign="end" />
-          <GridColumn header="Кафедра" path="department" flexGrow={1} />
+          <GridColumn header="Відділення" path="department" flexGrow={1} />
           <GridColumn
             header={
               <div className="flex items-center gap-2">
