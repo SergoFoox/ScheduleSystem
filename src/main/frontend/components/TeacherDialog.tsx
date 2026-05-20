@@ -12,12 +12,13 @@ import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import PositionType from '../generated/com/sergofoox/domain/teacher/PositionType';
 import { getMutationErrorMessage } from '../store/app-state';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 interface TeacherDialogProps {
   opened: boolean;
   teacher?: TeacherDTO;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }
 
 export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, onClose, onSaved }) => {
@@ -73,7 +74,8 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
     try {
       await TeacherEndpoint.saveTeacher(formData as any);
       Notification.show(teacher ? 'Дані викладача оновлено' : 'Викладача додано', { theme: 'success' });
-      onSaved();
+      await onSaved();
+      notifyDataChanged('teachers');
       onClose();
     } catch (err) {
       console.error('Failed to save teacher:', err);

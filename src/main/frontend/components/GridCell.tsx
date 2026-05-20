@@ -3,7 +3,7 @@ import { Button } from '@vaadin/react-components/Button.js';
 import { Icon } from '@vaadin/react-components/Icon.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { ReplacementDialog } from './ReplacementDialog';
-import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked, isPublished } from '../store/app-state';
+import { BASE_TEMPLATE_LOCKED_MESSAGE, isBaseTemplateLocked } from '../store/app-state';
 
 interface GridCellProps {
   lessons: any[]; 
@@ -22,7 +22,6 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
 
   const first = lessons[0];
   const hasRealConflict = !suppressConflictIndicator && lessons.some((l: any) => l.hasConflict);
-  const published = isPublished.value;
   const baseTemplateLocked = isBaseTemplateLocked.value;
   const hasSplitSubgroups = lessons.length > 1 && lessons.some((l: any) => l.subgroup > 0);
 
@@ -44,7 +43,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
                        align === 'right' ? 'items-end text-right' : 
                        'items-center text-center';
 
-  // Збираємо унікальні номери аудиторій
+  // Collect unique room numbers.
   const uniqueRooms = Array.from(new Set(lessons.map(l => l.roomName || '—'))).join(', ');
 
   const displayLessons = hasSplitSubgroups
@@ -54,9 +53,9 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
   return (
     <>
       <div 
-        draggable={!published && !baseTemplateLocked && !!onDragStart}
+        draggable={!baseTemplateLocked && !!onDragStart}
         onDragStart={(e) => {
-          if (published || baseTemplateLocked || !onDragStart) {
+          if (baseTemplateLocked || !onDragStart) {
             e.preventDefault();
             if (baseTemplateLocked) {
               Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
@@ -81,7 +80,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
           <div className={`flex flex-col gap-0 w-full ${alignClasses}`}>
             {displayLessons.map((l) => (
               <div key={l.id} className={`relative group/teacher flex items-center w-full px-1 ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'}`}>
-                {align === 'right' && !published && (
+                {align === 'right' && (
                    <Button 
                     theme="tertiary-inline small" 
                     className="opacity-0 group-hover/teacher:opacity-100 p-0 h-4 w-4 min-w-0 transition-opacity bg-blue-600 text-white rounded shadow-sm z-20 mr-1"
@@ -102,7 +101,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
                   )}
                 </span>
                 
-                {(align === 'left' || align === 'center') && !published && (
+                {(align === 'left' || align === 'center') && (
                   <Button 
                     theme="tertiary-inline small" 
                     className="ml-1 opacity-0 group-hover/teacher:opacity-100 p-0 h-4 w-4 min-w-0 transition-opacity bg-blue-600 text-white rounded shadow-sm z-20"
@@ -119,7 +118,7 @@ export const GridCell: React.FC<GridCellProps> = ({ lessons, mode, onDragStart, 
           <div className={`${roomFontSize} text-black font-bold font-serif flex flex-col ${alignClasses} gap-0 mt-0.5`}>
             <div className={`flex flex-wrap ${align === 'right' ? 'justify-end' : align === 'left' ? 'justify-start' : 'justify-center'} leading-tight`}>
                <span>ауд. №{uniqueRooms}</span>
-               {/* Показуємо підгрупу тільки якщо вона ОДНА у клітинці */}
+               {/* Show the subgroup only when there is exactly one in the cell. */}
                {!hasSplitSubgroups && lessons.length === 1 && first.subgroup > 0 && (
                  <span className="ml-1 italic font-normal text-[0.9em] whitespace-nowrap">
                    {first.subgroup}-а підгр.

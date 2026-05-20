@@ -1,10 +1,10 @@
 package com.sergofoox.domain.competence;
 
 /**
- * Пріоритетність викладача для дисципліни (згідно з ТЗ 2.1)
+ * Teacher priority for a subject according to requirement 2.1.
  */
 public enum Priority {
-    PRIMARY,    // Основний лектор / керівник
-    SECONDARY,  // Може вести, але не основний
-    SUBSTITUTE  // Тільки для заміни
+    PRIMARY,    // Main lecturer or owner
+    SECONDARY,  // Can teach the subject, but is not primary
+    SUBSTITUTE  // Replacement only
 }

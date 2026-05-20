@@ -15,6 +15,7 @@ import Priority from '../generated/com/sergofoox/domain/competence/Priority';
 import { HorizontalLayout, VerticalLayout } from '@vaadin/react-components';
 import { formatLessonType, formatPriority } from '../utils/labels';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 interface CompetenceDialogProps {
   opened: boolean;
@@ -38,12 +39,21 @@ export const CompetenceDialog: React.FC<CompetenceDialogProps> = ({ opened, teac
 
   useEffect(() => {
     if (opened && teacher?.id) {
-      refreshCompetences();
+      void refreshCompetences();
       SubjectEndpoint.getAllSubjects().then(data => {
         setSubjects((data || []).filter(s => !!s) as Subject[]);
       });
     }
   }, [opened, teacher]);
+
+  useCrossTabRefresh(() => {
+    if (opened && teacher?.id) {
+      void refreshCompetences();
+      SubjectEndpoint.getAllSubjects().then(data => {
+        setSubjects((data || []).filter(s => !!s) as Subject[]);
+      });
+    }
+  });
 
   const handleAdd = async () => {
     if (isBaseTemplateLocked.value) {
@@ -59,7 +69,8 @@ export const CompetenceDialog: React.FC<CompetenceDialogProps> = ({ opened, teac
         priority: selectedPriority
       } as any);
       Notification.show('Компетенцію додано', { theme: 'success' });
-      refreshCompetences();
+      await refreshCompetences();
+      notifyDataChanged('competences');
     } catch (err) {
       console.error(err);
       Notification.show(getMutationErrorMessage(err, 'Помилка додавання'), { theme: 'error' });
@@ -73,7 +84,8 @@ export const CompetenceDialog: React.FC<CompetenceDialogProps> = ({ opened, teac
     }
     try {
       await TeacherCompetenceMatrixEndpoint.deleteCompetence(id);
-      refreshCompetences();
+      await refreshCompetences();
+      notifyDataChanged('competences');
     } catch (err) {
       console.error(err);
       Notification.show(getMutationErrorMessage(err, 'Помилка видалення'), { theme: 'error' });

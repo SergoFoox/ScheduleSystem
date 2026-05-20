@@ -5,9 +5,12 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AutosaveRepository extends JpaRepository<AutosaveSnapshot, Long> {
+    Optional<AutosaveSnapshot> findFirstByOrderByTimestampDesc();
+    Optional<AutosaveSnapshot> findFirstByScheduleIdOrderByTimestampDesc(Long scheduleId);
     List<AutosaveSnapshot> findAllByOrderByTimestampDesc();
     List<AutosaveSnapshot> findByScheduleIdOrderByTimestampDesc(Long scheduleId);
     

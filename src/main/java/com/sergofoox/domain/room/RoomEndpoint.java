@@ -76,7 +76,7 @@ public class RoomEndpoint {
         try {
             Room room = roomRepository.findById(id).orElseThrow();
             
-            // Замість видалення занять, ми просто "виписуємо" їх з цієї аудиторії
+            // Instead of deleting lessons, simply unassign them from this room.
             List<Lesson> lessonsInRoom = lessonRepository.findByRoom(room);
             for (Lesson lesson : lessonsInRoom) {
                 lesson.setRoom(null);

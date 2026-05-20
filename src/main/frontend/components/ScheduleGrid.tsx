@@ -8,7 +8,6 @@ import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
-  isPublished,
   refreshSchedule,
   scheduleData,
   scheduleLoading,
@@ -17,15 +16,16 @@ import {
 } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
 import AssignLessonDialog from './AssignLessonDialog';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 const dayNames: Record<string, string> = {
-  MONDAY: 'понеділок',
-  TUESDAY: 'вівторок',
-  WEDNESDAY: 'середа',
-  THURSDAY: 'четвер',
-  FRIDAY: 'п\'ятниця',
-  SATURDAY: 'субота',
-  SUNDAY: 'неділя'
+  MONDAY: 'Понеділок',
+  TUESDAY: 'Вівторок',
+  WEDNESDAY: 'Середа',
+  THURSDAY: 'Четвер',
+  FRIDAY: 'П\'ятниця',
+  SATURDAY: 'Субота',
+  SUNDAY: 'Неділя'
 };
 
 const COURSE_FILTERS = [1, 2, 3, 4] as const;
@@ -33,7 +33,6 @@ const COURSE_FILTERS = [1, 2, 3, 4] as const;
 export const ScheduleGrid: React.FC = () => {
   const data = scheduleData.value;
   const loading = scheduleLoading.value;
-  const published = isPublished.value;
   const baseTemplateLocked = isBaseTemplateLocked.value;
   const selectedCourse = selectedCourseFilter.value;
 
@@ -122,7 +121,7 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleDragStart = (e: React.DragEvent, lessonId: number) => {
-    if (published || baseTemplateLocked) {
+    if (baseTemplateLocked) {
       e.preventDefault();
       if (baseTemplateLocked) {
         Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
@@ -134,13 +133,13 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (published || baseTemplateLocked) return;
+    if (baseTemplateLocked) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = async (e: React.DragEvent, day: string, lessonNum: number, groupId: number, periodicity = 'WEEKLY') => {
-    if (published || baseTemplateLocked) {
+    if (baseTemplateLocked) {
       if (baseTemplateLocked) {
         Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
       }
@@ -162,6 +161,7 @@ export const ScheduleGrid: React.FC = () => {
     try {
       await (ScheduleEndpoint as any).moveLesson(lessonId as any, targetTimeslot.id as any, "", periodicity as any);
       await refreshSchedule();
+      notifyDataChanged('schedule');
     } catch (err) {
       console.error('Failed to move lesson:', err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час перенесення заняття'), { theme: 'error' });
@@ -169,7 +169,6 @@ export const ScheduleGrid: React.FC = () => {
   };
 
   const handleCellClick = (day: string, lessonNum: number, groupId: number) => {
-    if (published) return;
     if (baseTemplateLocked) {
       Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
       return;
@@ -266,7 +265,9 @@ export const ScheduleGrid: React.FC = () => {
                       className="border-r-[2.5px] border-b-[2.5px] border-black p-0 text-center align-middle bg-white w-12"
                     >
                       <div className="flex items-center justify-center h-full w-full" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                        <span className="text-[18px] font-black lowercase py-4 leading-none tracking-tight">{dayNames[day]}</span>
+                        <span className="text-[18px] font-black py-4 leading-none tracking-tight" style={{ fontWeight: 900 }}>
+                          {dayNames[day]}
+                        </span>
                       </div>
                     </td>
                   )}
@@ -292,11 +293,31 @@ export const ScheduleGrid: React.FC = () => {
 
                     let numeratorLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'ODD_WEEKS');
                     let denominatorLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'EVEN_WEEKS');
-                    const weeklyLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+                    let weeklyLessons = slotLessons.filter((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+
+                    for (let i = numeratorLessons.length - 1; i >= 0; i--) {
+                      const numL = numeratorLessons[i];
+                      const denIndex = denominatorLessons.findIndex((denL: any) => denL.subjectName === numL.subjectName);
+                      if (denIndex !== -1) {
+                        const denL = denominatorLessons[denIndex];
+                        const merged = { ...numL, periodicity: 'WEEKLY' };
+                        if (numL.teacherName !== denL.teacherName && denL.teacherName) {
+                           if (!merged.teacherName) merged.teacherName = denL.teacherName;
+                           else if (!merged.teacherName.includes(denL.teacherName)) merged.teacherName += `, ${denL.teacherName}`;
+                        }
+                        if (numL.roomName !== denL.roomName && denL.roomName) {
+                           if (!merged.roomName) merged.roomName = denL.roomName;
+                           else if (!merged.roomName.includes(denL.roomName)) merged.roomName += `, ${denL.roomName}`;
+                        }
+                        weeklyLessons.push(merged);
+                        numeratorLessons.splice(i, 1);
+                        denominatorLessons.splice(denIndex, 1);
+                      }
+                    }
 
                     // If old/generated data already contains two lessons in one physical cell without
                     // ODD/EVEN metadata, render it as a numerator/denominator cell instead of a stack.
-                    const fallbackSplit = numeratorLessons.length === 0 && denominatorLessons.length === 0 && weeklyLessons.length > 1;
+                    const fallbackSplit = numeratorLessons.length === 0 && denominatorLessons.length === 0 && weeklyLessons.length > 1 && !slotLessons.some((l: any) => l.subgroup > 0);
                     if (fallbackSplit) {
                       numeratorLessons = [weeklyLessons[0]];
                       denominatorLessons = weeklyLessons.slice(1);
@@ -304,7 +325,7 @@ export const ScheduleGrid: React.FC = () => {
 
                     const hasNumerator = numeratorLessons.length > 0;
                     const hasDenominator = denominatorLessons.length > 0;
-                    const hasWeekly = slotLessons.some((l: any) => getEffectivePeriodicity(l) === 'WEEKLY');
+                    const hasWeekly = weeklyLessons.length > 0;
                     const hasSplitSubgroups = slotLessons.length > 1 && slotLessons.some((l: any) => l.subgroup > 0);
                     
                     const isDiagonal = !hasSplitSubgroups && (fallbackSplit || (!hasWeekly && (hasNumerator || hasDenominator)));

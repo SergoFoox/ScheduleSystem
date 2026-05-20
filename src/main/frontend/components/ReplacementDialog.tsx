@@ -10,6 +10,7 @@ import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
 import { formatPriority, formatRoomType } from '../utils/labels';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 interface ReplacementDialogProps {
   lesson: any;
@@ -72,6 +73,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
       );
       Notification.show('Зміни збережено', { theme: 'success' });
       await refreshSchedule();
+      notifyDataChanged('schedule');
       onClose();
     } catch (err) {
       console.error('Failed to assign replacement:', err);
@@ -90,6 +92,7 @@ export const ReplacementDialog: React.FC<ReplacementDialogProps> = ({ lesson, op
       await ScheduleEndpoint.unassignLesson(lesson.id as any);
       Notification.show('Заняття видалено', { theme: 'success' });
       await refreshSchedule();
+      notifyDataChanged('schedule');
       onClose();
     } catch (err) {
       console.error('Failed to unassign lesson:', err);

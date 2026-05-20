@@ -19,13 +19,18 @@ import com.sergofoox.domain.saved.SavedScheduleRepository;
 import com.sergofoox.domain.subject.Subject;
 import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.teacher.Teacher;
+import com.sergofoox.domain.teacher.TeacherAvailability;
+import com.sergofoox.domain.teacher.TeacherAvailabilityRepository;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.timeslot.Timeslot;
 import com.sergofoox.domain.timeslot.TimeslotRepository;
 import com.sergofoox.domain.ui.TemplateAccessService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -50,6 +55,7 @@ public class AutosaveService {
     private final SavedScheduleRepository savedScheduleRepository;
     private final TimeslotRepository timeslotRepository;
     private final TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository;
+    private final TeacherAvailabilityRepository teacherAvailabilityRepository;
     private final ObjectMapper objectMapper;
     private final TemplateAccessService templateAccessService;
     private final Executor snapshotExecutor = Executors.newSingleThreadExecutor();
@@ -64,6 +70,7 @@ public class AutosaveService {
                            SavedScheduleRepository savedScheduleRepository,
                            TimeslotRepository timeslotRepository,
                            TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository,
+                           TeacherAvailabilityRepository teacherAvailabilityRepository,
                            ObjectMapper objectMapper,
                            TemplateAccessService templateAccessService) {
         this.autosaveRepository = autosaveRepository;
@@ -76,6 +83,7 @@ public class AutosaveService {
         this.savedScheduleRepository = savedScheduleRepository;
         this.timeslotRepository = timeslotRepository;
         this.teacherCompetenceMatrixRepository = teacherCompetenceMatrixRepository;
+        this.teacherAvailabilityRepository = teacherAvailabilityRepository;
         this.objectMapper = objectMapper;
         this.templateAccessService = templateAccessService;
     }
@@ -84,16 +92,30 @@ public class AutosaveService {
         CompletableFuture.runAsync(() -> captureSnapshot(isManual), snapshotExecutor);
     }
 
+    public void captureSnapshotAfterCommitAsync(boolean isManual) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            captureSnapshotAsync(isManual);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                captureSnapshotAsync(isManual);
+            }
+        });
+    }
+
     @Transactional
     public void captureSnapshot(boolean isManual) {
         try {
             Long activeId = templateAccessService.getActiveSavedScheduleId();
             
-            // Якщо активний "Базовий шаблон" (null) — пропускаємо автоматичне збереження
+            // Skip autosave when the active schedule is the base template (null).
             if (activeId == null) {
                 if (!isManual) return;
             } else {
-                // Перевіряємо, чи увімкнено автозбереження для конкретного розкладу
+                // Check whether autosave is enabled for the active schedule.
                 SavedSchedule schedule = savedScheduleRepository.findById(activeId).orElse(null);
                 if (!isManual && schedule != null && !schedule.isAutosaveEnabled()) {
                     return;
@@ -108,6 +130,7 @@ public class AutosaveService {
             snapshot.put("coursePlans", coursePlanRepository.findAll().stream().map(this::mapCoursePlan).toList());
             snapshot.put("lessons", lessonRepository.findAll().stream().map(this::mapLesson).toList());
             snapshot.put("matrix", teacherCompetenceMatrixRepository.findAll().stream().map(this::mapMatrix).toList());
+            snapshot.put("availability", teacherAvailabilityRepository.findAll().stream().map(this::mapAvailability).toList());
 
             String json = objectMapper.writeValueAsString(snapshot);
             int totalCount = snapshot.values().stream()
@@ -143,6 +166,7 @@ public class AutosaveService {
         m.put("weeklyHourLimit", t.getWeeklyHourLimit());
         m.put("maxWorkingDaysPerWeek", t.getMaxWorkingDaysPerWeek());
         m.put("assignedRoomId", t.getAssignedRoom() != null ? t.getAssignedRoom().getId() : null);
+        m.put("archived", t.isArchived());
         return m;
     }
 
@@ -224,6 +248,16 @@ public class AutosaveService {
         return m;
     }
 
+    private Map<String, Object> mapAvailability(TeacherAvailability availability) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", availability.getId());
+        m.put("teacherId", availability.getTeacher() != null ? availability.getTeacher().getId() : null);
+        m.put("dayOfWeek", availability.getDayOfWeek());
+        m.put("lessonNumber", availability.getLessonNumber());
+        m.put("status", availability.getStatus());
+        return m;
+    }
+
     @Scheduled(fixedRate = 120000, initialDelay = 60000)
     public void autoSaveTask() {
         captureSnapshotAsync(false);
@@ -242,9 +276,57 @@ public class AutosaveService {
                 restoreAsNewTemplate(snapshot, data);
             } else {
                 restoreAsFullRollback(data);
+                activateSnapshotSchedule(snapshot);
             }
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Помилка десеріалізації знімка", e);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean restoreLatestSnapshotAsCurrent() {
+        AutosaveSnapshot snapshot = autosaveRepository.findFirstByOrderByTimestampDesc().orElse(null);
+        if (snapshot == null) {
+            return false;
+        }
+
+        restoreSnapshotData(snapshot);
+        activateSnapshotSchedule(snapshot);
+        return true;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean restoreLatestSnapshotForSchedule(Long scheduleId) {
+        if (scheduleId == null) {
+            return false;
+        }
+
+        AutosaveSnapshot snapshot = autosaveRepository.findFirstByScheduleIdOrderByTimestampDesc(scheduleId).orElse(null);
+        if (snapshot == null) {
+            return false;
+        }
+
+        restoreSnapshotData(snapshot);
+        activateSnapshotSchedule(snapshot);
+        return true;
+    }
+
+    private void restoreSnapshotData(AutosaveSnapshot snapshot) {
+        try {
+            Map<String, List<Map<String, Object>>> data = objectMapper.readValue(
+                    snapshot.getSnapshotData(), new TypeReference<>() {});
+            restoreAsFullRollback(data);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to deserialize autosave snapshot", e);
+        }
+    }
+
+    private void activateSnapshotSchedule(AutosaveSnapshot snapshot) {
+        Long scheduleId = snapshot.getScheduleId();
+        if (scheduleId != null && savedScheduleRepository.existsById(scheduleId)) {
+            templateAccessService.activateEditableTemplate(scheduleId);
+        } else {
+            templateAccessService.resetBaseTemplateSession();
         }
     }
 
@@ -297,6 +379,7 @@ public class AutosaveService {
 
     private void restoreAsFullRollback(Map<String, List<Map<String, Object>>> data) {
         lessonRepository.deleteAllInBatch();
+        teacherAvailabilityRepository.deleteAllInBatch();
         teacherCompetenceMatrixRepository.deleteAllInBatch();
         coursePlanRepository.deleteAllInBatch();
         teacherRepository.deleteAllInBatch();
@@ -346,6 +429,7 @@ public class AutosaveService {
                 }
                 t.setWeeklyHourLimit((Integer) tData.get("weeklyHourLimit"));
                 t.setMaxWorkingDaysPerWeek((Integer) tData.get("maxWorkingDaysPerWeek"));
+                t.setArchived(Boolean.TRUE.equals(tData.get("archived")));
                 
                 Long roomId = getLong(tData, "assignedRoomId");
                 if (roomId != null) {
@@ -353,6 +437,33 @@ public class AutosaveService {
                 }
                 
                 teachersMap.put(getLong(tData, "id"), teacherRepository.save(t));
+            }
+        }
+
+        List<Map<String, Object>> availabilityData = data.get("availability");
+        if (availabilityData != null) {
+            for (Map<String, Object> aData : availabilityData) {
+                Teacher teacher = teachersMap.get(getLong(aData, "teacherId"));
+                if (teacher == null) {
+                    continue;
+                }
+
+                TeacherAvailability availability = new TeacherAvailability();
+                availability.setTeacher(teacher);
+
+                String dayOfWeekStr = (String) aData.get("dayOfWeek");
+                if (dayOfWeekStr != null) {
+                    availability.setDayOfWeek(java.time.DayOfWeek.valueOf(dayOfWeekStr));
+                }
+
+                availability.setLessonNumber((Integer) aData.get("lessonNumber"));
+
+                String statusStr = (String) aData.get("status");
+                if (statusStr != null) {
+                    availability.setStatus(com.sergofoox.domain.teacher.AvailabilityStatus.valueOf(statusStr));
+                }
+
+                teacherAvailabilityRepository.save(availability);
             }
         }
 

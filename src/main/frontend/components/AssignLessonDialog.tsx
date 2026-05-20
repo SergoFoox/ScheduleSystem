@@ -8,6 +8,7 @@ import { ScheduleEndpoint, CoursePlanEndpoint, RoomEndpoint } from '../generated
 import { getMutationErrorMessage, refreshSchedule } from '../store/app-state';
 import type CoursePlanDTO from '../generated/com/sergofoox/domain/ui/dto/CoursePlanDTO';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 interface AssignLessonDialogProps {
   opened: boolean;
@@ -113,6 +114,7 @@ const AssignLessonDialog: React.FC<AssignLessonDialogProps> = ({ opened, day, le
       
       Notification.show('Заняття успішно призначено', { theme: 'success' });
       await refreshSchedule();
+      notifyDataChanged('schedule');
       onClose();
     } catch (err) {
       console.error(err);

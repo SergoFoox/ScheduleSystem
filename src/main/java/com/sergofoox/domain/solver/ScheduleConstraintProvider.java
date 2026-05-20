@@ -8,28 +8,38 @@ import ai.timefold.solver.core.api.score.stream.Joiners;
 import ai.timefold.solver.core.api.score.stream.ConstraintCollectors;
 import com.sergofoox.domain.lesson.Lesson;
 import com.sergofoox.domain.plan.Periodicity;
+import com.sergofoox.domain.teacher.AvailabilityStatus;
+import com.sergofoox.domain.teacher.TeacherAvailability;
 import org.jspecify.annotations.NonNull;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.util.List;
 
 public class ScheduleConstraintProvider implements ConstraintProvider {
+
+    private static final int REQUIRED_VARIABLE_HARD_WEIGHT = 1_000_000;
+    private static final int GROUP_INTERNAL_WINDOW_HARD_WEIGHT = 100_000;
 
     @Override
     public Constraint @NonNull [] defineConstraints(@NonNull ConstraintFactory constraintFactory) {
         return new Constraint[] {
-                // HARD: КРИТИЧЕСКИЕ (Нельзя нарушать)
+                // HARD: Critical rules that must not be violated.
                 teacherConflict(constraintFactory),
                 groupConflict(constraintFactory),
                 splitGroupTimeslotSync(constraintFactory),
                 roomConflict(constraintFactory),
                 subjectConflict(constraintFactory),
                 noDuplicateSubjectsPerDay(constraintFactory),
-                
-                // HARD: СРЕДНИЕ (Обязательно к заполнению)
+                teacherUnavailableTimeslot(constraintFactory),
+                groupOddWeekInternalWindow(constraintFactory),
+                groupEvenWeekInternalWindow(constraintFactory),
+
+                // HARD: Required assignment rules.
                 requiredVariables(constraintFactory),
                 timeslotWeekCompatibility(constraintFactory),
-                
-                // SOFT: ПРАВИЛА ИЗ ТЗ И РАСПРЕДЕЛЕНИЕ
+
+                // SOFT: Requirement-driven rules and distribution preferences.
                 assignedTeacherRoom(constraintFactory),
                 roomTypeCompatibility(constraintFactory),
                 roomCapacity(constraintFactory),
@@ -37,6 +47,8 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 teacherRoomStability(constraintFactory),
                 groupWindow(constraintFactory),
                 teacherWindow(constraintFactory),
+                teacherPreferredTimeslot(constraintFactory),
+                groupDayStartBalance(constraintFactory),
                 loadBalance(constraintFactory),
                 compactBiWeekly(constraintFactory)
         };
@@ -60,21 +72,20 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getGroup),
                         Joiners.equal(Lesson::getSubject),
-                        Joiners.equal(Lesson::getLessonType),
                         Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
                     if (l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
                     if (!weeksOverlap(l1, l2)) return false;
-                    // Если это разные подгруппы одного плана - это нормально
+                    // Different subgroups from the same plan are allowed.
                     if (sameSplitGroupLesson(l1, l2)) return false;
-                    // Если это разные номера пар в один день - штрафуем
+                    // Penalize different lesson numbers on the same day.
                     return !l1.getTimeslot().getLessonNumber().equals(l2.getTimeslot().getLessonNumber());
                 })
                 .penalize(HardSoftScore.ofHard(5000))
                 .asConstraint("No duplicate subjects per day");
     }
 
-    // Используем ссылки на методы для корректного отслеживания изменений движком
+    // Use method references so the solver can track changes correctly.
     Constraint teacherConflict(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
                         Joiners.equal(this::teacherId),
@@ -83,6 +94,39 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .filter((l1, l2) -> teacherId(l1) != null && samePhysicalSlot(l1, l2) && weeksOverlap(l1, l2))
                 .penalize(HardSoftScore.ofHard(10000))
                 .asConstraint("Teacher conflict");
+    }
+
+    Constraint teacherUnavailableTimeslot(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> hasTeacherAvailability(lesson, AvailabilityStatus.UNAVAILABLE))
+                .penalize(HardSoftScore.ofHard(10000))
+                .asConstraint("Teacher unavailable timeslot");
+    }
+
+    Constraint groupOddWeekInternalWindow(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> lesson.getTimeslot() != null && countsInOddWeek(lesson) && groupDayKey(lesson) != null)
+                .groupBy(this::groupDayKey,
+                        ConstraintCollectors.<Lesson, Integer>min(lesson -> lesson.getTimeslot().getLessonNumber()),
+                        ConstraintCollectors.<Lesson, Integer>max(lesson -> lesson.getTimeslot().getLessonNumber()),
+                        ConstraintCollectors.<Lesson>countDistinct(lesson -> lesson.getTimeslot().getLessonNumber()))
+                .filter((key, minLesson, maxLesson, lessonCount) -> internalWindowCount(minLesson, maxLesson, lessonCount) > 0)
+                .penalize(HardSoftScore.ofHard(GROUP_INTERNAL_WINDOW_HARD_WEIGHT),
+                        (key, minLesson, maxLesson, lessonCount) -> internalWindowCount(minLesson, maxLesson, lessonCount))
+                .asConstraint("Group odd week internal window");
+    }
+
+    Constraint groupEvenWeekInternalWindow(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> lesson.getTimeslot() != null && countsInEvenWeek(lesson) && groupDayKey(lesson) != null)
+                .groupBy(this::groupDayKey,
+                        ConstraintCollectors.<Lesson, Integer>min(lesson -> lesson.getTimeslot().getLessonNumber()),
+                        ConstraintCollectors.<Lesson, Integer>max(lesson -> lesson.getTimeslot().getLessonNumber()),
+                        ConstraintCollectors.<Lesson>countDistinct(lesson -> lesson.getTimeslot().getLessonNumber()))
+                .filter((key, minLesson, maxLesson, lessonCount) -> internalWindowCount(minLesson, maxLesson, lessonCount) > 0)
+                .penalize(HardSoftScore.ofHard(GROUP_INTERNAL_WINDOW_HARD_WEIGHT),
+                        (key, minLesson, maxLesson, lessonCount) -> internalWindowCount(minLesson, maxLesson, lessonCount))
+                .asConstraint("Group even week internal window");
     }
 
     Constraint groupConflict(ConstraintFactory constraintFactory) {
@@ -128,13 +172,13 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .asConstraint("Teacher assigned room");
     }
 
-    // subjectConflict удален, так как он слишком ограничивает расписание
+    // subjectConflict used to be removed because it made the timetable too restrictive.
 
 
     Constraint requiredVariables(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
                 .filter(lesson -> lesson.getTimeslot() == null || lesson.getRoom() == null)
-                .penalize(HardSoftScore.ofHard(100))
+                .penalize(HardSoftScore.ofHard(REQUIRED_VARIABLE_HARD_WEIGHT))
                 .asConstraint("Required variables");
     }
 
@@ -147,12 +191,12 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     // --- SOFT CONSTRAINTS ---
 
-    // Поощряем использование разных аудиторий
+    // Encourage spreading lessons across different rooms.
     Constraint spreadRooms(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
                 .filter(l -> l.getRoom() != null)
                 .groupBy(Lesson::getRoom, ConstraintCollectors.count())
-                .filter((room, count) -> count > 2) // Если в одной комнате больше 2 пар в день (в среднем)
+                .filter((room, count) -> count > 2) // More than two lessons in one room per day on average.
                 .penalize(HardSoftScore.ofSoft(10))
                 .asConstraint("Spread lessons across rooms");
     }
@@ -167,7 +211,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint roomCapacity(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
-                .filter(lesson -> lesson.getRoom() != null && 
+                .filter(lesson -> lesson.getRoom() != null &&
                         lesson.getGroup().getSize() > lesson.getRoom().getCapacity())
                 .penalize(HardSoftScore.ofSoft(20))
                 .asConstraint("Room capacity");
@@ -202,13 +246,30 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .asConstraint("Teacher window");
     }
 
+    Constraint teacherPreferredTimeslot(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> hasTeacherAvailability(lesson, AvailabilityStatus.PREFERRED))
+                .reward(HardSoftScore.ofSoft(20))
+                .asConstraint("Teacher preferred timeslot");
+    }
+
+    Constraint groupDayStartBalance(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(Lesson.class)
+                .filter(lesson -> lesson.getTimeslot() != null && groupDayKey(lesson) != null)
+                .groupBy(this::groupDayKey,
+                        ConstraintCollectors.<Lesson, Integer>min(lesson -> lesson.getTimeslot().getLessonNumber()))
+                .filter((key, firstLessonNumber) -> firstLessonNumber != null && firstLessonNumber > 1)
+                .penalize(HardSoftScore.ofSoft(25), (key, firstLessonNumber) -> firstLessonNumber - 1)
+                .asConstraint("Group day starts late");
+    }
+
     Constraint loadBalance(ConstraintFactory constraintFactory) {
         return constraintFactory.forEach(Lesson.class)
                 .filter(l -> l.getTimeslot() != null)
-                .groupBy(Lesson::getGroup, 
-                         l -> l.getTimeslot().getDayOfWeek(), 
-                         Lesson::getPeriodicity,
-                         ConstraintCollectors.count())
+                .groupBy(Lesson::getGroup,
+                        l -> l.getTimeslot().getDayOfWeek(),
+                        Lesson::getPeriodicity,
+                        ConstraintCollectors.count())
                 .filter((group, day, periodicity, count) -> count > 4)
                 .penalize(HardSoftScore.ofSoft(10))
                 .asConstraint("Too many lessons per day");
@@ -216,8 +277,8 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint teacherRoomStability(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                Joiners.equal(this::teacherId),
-                Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
+                        Joiners.equal(this::teacherId),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()))
                 .filter((l1, l2) -> {
                     if (teacherId(l1) == null) return false;
                     if (l1.getRoom() == null || l2.getRoom() == null || l1.getTimeslot() == null || l2.getTimeslot() == null) return false;
@@ -230,11 +291,11 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
 
     Constraint compactBiWeekly(ConstraintFactory constraintFactory) {
         return constraintFactory.forEachUniquePair(Lesson.class,
-                Joiners.equal(Lesson::getRoom),
-                Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
-                Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
+                        Joiners.equal(Lesson::getRoom),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getDayOfWeek()),
+                        Joiners.equal(l -> l.getTimeslot() == null ? null : l.getTimeslot().getLessonNumber()))
                 .filter((l1, l2) -> samePhysicalSlot(l1, l2) && ((l1.getPeriodicity() == Periodicity.ODD_WEEKS && l2.getPeriodicity() == Periodicity.EVEN_WEEKS)
-                                 || (l1.getPeriodicity() == Periodicity.EVEN_WEEKS && l2.getPeriodicity() == Periodicity.ODD_WEEKS)))
+                        || (l1.getPeriodicity() == Periodicity.EVEN_WEEKS && l2.getPeriodicity() == Periodicity.ODD_WEEKS)))
                 .reward(HardSoftScore.ofSoft(20))
                 .asConstraint("Compact bi-weekly slots");
     }
@@ -275,6 +336,45 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
         return lesson.getTeacher() != null ? lesson.getTeacher().getId() : null;
     }
 
+    private boolean hasTeacherAvailability(Lesson lesson, AvailabilityStatus status) {
+        if (lesson.getTeacher() == null || lesson.getTimeslot() == null) {
+            return false;
+        }
+        List<TeacherAvailability> availability = lesson.getTeacher().getAvailability();
+        if (availability == null || availability.isEmpty()) {
+            return false;
+        }
+        return availability.stream()
+                .anyMatch(item -> item != null
+                        && item.getStatus() == status
+                        && item.getDayOfWeek() == lesson.getTimeslot().getDayOfWeek()
+                        && lesson.getTimeslot().getLessonNumber().equals(item.getLessonNumber()));
+    }
+
+    private boolean countsInOddWeek(Lesson lesson) {
+        Periodicity periodicity = effectivePeriodicity(lesson);
+        return periodicity == Periodicity.WEEKLY || periodicity == Periodicity.ODD_WEEKS;
+    }
+
+    private boolean countsInEvenWeek(Lesson lesson) {
+        Periodicity periodicity = effectivePeriodicity(lesson);
+        return periodicity == Periodicity.WEEKLY || periodicity == Periodicity.EVEN_WEEKS;
+    }
+
+    private GroupDayKey groupDayKey(Lesson lesson) {
+        if (lesson.getGroup() == null || lesson.getGroup().getId() == null || lesson.getTimeslot() == null) {
+            return null;
+        }
+        return new GroupDayKey(lesson.getGroup().getId(), lesson.getTimeslot().getDayOfWeek());
+    }
+
+    private int internalWindowCount(Integer minLesson, Integer maxLesson, int lessonCount) {
+        if (minLesson == null || maxLesson == null || lessonCount <= 1) {
+            return 0;
+        }
+        return Math.max(0, (maxLesson - minLesson + 1) - lessonCount);
+    }
+
     private Periodicity effectivePeriodicity(Lesson lesson) {
         if (lesson.getTimeslot() != null && lesson.getTimeslot().getWeekParity() != Periodicity.WEEKLY) {
             return lesson.getTimeslot().getWeekParity();
@@ -285,6 +385,9 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     private boolean isTimeslotCompatible(Lesson lesson) {
         Periodicity slotParity = lesson.getTimeslot().getWeekParity();
         return slotParity == Periodicity.WEEKLY || slotParity == lesson.getPeriodicity();
+    }
+
+    private record GroupDayKey(Long groupId, DayOfWeek dayOfWeek) {
     }
 
 }

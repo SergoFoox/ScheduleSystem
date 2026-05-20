@@ -12,6 +12,7 @@ import { RoomEndpoint } from '../generated/endpoints';
 import type RoomDTO from '../generated/com/sergofoox/domain/ui/dto/RoomDTO';
 import RoomType from '../generated/com/sergofoox/domain/plan/RoomType';
 import { getMutationErrorMessage } from '../store/app-state';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
 
 interface RoomDialogProps {
   opened: boolean;
@@ -58,6 +59,7 @@ export const RoomDialog: React.FC<RoomDialogProps> = ({ opened, room, onClose, o
       await RoomEndpoint.saveRoom(formData as any);
       Notification.show(room ? 'Аудиторію оновлено' : 'Аудиторію створено', { theme: 'success' });
       onSaved();
+      notifyDataChanged('rooms');
       onClose();
     } catch (err) {
       console.error('Failed to save room:', err);

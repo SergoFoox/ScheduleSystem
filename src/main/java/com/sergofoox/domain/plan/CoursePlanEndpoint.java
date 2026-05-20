@@ -121,7 +121,7 @@ public class CoursePlanEndpoint {
             plan.setPracticeHours(dto.practiceHours());
             plan.setLabHours(dto.labHours());
             
-            // Заповнюємо кількість занять на тиждень (мінімум 1, якщо години > 0)
+            // Fill weekly session counts, using at least 1 when hours are greater than 0.
             plan.setLectureSessionsPerWeek(dto.lectureSessionsPerWeek() != null ? dto.lectureSessionsPerWeek() : (dto.lectureHours() > 0 ? 1 : 0));
             plan.setPracticeSessionsPerWeek(dto.practiceSessionsPerWeek() != null ? dto.practiceSessionsPerWeek() : (dto.practiceHours() > 0 ? 1 : 0));
             plan.setLabSessionsPerWeek(dto.labSessionsPerWeek() != null ? dto.labSessionsPerWeek() : (dto.labHours() > 0 ? 1 : 0));

@@ -1,34 +1,172 @@
-# ScheduleSystem README
+# ASMS Schedule System
 
-- [ ] TODO Replace or update this README with instructions relevant to your application
+Вебзастосунок для автоматизованого формування, редагування та експорту навчального розкладу коледжу. Система поєднує довідники навчального процесу, генератор розкладу на базі Timefold Solver, ручне редагування академічної сітки та механізми збереження готових варіантів розкладу.
 
-To start the application in development mode, import it into your IDE and run the `Application` class. 
-You can also start the application from the command line by running: 
+## Призначення
 
-```bash
-./mvnw
+Проект розроблено як автоматизовану систему підтримки роботи диспетчера навчального відділу. Основна задача системи — зменшити ручну роботу під час складання розкладу, врахувати обмеження викладачів, груп, аудиторій та навчальних планів, а також надати зручний інтерфейс для фінального коригування результату.
+
+## Основні можливості
+
+- ведення довідників викладачів, груп, дисциплін та аудиторій;
+- налаштування навчальних планів для груп і курсів;
+- матриця компетенцій викладачів за дисциплінами та типами занять;
+- преференції викладачів: бажані та недоступні часові слоти;
+- автоматична генерація розкладу для всіх курсів або окремого курсу;
+- урахування конфліктів викладача, групи, аудиторії та місткості аудиторії;
+- підтримка занять за чисельником, знаменником і щотижневих занять;
+- ручне переміщення та призначення пар у сітці розкладу;
+- збережені розклади, копіювання шаблонів і автозбереження;
+- архівація викладачів без втрати історичних даних;
+- експорт розкладу у PDF та HTML у форматі академічної таблиці.
+
+## Технологічний стек
+
+| Рівень | Технології |
+| :--- | :--- |
+| Backend | Java 21, Spring Boot 4, Spring Data JPA |
+| Frontend | Vaadin 25, Hilla, React, TypeScript, Tailwind CSS |
+| Оптимізація | Timefold Solver |
+| База даних | PostgreSQL |
+| Експорт | Apache PDFBox, HTML/CSS |
+| Збірка | Maven Wrapper, Vite |
+| Деплой | Docker, Railway |
+
+## Структура проекту
+
+```text
+src/main/java/com/sergofoox
+  config/                 конфігурація Spring, Jackson, PostgreSQL, Solver
+  domain/
+    autosave/             автозбереження розкладу
+    competence/           матриця компетенцій викладачів
+    group/                навчальні групи
+    lesson/               заняття розкладу
+    plan/                 навчальні плани
+    room/                 аудиторії
+    saved/                збережені розклади
+    solver/               Timefold-модель та сервіс генерації
+    subject/              дисципліни
+    teacher/              викладачі та доступність
+    timeslot/             часові слоти
+    ui/                   Hilla endpoints, DTO, PDF export
+
+src/main/frontend
+  components/             React-компоненти інтерфейсу
+  store/                  глобальний стан розкладу
+  utils/                  експорт, кеш відновлення, синхронізація вкладок
+  views/                  сторінки застосунку
+
+src/main/resources
+  db/migration/           SQL-схема застосунку
+  application*.properties конфігурація профілів
 ```
 
-To build the application in production mode, run:
+## Вимоги
 
-```bash
-./mvnw package
+- JDK 21;
+- PostgreSQL 14 або новіше;
+- Maven Wrapper з репозиторію;
+- Node.js встановлювати окремо зазвичай не потрібно: Vaadin може завантажити сумісну версію автоматично під час збірки.
+
+## Налаштування бази даних
+
+За замовчуванням застосунок очікує PostgreSQL з такими параметрами:
+
+```properties
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/asms
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
 ```
 
-To build a Docker image, run:
+Можна створити базу локально:
 
-```bash
-docker build -t my-application:latest .
+```sql
+CREATE DATABASE asms;
 ```
 
-If you use commercial components, pass the license key as a build secret:
+Схема таблиць ініціалізується SQL-скриптами з `src/main/resources/db/migration` через `spring.sql.init`. Flyway підключений як залежність, але в поточному профілі вимкнений; SQL-файли міграцій залишені як історія структури БД і основа для подальшого розвитку.
 
-```bash
-docker build --secret id=proKey,src=$HOME/.vaadin/proKey .
+## Запуск у режимі розробки
+
+Windows:
+
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
 
-## Getting Started
+Linux/macOS:
 
-The [Quick Start](https://vaadin.com/docs/v25/getting-started/quick-start) tutorial helps you get started with Vaadin in 
-around 10 minutes. This tutorial walks you through building a simple application, introducing the core concepts along 
-the way.
+```bash
+./mvnw spring-boot:run
+```
+
+Після запуску застосунок буде доступний за адресою:
+
+```text
+http://localhost:8080
+```
+
+Порт можна змінити через змінну середовища `PORT`.
+
+## Production-збірка
+
+```powershell
+.\mvnw.cmd "-Dmaven.test.skip=true" package
+```
+
+Зібраний jar-файл буде створено в каталозі `target/`.
+
+## Docker
+
+```bash
+docker build -t schedule-system:latest .
+docker run --rm -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/asms \
+  -e SPRING_DATASOURCE_USERNAME=postgres \
+  -e SPRING_DATASOURCE_PASSWORD=postgres \
+  schedule-system:latest
+```
+
+Docker-образ збирає frontend у production-режимі та запускає застосунок на Java 21 runtime. Для коректного PDF-експорту в runtime-образ додано системні шрифти.
+
+## Основний сценарій роботи
+
+1. Заповнити довідники дисциплін, аудиторій, викладачів і груп.
+2. Налаштувати матрицю компетенцій викладачів.
+3. Створити або перевірити навчальні плани для груп.
+4. За потреби вказати недоступні або бажані часові слоти викладачів.
+5. Запустити генерацію розкладу для курсу або для всіх курсів.
+6. Перевірити результат у сітці та вручну скоригувати проблемні пари.
+7. Зберегти готовий варіант розкладу.
+8. Експортувати результат у PDF або HTML.
+
+## Якість і перевірка
+
+Швидка перевірка production-збірки:
+
+```powershell
+.\mvnw.cmd "-Dmaven.test.skip=true" package
+```
+
+Повний прогін тестів:
+
+```powershell
+.\mvnw.cmd test
+```
+
+Для інтеграційних тестів потрібна доступна локальна PostgreSQL-база з параметрами, вказаними у конфігурації застосунку.
+
+## Поточні технічні нотатки
+
+- Проект працює у демонстраційному режимі: основні Hilla endpoints відкриті через `@AnonymousAllowed`.
+- Рольова авторизація не входить до поточної дипломної версії; система сфокусована на генерації, редагуванні, збереженні та експорті розкладу.
+- Чернетки, публікація розкладу та аналітика не використовуються у поточному UI.
+
+## Інструменти розробки
+
+Під час розробки проекту використовувалися інструменти штучного інтелекту Gemini CLI та Codex для аналізу коду, рефакторингу, виправлення помилок, підготовки документації та прискорення реалізації окремих функціональних модулів. Архітектурні рішення, перевірка результатів і фінальна інтеграція залишалися під контролем автора проекту.
+
+## Автор
+
+Проект розроблено як дипломну роботу для автоматизації процесу складання навчального розкладу.

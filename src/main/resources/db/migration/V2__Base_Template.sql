@@ -3,22 +3,22 @@
 ALTER TABLE subject ALTER COLUMN abbreviation TYPE VARCHAR(100);
 
 -- SUBJECT
-INSERT INTO subject (id, abbreviation, name) VALUES (1, 'Укр.мова', 'Українська Мова'),
-(2, 'Укр.Літ', 'Українська Література'),
-(3, 'Англ.мова', 'Іноземна мова'),
-(4, 'Фіз.культура', 'Фізичне виховання'),
-(5, 'Хім', 'Хімія'),
-(6, 'Біол', 'Біологія'),
-(7, 'Зах.укр', 'Захист України'),
-(8, 'Інформ', 'Інформатика'),
-(9, 'Зар.літ', 'Зарубіжна література'),
-(10, 'Мат', 'Математика'),
-(11, 'Фіз', 'Фізика'),
-(12, 'Істр.Укр', 'Історія України'),
-(13, 'Гром.осв', 'Громадянська освіта'),
-(14, 'Всес.Іст', 'Всесвітня історія'),
-(15, 'ВМ', 'Вища математика'),
-(16, 'Прог', 'Програмування') ON CONFLICT (id) DO UPDATE SET abbreviation=EXCLUDED.abbreviation, name=EXCLUDED.name;
+INSERT INTO subject (id, abbreviation, name) VALUES (1, 'Українська мова', 'Українська мова'),
+(2, 'Українська література', 'Українська література'),
+(3, 'Англійська мова', 'Іноземна мова'),
+(4, 'Фізичне виховання', 'Фізичне виховання'),
+(5, 'Хімія', 'Хімія'),
+(6, 'Біологія', 'Біологія'),
+(7, 'Захист України', 'Захист України'),
+(8, 'Інформатика', 'Інформатика'),
+(9, 'Зарубіжна література', 'Зарубіжна література'),
+(10, 'Математика', 'Математика'),
+(11, 'Фізика', 'Фізика'),
+(12, 'Історія України', 'Історія України'),
+(13, 'Громадянська освіта', 'Громадянська освіта'),
+(14, 'Всесвітня історія', 'Всесвітня історія'),
+(15, 'Дискретна математика', 'Дискретна математика'),
+(16, 'Програмування', 'Програмування') ON CONFLICT (id) DO UPDATE SET abbreviation=EXCLUDED.abbreviation, name=EXCLUDED.name;
 
 -- ROOM
 INSERT INTO room (id, building, capacity, equipment, name, type) VALUES (1, '5 - поверх', 30, '', '500', 'GENERAL_CLASSROOM'),
@@ -39,41 +39,37 @@ INSERT INTO room (id, building, capacity, equipment, name, type) VALUES (1, '5 -
 (16, '3 - поверх', 30, '', '309', 'GENERAL_CLASSROOM'),
 (17, '2 - поверх', 30, '', '28', 'GENERAL_CLASSROOM'),
 (18, '1 - поверх', 30, '', '3', 'GENERAL_CLASSROOM'),
-(20, 'Спортивна зала', 30, '', 'С/З', 'SPORTS_HALL'),
-(21, 'Головний', 30, 'Проектор', '101', 'LECTURE_HALL'),
-(22, 'ІТ-корпус', 15, 'ПК', '205', 'COMPUTER_CLASS') ON CONFLICT (id) DO UPDATE SET building=EXCLUDED.building, capacity=EXCLUDED.capacity, equipment=EXCLUDED.equipment, name=EXCLUDED.name, type=EXCLUDED.type;
+(20, 'Спортивна зала', 30, '', 'С/З', 'SPORTS_HALL') ON CONFLICT (id) DO UPDATE SET building=EXCLUDED.building, capacity=EXCLUDED.capacity, equipment=EXCLUDED.equipment, name=EXCLUDED.name, type=EXCLUDED.type;
 
 -- TEACHER
-INSERT INTO teacher (id, department, full_name, max_working_days_per_week, position_type, specialization, weekly_hour_limit, assigned_room_id, archived_at, archived) VALUES (1, 'Укр', 'Груша.Л.М', 5, 'FULL_TIME', 'Українська Мова/Література', 20, 12, NULL, FALSE),
-(2, 'Англ', ' Каурова Н.О', 5, 'FULL_TIME', 'Іноземна мова', 20, 6, NULL, FALSE),
-(3, 'англ', 'П’ятниченко В.С.', 5, 'FULL_TIME', 'Іноземна мова', 20, NULL, NULL, FALSE),
-(4, 'О', 'Юрченко О.М', 5, 'FULL_TIME', 'Захист України', 20, 5, NULL, FALSE),
-(5, 'Біол', 'Семенова', 5, 'FULL_TIME', 'Біологія', 20, 17, NULL, FALSE),
-(6, 'ІстУкр', 'Посухівська А', 5, 'FULL_TIME', 'ІстУкраїни', 20, NULL, NULL, FALSE),
+INSERT INTO teacher (id, department, full_name, max_working_days_per_week, position_type, specialization, weekly_hour_limit, assigned_room_id, archived_at, archived) VALUES (1, 'Українська мова та література', 'Груша.Л.М', 5, 'FULL_TIME', 'Українська мова та література', 20, 12, NULL, FALSE),
+(2, 'Іноземна мова', ' Каурова Н.О', 5, 'FULL_TIME', 'Іноземна мова', 20, 6, NULL, FALSE),
+(3, 'Іноземна мова', 'П’ятниченко В.С.', 5, 'FULL_TIME', 'Іноземна мова', 20, NULL, NULL, FALSE),
+(4, 'Захист України', 'Юрченко О.М', 5, 'FULL_TIME', 'Захист України', 20, 5, NULL, FALSE),
+(5, 'Біологія', 'Семенова', 5, 'FULL_TIME', 'Біологія', 20, 17, NULL, FALSE),
+(6, 'Історія України', 'Посухівська А', 5, 'FULL_TIME', 'Історія України', 20, NULL, NULL, FALSE),
 (7, 'Хімія', 'Зелінська.С.В', 5, 'FULL_TIME', 'Хімія', 20, 8, NULL, FALSE),
 (8, 'Інформатика', 'Алєксандрова', 5, 'FULL_TIME', 'Інформатика', 20, 4, NULL, FALSE),
-(9, 'укр', 'Янцелевич', 5, 'FULL_TIME', 'Українська Мова/Література', 20, NULL, NULL, FALSE),
-(10, 'фіз', 'Буздуган', 5, 'FULL_TIME', 'Фізичне виховання', 20, 20, NULL, FALSE),
-(11, 'Мат', 'Моргун М.В.', 5, 'FULL_TIME', 'Математика', 20, NULL, NULL, FALSE),
+(9, 'Українська мова та література', 'Янцелевич', 5, 'FULL_TIME', 'Українська мова та література', 20, NULL, NULL, FALSE),
+(10, 'Фізичне виховання', 'Буздуган', 5, 'FULL_TIME', 'Фізичне виховання', 20, 20, NULL, FALSE),
+(11, 'Математика', 'Моргун М.В.', 5, 'FULL_TIME', 'Математика', 20, NULL, NULL, FALSE),
 (12, 'Фізика', 'Іванова.Г.С', 5, 'FULL_TIME', 'Фізика', 20, 10, NULL, FALSE),
 (13, 'Фізика', 'Товстік.Ж.В', 5, 'FULL_TIME', 'Фізика', 20, 11, NULL, FALSE),
 (14, 'Фізика', 'Козел.В.В', 5, 'FULL_TIME', 'Фізика', 20, NULL, NULL, FALSE),
-(15, 'Фіз', 'Сауляк', 5, 'FULL_TIME', 'Фіз виховання', 20, 20, NULL, FALSE),
-(16, 'Гром.Осв', 'Крищук К.І', 5, 'FULL_TIME', 'Громадянська освіта', 20, NULL, NULL, FALSE),
-(17, 'Зар.літ', 'Головіна О.В', 5, 'FULL_TIME', 'Зарубіжна література', 20, 9, NULL, FALSE),
-(18, 'Всес.Іст', 'Тулянкіна', 5, 'FULL_TIME', 'Всесвітня історія', 40, NULL, NULL, FALSE),
-(19, 'англ', 'Поборознюк І.В.', 5, 'FULL_TIME', 'Іноземна мова', 40, NULL, NULL, FALSE),
-(21, 'Кафедра ІТ', 'Іванов Іван Іванович', NULL, 'FULL_TIME', NULL, 36, NULL, NULL, FALSE),
-(22, 'Кафедра Фізики', 'Петренко Петро Петрович', NULL, 'PART_TIME', NULL, 18, NULL, NULL, FALSE) ON CONFLICT (id) DO UPDATE SET department=EXCLUDED.department, full_name=EXCLUDED.full_name, max_working_days_per_week=EXCLUDED.max_working_days_per_week, position_type=EXCLUDED.position_type, specialization=EXCLUDED.specialization, weekly_hour_limit=EXCLUDED.weekly_hour_limit, assigned_room_id=EXCLUDED.assigned_room_id, archived_at=EXCLUDED.archived_at, archived=EXCLUDED.archived;
+(15, 'Фізичне виховання', 'Сауляк', 5, 'FULL_TIME', 'Фізичне виховання', 20, 20, NULL, FALSE),
+(16, 'Громадянська освіта', 'Крищук К.І', 5, 'FULL_TIME', 'Громадянська освіта', 20, NULL, NULL, FALSE),
+(17, 'Зарубіжна література', 'Головіна О.В', 5, 'FULL_TIME', 'Зарубіжна література', 20, 9, NULL, FALSE),
+(18, 'Всесвітня історія', 'Тулянкіна', 5, 'FULL_TIME', 'Всесвітня історія', 40, NULL, NULL, FALSE),
+(19, 'Іноземна мова', 'Поборознюк І.В.', 5, 'FULL_TIME', 'Іноземна мова', 40, NULL, NULL, FALSE) ON CONFLICT (id) DO UPDATE SET department=EXCLUDED.department, full_name=EXCLUDED.full_name, max_working_days_per_week=EXCLUDED.max_working_days_per_week, position_type=EXCLUDED.position_type, specialization=EXCLUDED.specialization, weekly_hour_limit=EXCLUDED.weekly_hour_limit, assigned_room_id=EXCLUDED.assigned_room_id, archived_at=EXCLUDED.archived_at, archived=EXCLUDED.archived;
 
 -- STUDENT_GROUP
-INSERT INTO student_group (id, course, curator_id, department, name, size) VALUES (1, 1, 7, 'Тепловозно', 'ТЕ-11', 25),
-(2, 1, NULL, 'Вагонне', 'ВГ+ЕП-11', 25),
-(3, 1, NULL, 'Комп', 'АС+КІ-11', 25),
-(4, 1, NULL, '11', 'УР-11', 25),
-(5, 1, NULL, '123', 'МК-11', 25),
-(6, 1, NULL, '23', 'БО+БС-11', 25),
-(9, 1, 15, '123', 'МЛ-11', 25) ON CONFLICT (id) DO UPDATE SET course=EXCLUDED.course, curator_id=EXCLUDED.curator_id, department=EXCLUDED.department, name=EXCLUDED.name, size=EXCLUDED.size;
+INSERT INTO student_group (id, course, curator_id, department, name, size) VALUES (1, 1, 7, 'Тепловозне відділення', 'ТЕ-11', 25),
+(2, 1, NULL, 'Вагонне відділення та електрики', 'ВГ+ЕП-11', 25),
+(3, 1, NULL, 'Комп’ютерне відділення та автоматизація', 'АС+КІ-11', 25),
+(4, 1, NULL, 'Відділення управління рухом', 'УР-11', 25),
+(5, 1, NULL, 'Відділення митного контролю', 'МК-11', 25),
+(6, 1, NULL, 'Будівництво та банківський облік', 'БО+БС-11', 25),
+(9, 1, 15, 'Менеджмент і логістика', 'МЛ-11', 25) ON CONFLICT (id) DO UPDATE SET course=EXCLUDED.course, curator_id=EXCLUDED.curator_id, department=EXCLUDED.department, name=EXCLUDED.name, size=EXCLUDED.size;
 
 -- COURSE_PLAN
 INSERT INTO course_plan (id, executed_hours, lab_hours, lab_periodicity, lab_sessions_per_week, lecture_hours, lecture_periodicity, lecture_sessions_per_week, practice_hours, practice_periodicity, practice_sessions_per_week, required_room_type, total_hours, group_id, subject_id, teacher_id, second_teacher_id) VALUES (19, 0, 0, 'WEEKLY', 0, 16, 'WEEKLY', 1, 16, 'WEEKLY', 1, 'GENERAL_CLASSROOM', 32, 1, 1, 1, NULL),
@@ -408,11 +404,6 @@ INSERT INTO schedule_template (id, name, created_at, published) VALUES (1, 'Ша
 -- SCHEDULE_PROFILE
 INSERT INTO schedule_profile (id, academic_year, created_at, default_template, description, display_order, kind, name, status, updated_at, copied_from_id) VALUES (1, NULL, TIMESTAMP WITH TIME ZONE '2026-04-30 14:12:01.122218+00', TRUE, NULL, 0, 'TEMPLATE', 'Default template', 'DRAFT', TIMESTAMP WITH TIME ZONE '2026-04-30 14:12:01.122218+00', NULL),
 (2, NULL, TIMESTAMP WITH TIME ZONE '2026-04-30 15:29:42.492627+00', FALSE, NULL, 0, 'SCHEDULE', 'розклад 2026', 'ARCHIVED', TIMESTAMP WITH TIME ZONE '2026-04-30 15:36:20.937901+00', 1) ON CONFLICT (id) DO UPDATE SET academic_year=EXCLUDED.academic_year, created_at=EXCLUDED.created_at, default_template=EXCLUDED.default_template, description=EXCLUDED.description, display_order=EXCLUDED.display_order, kind=EXCLUDED.kind, name=EXCLUDED.name, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at, copied_from_id=EXCLUDED.copied_from_id;
-
--- Remove optional demo groups from the built-in template
-DELETE FROM lesson WHERE group_id IN (SELECT id FROM student_group WHERE name IN ('КН-21', 'Ф-11'));
-DELETE FROM course_plan WHERE group_id IN (SELECT id FROM student_group WHERE name IN ('КН-21', 'Ф-11'));
-DELETE FROM student_group WHERE name IN ('КН-21', 'Ф-11');
 
 -- Built-in template is imported as active working data only.
 

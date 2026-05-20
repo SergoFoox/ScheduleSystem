@@ -18,6 +18,7 @@ import RoomType from '../generated/com/sergofoox/domain/plan/RoomType';
 import Periodicity from '../generated/com/sergofoox/domain/plan/Periodicity';
 import { SubjectDialog } from './SubjectDialog';
 import { formatRoomType } from '../utils/labels';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 interface CoursePlanDialogProps {
   opened: boolean;
@@ -78,9 +79,15 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
       setIsAdding(false);
       setEditingPlan(undefined);
       setEditPlanData({});
-      fetchData();
+      void fetchData();
     }
   }, [opened, group?.id]);
+
+  useCrossTabRefresh(() => {
+    if (opened && group?.id) {
+      void fetchData();
+    }
+  });
 
   const handleSaveNew = async () => {
     if (!newPlan.subjectId) {
@@ -110,7 +117,8 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
       await CoursePlanEndpoint.savePlan(planToSave as any);
       Notification.show('Дисципліну додано до плану', { theme: 'success' });
       setIsAdding(false);
-      fetchData();
+      await fetchData();
+      notifyDataChanged('coursePlans');
     } catch (err) {
       console.error(err);
       Notification.show('Помилка збереження', { theme: 'error' });
@@ -122,7 +130,8 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
     try {
       await CoursePlanEndpoint.deletePlan(id as any);
       Notification.show('Дисципліну видалено', { theme: 'success' });
-      fetchData();
+      await fetchData();
+      notifyDataChanged('coursePlans');
     } catch (err) {
       console.error(err);
       Notification.show('Помилка видалення', { theme: 'error' });
@@ -156,6 +165,7 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
       setEditingPlan(undefined);
       setEditPlanData({});
       await fetchData();
+      notifyDataChanged('coursePlans');
     } catch (err) {
       console.error(err);
       Notification.show('Помилка збереження викладача', { theme: 'error' });
@@ -191,6 +201,7 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
         { theme: copiedCount > 0 ? 'success' : 'primary' }
       );
       await fetchData();
+      notifyDataChanged('coursePlans');
     } catch (err) {
       console.error(err);
       Notification.show('Помилка копіювання плану', { theme: 'error' });
@@ -407,8 +418,8 @@ export const CoursePlanDialog: React.FC<CoursePlanDialogProps> = ({ opened, grou
         opened={subjectDialogOpen} 
         onClose={() => setSubjectOpened(false)} 
         onSaved={(id) => {
-          fetchData(); // Оновити список дисциплін
-          setNewPlan({...newPlan, subjectId: id}); // Одразу обрати створену дисципліну
+          fetchData(); // Refresh the subject list.
+          setNewPlan({...newPlan, subjectId: id}); // Select the newly created subject immediately.
         }}
       />
     </Dialog>

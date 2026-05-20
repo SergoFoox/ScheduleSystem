@@ -10,9 +10,9 @@ import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
-  isPublished,
   refreshSchedule
 } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 type SavedSchedule = {
   id?: number;
@@ -22,6 +22,13 @@ type SavedSchedule = {
   lessonCount?: number;
   isBuiltIn?: boolean;
   isFullTemplate?: boolean;
+};
+
+const compactIconButtonStyle: React.CSSProperties = {
+  minWidth: '1.5rem',
+  width: '1.5rem',
+  height: '1.5rem',
+  padding: 0
 };
 
 export const SavedSchedulesPanel: React.FC = () => {
@@ -38,14 +45,20 @@ export const SavedSchedulesPanel: React.FC = () => {
   const [draggingId, setDraggingId] = useState<number | undefined>(undefined);
   const [dragOverId, setDragOverId] = useState<number | undefined>(undefined);
   const suppressNextClickRef = useRef(false);
-  const published = isPublished.value;
   const baseTemplateLocked = isBaseTemplateLocked.value;
 
   const isCustomSchedule = (schedule: SavedSchedule) => !!schedule.id && schedule.id > 0 && !schedule.isBuiltIn;
 
-  const loadItems = async () => {
-    const saved = await ScheduleEndpoint.getSavedSchedules();
-    setItems((saved || []) as SavedSchedule[]);
+  const withEnsuredSchedule = (schedules: SavedSchedule[], schedule?: SavedSchedule | null) => {
+    if (!schedule?.id || schedules.some((item) => item.id === schedule.id)) {
+      return schedules;
+    }
+    return [...schedules, schedule];
+  };
+
+  const loadItems = async (ensureSchedule?: SavedSchedule | null) => {
+    const saved = ((await ScheduleEndpoint.getSavedSchedules()) || []) as SavedSchedule[];
+    setItems(withEnsuredSchedule(saved, ensureSchedule));
   };
 
   useEffect(() => {
@@ -53,6 +66,8 @@ export const SavedSchedulesPanel: React.FC = () => {
       console.error('Failed to load saved schedules:', err);
     });
   }, []);
+
+  useCrossTabRefresh(() => loadItems());
 
   const handleSave = async () => {
     const trimmed = name.trim();
@@ -66,6 +81,8 @@ export const SavedSchedulesPanel: React.FC = () => {
       await ScheduleEndpoint.saveCurrentSchedule(trimmed);
       setName('');
       await loadItems();
+      await refreshSchedule();
+      notifyDataChanged('all');
       Notification.show('Порожній розклад створено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to save schedule:', err);
@@ -83,7 +100,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       suppressNextClickRef.current = false;
       return;
     }
-    if (!schedule.id || published || loading) return;
+    if (!schedule.id || loading) return;
     const confirmMessage = baseTemplateLocked
       ? `Відкрити "${schedule.name}"?`
       : `Якщо не зберегти поточні зміни, вони будуть втрачені. Відкрити "${schedule.name}"?`;
@@ -93,7 +110,8 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.loadSavedSchedule(schedule.id);
       await refreshSchedule();
-      await loadItems(); // Оновлюємо список, щоб побачити актуальні лічильники занять
+      await loadItems(); // Refresh the list to show the latest lesson counters.
+      notifyDataChanged('all');
       Notification.show(schedule.isBuiltIn ? 'Базовий шаблон відкрито для перегляду' : 'Розклад завантажено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to load schedule:', err);
@@ -123,18 +141,21 @@ export const SavedSchedulesPanel: React.FC = () => {
 
     setLoading(true);
     try {
+      let createdSchedule: SavedSchedule | null = null;
       if (customScheduleId) {
-        await ScheduleEndpoint.copySavedSchedule(customScheduleId, trimmed);
+        createdSchedule = (await ScheduleEndpoint.copySavedSchedule(customScheduleId, trimmed)) as SavedSchedule;
       } else {
-        await ScheduleEndpoint.copyBuiltInTemplate(trimmed);
+        createdSchedule = (await ScheduleEndpoint.copyBuiltInTemplate(trimmed)) as SavedSchedule;
       }
+      setItems((current) => withEnsuredSchedule(current, createdSchedule));
       setCopyDialogOpened(false);
       setScheduleToCopy(undefined);
       setCopyName('');
-      await loadItems();
+      await loadItems(createdSchedule);
       if (!customScheduleId) {
         await refreshSchedule();
       }
+      notifyDataChanged(customScheduleId ? 'savedSchedules' : 'all');
       Notification.show('Копію розкладу створено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to copy schedule:', err);
@@ -171,6 +192,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       setScheduleToRename(undefined);
       setRenameName('');
       await loadItems();
+      notifyDataChanged('savedSchedules');
       Notification.show('Назву змінено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to rename saved schedule:', err);
@@ -185,7 +207,7 @@ export const SavedSchedulesPanel: React.FC = () => {
 
   const handleSaveIntoSchedule = async (event: React.MouseEvent, schedule: SavedSchedule) => {
     event.stopPropagation();
-    if (!schedule.id || schedule.id < 0 || loading || published) return;
+    if (!schedule.id || schedule.id < 0 || loading) return;
     if (baseTemplateLocked) {
       Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
       return;
@@ -196,7 +218,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     try {
       await ScheduleEndpoint.saveCurrentScheduleToSavedSchedule(schedule.id);
       
-      // Робимо ручний знімок у Машину Часу після успішного збереження
+      // Create a manual Time Machine snapshot after a successful save.
       try {
         await AutosaveEndpoint.captureManualSnapshot();
       } catch (e) {
@@ -204,6 +226,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       }
       
       await loadItems();
+      notifyDataChanged('savedSchedules');
       Notification.show('Зміни збережено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to save changes into saved schedule:', err);
@@ -223,6 +246,7 @@ export const SavedSchedulesPanel: React.FC = () => {
       await ScheduleEndpoint.deleteSavedSchedule(schedule.id);
       await loadItems();
       await refreshSchedule();
+      notifyDataChanged('all');
       Notification.show('Збережений розклад видалено', { theme: 'success', position: 'bottom-end' });
     } catch (err) {
       console.error('Failed to delete saved schedule:', err);
@@ -233,7 +257,7 @@ export const SavedSchedulesPanel: React.FC = () => {
   };
 
   const handleDragStart = (event: React.DragEvent, schedule: SavedSchedule) => {
-    if (!isCustomSchedule(schedule) || loading || published) {
+    if (!isCustomSchedule(schedule) || loading) {
       event.preventDefault();
       return;
     }
@@ -276,6 +300,7 @@ export const SavedSchedulesPanel: React.FC = () => {
     setLoading(true);
     try {
       await ScheduleEndpoint.reorderSavedSchedules(reorderedCustomItems.map((item) => item.id as number));
+      notifyDataChanged('savedSchedules');
     } catch (err) {
       console.error('Failed to reorder saved schedules:', err);
       setItems(previousItems);
@@ -309,19 +334,19 @@ export const SavedSchedulesPanel: React.FC = () => {
   }
 
   return (
-    <aside className="relative w-64 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0">
-      <button
-        type="button"
-        title="Сховати збережені розклади"
-        onClick={() => setCollapsed(true)}
-        className="absolute -right-3 top-1/2 z-20 flex h-9 w-6 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-gray-300 bg-white text-gray-600 shadow-sm transition-colors hover:border-gray-500 hover:bg-gray-50 hover:text-gray-900"
-      >
-        <Icon icon="vaadin:angle-left" className="h-4 w-4" />
-      </button>
-
-      <div className="border-b border-gray-200 px-4 py-3">
+    <aside className="w-64 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0">
+      <div className="border-b border-gray-200 px-3 py-3">
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-800">
-          <Icon icon="vaadin:calendar-clock" className="h-4 w-4 text-gray-500" />
+          <Icon icon="vaadin:calendar-clock" className="h-4 w-4 shrink-0 text-gray-500" />
+          <button
+            type="button"
+            title="Сховати збережені розклади"
+            aria-label="Сховати збережені розклади"
+            onClick={() => setCollapsed(true)}
+            className="order-last ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 shadow-sm transition-colors hover:border-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          >
+            <Icon icon="vaadin:angle-left" className="h-4 w-4" />
+          </button>
           Збережені розклади
         </div>
       </div>
@@ -346,7 +371,7 @@ export const SavedSchedulesPanel: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
         {items.length === 0 ? (
           <div className="px-3 py-6 text-center text-sm text-gray-500">
             Немає збережених розкладів
@@ -360,9 +385,9 @@ export const SavedSchedulesPanel: React.FC = () => {
                 <div
                   key={schedule.id}
                   role="button"
-                  tabIndex={loading || published ? -1 : 0}
+                  tabIndex={loading ? -1 : 0}
                   title={isActive ? "Поточний розклад" : "Натисніть, щоб відкрити"}
-                  draggable={isCustomSchedule(schedule) && !loading && !published}
+                  draggable={isCustomSchedule(schedule) && !loading}
                   onDragStart={(event) => handleDragStart(event, schedule)}
                   onDragOver={(event) => handleDragOver(event, schedule)}
                   onDragLeave={() => {
@@ -378,21 +403,21 @@ export const SavedSchedulesPanel: React.FC = () => {
                       handleLoad(schedule);
                     }
                   }}
-                  className={`group w-full border px-3 py-2 text-left transition-all ${
+                  className={`group box-border w-full max-w-full border py-2 pl-3 pr-3 text-left transition-all ${
                     isActive 
-                      ? 'border-black ring-1 ring-black bg-gray-50 shadow-sm z-10' 
+                      ? 'border-black ring-1 ring-inset ring-black bg-gray-50 shadow-sm z-10'
                       : dragOverId === schedule.id
                         ? 'border-gray-900 bg-gray-100'
                         : schedule.isBuiltIn && baseTemplateLocked
                           ? 'border-gray-900 bg-gray-50'
                           : 'border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-50'
-                  } ${loading || published ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                  } ${loading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                   } ${draggingId === schedule.id ? 'opacity-40' : ''
-                  } ${isCustomSchedule(schedule) && !loading && !published ? 'cursor-grab active:cursor-grabbing' : ''
+                  } ${isCustomSchedule(schedule) && !loading ? 'cursor-grab active:cursor-grabbing' : ''
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="truncate text-sm font-semibold text-gray-900">{schedule.name}</div>
                       <div className="mt-0.5 text-[11px] text-gray-500">
                         {schedule.updatedAt || '—'} · {schedule.lessonCount ?? 0} занять
@@ -403,17 +428,19 @@ export const SavedSchedulesPanel: React.FC = () => {
                         theme="tertiary-inline small"
                         title="Скопіювати базовий шаблон"
                         className="opacity-100"
+                        style={compactIconButtonStyle}
                         onClick={openCopyDialog}
                       >
                         <Icon icon="vaadin:copy" className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     {schedule.id && schedule.id > 0 && (
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="grid w-28 shrink-0 grid-cols-4 gap-1">
                         <Button
                           theme="tertiary-inline small"
                           title="Зберегти зміни"
-                          disabled={loading || published}
+                          disabled={loading}
+                          style={compactIconButtonStyle}
                           onClick={(event) => handleSaveIntoSchedule(event, schedule)}
                         >
                           <Icon icon="vaadin:archive" className="h-3.5 w-3.5" />
@@ -422,6 +449,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                           theme="tertiary-inline small"
                           title="Скопіювати"
                           disabled={loading}
+                          style={compactIconButtonStyle}
                           onClick={(event) => openCopyDialog(event, schedule)}
                         >
                           <Icon icon="vaadin:copy" className="h-3.5 w-3.5" />
@@ -429,6 +457,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                         <Button
                           theme="tertiary-inline small"
                           title="Перейменувати"
+                          style={compactIconButtonStyle}
                           onClick={(event) => openRenameDialog(event, schedule)}
                         >
                           <Icon icon="vaadin:edit" className="h-3.5 w-3.5" />
@@ -436,6 +465,7 @@ export const SavedSchedulesPanel: React.FC = () => {
                         <Button
                           theme="tertiary-inline small error"
                           title="Видалити"
+                          style={compactIconButtonStyle}
                           onClick={(event) => handleDelete(event, schedule)}
                         >
                           <Icon icon="vaadin:trash" className="h-3.5 w-3.5" />

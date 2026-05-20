@@ -12,23 +12,28 @@ import { TeacherEndpoint } from '../generated/endpoints';
 import type TeacherDTO from '../generated/com/sergofoox/domain/ui/dto/TeacherDTO';
 import { TeacherDialog } from '../components/TeacherDialog';
 import { CompetenceDialog } from '../components/CompetenceDialog';
+import { AvailabilityDialog } from '../components/AvailabilityDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
 import { formatPositionType } from '../utils/labels';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 export default function TeachersView() {
   const [teachers, setTeachers] = useState<TeacherDTO[]>([]);
   const [filter, setFilter] = useState('');
   const [dialogOpened, setDialogOpened] = useState(false);
   const [competenceOpened, setCompetenceOpened] = useState(false);
+  const [availabilityOpened, setAvailabilityOpened] = useState(false);
   const [confirmOpened, setConfirmOpened] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherDTO | undefined>(undefined);
   const [teacherToDelete, setTeacherToDelete] = useState<number | undefined>(undefined);
   const [selectedTab, setSelectedTab] = useState(0);
   const loading = useSignal(true);
 
-  const fetchTeachers = async () => {
-    loading.value = true;
+  const fetchTeachers = async (showLoading = true) => {
+    if (showLoading) {
+      loading.value = true;
+    }
     try {
       const data = await TeacherEndpoint.getAllTeachers();
       setTeachers((data || []).filter(t => !!t) as TeacherDTO[]);
@@ -36,13 +41,33 @@ export default function TeachersView() {
       console.error('Failed to fetch teachers:', err);
       Notification.show('Помилка завантаження списку викладачів', { theme: 'error', position: 'bottom-end' });
     } finally {
-      loading.value = false;
+      if (showLoading) {
+        loading.value = false;
+      }
     }
   };
 
   useEffect(() => {
     fetchTeachers();
   }, []);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'hidden') {
+        void fetchTeachers(false);
+      }
+    };
+    const interval = window.setInterval(refreshIfVisible, 5000);
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, []);
+
+  useCrossTabRefresh(() => fetchTeachers(false));
 
   const filteredTeachers = teachers.filter(teacher => {
     const matchesFilter = 
@@ -79,6 +104,15 @@ export default function TeachersView() {
     setCompetenceOpened(true);
   };
 
+  const handleAvailability = (teacher: TeacherDTO) => {
+    if (isBaseTemplateLocked.value) {
+      Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
+      return;
+    }
+    setSelectedTeacher(teacher);
+    setAvailabilityOpened(true);
+  };
+
   const openDeleteConfirm = (id: number) => {
     if (isBaseTemplateLocked.value) {
       Notification.show(BASE_TEMPLATE_LOCKED_MESSAGE, { theme: 'primary', position: 'bottom-end' });
@@ -94,7 +128,8 @@ export default function TeachersView() {
       await TeacherEndpoint.deleteTeacher(teacherToDelete as any);
       Notification.show('Викладача видалено', { theme: 'success', position: 'bottom-end' });
       setConfirmOpened(false);
-      fetchTeachers();
+      await fetchTeachers();
+      notifyDataChanged('teachers');
     } catch (err) {
       console.error('Failed to delete teacher:', err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час видалення'), { theme: 'error', position: 'bottom-end' });
@@ -109,7 +144,8 @@ export default function TeachersView() {
     try {
       await TeacherEndpoint.restoreTeacher(id as any);
       Notification.show('Викладача відновлено', { theme: 'success', position: 'bottom-end' });
-      fetchTeachers();
+      await fetchTeachers();
+      notifyDataChanged('teachers');
     } catch (err) {
       console.error('Failed to restore teacher:', err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час відновлення'), { theme: 'error', position: 'bottom-end' });
@@ -196,6 +232,13 @@ export default function TeachersView() {
                   >
                     <Icon icon="vaadin:book" />
                   </Button>
+                  <Button
+                    theme="tertiary icon"
+                    onClick={() => handleAvailability(teacher)}
+                    title="Преференції часу"
+                  >
+                    <Icon icon="vaadin:clock" />
+                  </Button>
                   {!teacher.archived ? (
                     <Button 
                       theme="tertiary error icon" 
@@ -240,6 +283,15 @@ export default function TeachersView() {
         opened={competenceOpened}
         teacher={selectedTeacher}
         onClose={() => setCompetenceOpened(false)}
+      />
+
+      <AvailabilityDialog
+        opened={availabilityOpened}
+        teacher={selectedTeacher}
+        onClose={() => {
+          setAvailabilityOpened(false);
+          setSelectedTeacher(undefined);
+        }}
       />
 
       <ConfirmDialog

@@ -13,6 +13,7 @@ import type GroupDTO from '../generated/com/sergofoox/domain/ui/dto/GroupDTO';
 import { PlanDialog } from '../components/PlanDialog';
 import { formatRoomType } from '../utils/labels';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 export default function CoursePlansView() {
   const [plans, setPlans] = useState<CoursePlanDTO[]>([]);
@@ -43,6 +44,8 @@ export default function CoursePlansView() {
   useEffect(() => {
     refreshData();
   }, []);
+
+  useCrossTabRefresh(() => refreshData());
 
   useEffect(() => {
     const groupId = searchParams.get('groupId');
@@ -125,6 +128,7 @@ export default function CoursePlansView() {
       await CoursePlanEndpoint.deletePlan(plan.id);
       Notification.show('План видалено', { theme: 'success' });
       await refreshData();
+      notifyDataChanged('coursePlans');
     } catch (err) {
       console.error(err);
       Notification.show(getMutationErrorMessage(err, 'Помилка видалення плану'), { theme: 'error' });
@@ -155,6 +159,7 @@ export default function CoursePlansView() {
         { theme: copiedCount > 0 ? 'success' : 'primary' }
       );
       await refreshData();
+      notifyDataChanged('coursePlans');
     } catch (err) {
       console.error(err);
       Notification.show(getMutationErrorMessage(err, 'Помилка копіювання плану'), { theme: 'error' });
@@ -303,6 +308,7 @@ export default function CoursePlansView() {
           onSaved={async () => {
             closeDialog();
             await refreshData();
+            notifyDataChanged('coursePlans');
           }}
         />
       )}

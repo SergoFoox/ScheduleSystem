@@ -11,8 +11,14 @@
 # The following files are generated/updated by vaadin-maven-plugin
 node_modules/
 src/main/frontend/generated/
+src/main/bundles/
 vite.generated.ts
-
+bundles/
 schedule.mv.db
 schedule.trace.db
 bug.txt
+memory-bank
+.gemini
+documentation
+GEMINI.md
+docs

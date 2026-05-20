@@ -6,7 +6,6 @@ import { ProgressBar } from '@vaadin/react-components/ProgressBar.js';
 import { Notification } from '@vaadin/react-components/Notification.js';
 import { Checkbox } from '@vaadin/react-components/Checkbox.js';
 import { ScheduleGrid } from '../components/ScheduleGrid';
-import { AnalyticsSidebar } from '../components/AnalyticsSidebar';
 import { SavedSchedulesPanel } from '../components/SavedSchedulesPanel';
 import { TimeMachineDialog } from '../components/TimeMachineDialog';
 import { useSignal } from '@vaadin/hilla-react-signals';
@@ -15,13 +14,14 @@ import {
   BASE_TEMPLATE_LOCKED_MESSAGE,
   getMutationErrorMessage,
   isBaseTemplateLocked,
-  isPublished,
   refreshSchedule,
+  scheduleData,
   selectedCourseFilter,
-  selectedEntity,
   solverStatus
 } from '../store/app-state';
 import { ScheduleEndpoint } from '../generated/endpoints';
+import { notifyDataChanged } from '../utils/cross-tab-sync';
+import { downloadScheduleHtml, downloadSchedulePdf } from '../utils/schedule-export';
 
 type Mode = 'GROUP' | 'TEACHER' | 'ROOM';
 
@@ -30,7 +30,7 @@ export default function DashboardView() {
   const timeMachineOpened = useSignal(false);
   const isSolving = solverStatus.value === 'SOLVING_ACTIVE' || solverStatus.value === 'SOLVING_SCHEDULED';
 
-  // Опитуємо статус під час розв'язання, щоб бачити оновлення в реальному часі
+  // Poll the solver status while solving so the UI can show live updates.
   useEffect(() => {
     let interval: any;
     if (isSolving) {
@@ -51,6 +51,7 @@ export default function DashboardView() {
         position: 'bottom-end' 
       });
       await refreshSchedule();
+      notifyDataChanged('schedule');
       const pollUntil = Date.now() + 35000;
       const poll = window.setInterval(async () => {
         await refreshSchedule(false);
@@ -75,9 +76,37 @@ export default function DashboardView() {
       await ScheduleEndpoint.clearSchedule();
       Notification.show('Розклад очищено', { theme: 'success' });
       await refreshSchedule();
+      notifyDataChanged('schedule');
     } catch (err) {
       console.error(err);
       Notification.show(getMutationErrorMessage(err, 'Помилка під час очищення розкладу'), { theme: 'error' });
+    }
+  };
+
+  const getExportScheduleName = () => activeSavedSchedule.value?.name || 'Розклад занять';
+
+  const hasExportableSchedule = () => {
+    if (scheduleData.value?.groups?.length) {
+      return true;
+    }
+    Notification.show('Немає даних розкладу для експорту', { theme: 'error', position: 'bottom-end' });
+    return false;
+  };
+
+  const handleExportHtml = () => {
+    if (!hasExportableSchedule()) return;
+    downloadScheduleHtml(scheduleData.value, selectedCourseFilter.value, getExportScheduleName());
+    Notification.show('HTML експортовано', { theme: 'success', position: 'bottom-end' });
+  };
+
+  const handleExportPdf = async () => {
+    if (!hasExportableSchedule()) return;
+    try {
+      await downloadSchedulePdf(scheduleData.value, selectedCourseFilter.value, getExportScheduleName());
+      Notification.show('PDF експортовано', { theme: 'success', position: 'bottom-end' });
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+      Notification.show('Помилка під час експорту PDF', { theme: 'error', position: 'bottom-end' });
     }
   };
 
@@ -91,7 +120,7 @@ export default function DashboardView() {
     <div className="flex h-full overflow-hidden bg-gray-50/50">
       <SavedSchedulesPanel />
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Сучасна панель інструментів */}
+        {/* Modern toolbar */}
         <div className="flex justify-between items-center p-4 bg-white border-b shadow-sm gap-4">
           <div className="flex items-center gap-6">
             <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 whitespace-nowrap">
@@ -104,7 +133,6 @@ export default function DashboardView() {
                 items={modeOptions}
                 onValueChanged={(e) => {
                   mode.value = e.detail.value as Mode;
-                  selectedEntity.value = null;
                 }}
                 className="w-44"
               />
@@ -127,7 +155,7 @@ export default function DashboardView() {
             <Button 
               theme="primary" 
               onClick={handleGenerate} 
-              disabled={isSolving || isPublished.value}
+              disabled={isSolving}
               className="shadow-md transition-transform active:scale-95"
             >
               <Icon icon="vaadin:play" slot="prefix" />
@@ -135,7 +163,7 @@ export default function DashboardView() {
               <span className="lg:hidden">Пуск</span>
             </Button>
 
-            {/* Блок автозбереження: чіткий підпис та іконка історії */}
+            {/* Autosave block with a clear label and history icon */}
             {!isBaseTemplateLocked.value && activeSavedSchedule.value && (
               <div className="flex items-center gap-4 border-l border-r px-4 min-w-fit">
                 <Checkbox 
@@ -148,6 +176,7 @@ export default function DashboardView() {
                       try {
                         await ScheduleEndpoint.toggleAutosave(activeSavedSchedule.value.id, enabled);
                         await refreshSchedule(false);
+                        notifyDataChanged('savedSchedules');
                         Notification.show(enabled ? 'Автозбереження увімкнено' : 'Автозбереження вимкнено', {
                           theme: enabled ? 'success' : 'contrast',
                           position: 'bottom-center'
@@ -174,14 +203,14 @@ export default function DashboardView() {
             <div className="flex gap-1 items-center">
               <Button 
                 theme="tertiary" 
-                onClick={() => Notification.show('Експорт HTML у розробці')}
+                onClick={handleExportHtml}
                 title="Експорт у HTML"
               >
                 <Icon icon="vaadin:download" />
               </Button>
               <Button 
                 theme="tertiary" 
-                onClick={() => Notification.show('Експорт PDF у розробці')}
+                onClick={handleExportPdf}
                 title="Експорт у PDF"
               >
                 <Icon icon="vaadin:file-text" />
@@ -191,7 +220,7 @@ export default function DashboardView() {
             <Button 
               theme="error tertiary" 
               onClick={handleClear}
-              disabled={isSolving || isPublished.value}
+              disabled={isSolving}
               title="Очистити розклад"
             >
               <Icon icon="vaadin:trash" />
@@ -199,15 +228,14 @@ export default function DashboardView() {
           </div>
         </div>
         
-        {/* Контейнер сітки */}
+        {/* Grid container */}
         <div className="flex-1 overflow-hidden p-6">
           <div className="h-full border border-gray-200 rounded-2xl shadow-xl bg-white overflow-hidden relative">
             <ScheduleGrid />
           </div>
         </div>
       </div>
-      
-      <AnalyticsSidebar />
+
       <TimeMachineDialog 
         opened={timeMachineOpened.value} 
         onClose={() => timeMachineOpened.value = false} 

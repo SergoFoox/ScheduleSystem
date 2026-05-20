@@ -12,7 +12,9 @@ import com.sergofoox.domain.room.RoomRepository;
 import com.sergofoox.domain.subject.Subject;
 import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.subject.LessonType;
+import com.sergofoox.domain.teacher.AvailabilityStatus;
 import com.sergofoox.domain.teacher.Teacher;
+import com.sergofoox.domain.teacher.TeacherAvailability;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.timeslot.Timeslot;
 import com.sergofoox.domain.timeslot.TimeslotRepository;
@@ -67,6 +69,16 @@ public class ScheduleService {
         generateLessonsFromPlans(null);
     }
 
+    /**
+     * Regenerates unscheduled lesson entities from course plans.
+     * <p>
+     * Lesson counts are taken from the per-week session fields on {@link CoursePlan};
+     * hour fields are plan metadata and do not automatically change periodicity.
+     * Each generated lesson copies the periodicity configured for its lesson type.
+     *
+     * @param course optional course filter; when present, only groups from that
+     *               course are cleared and regenerated
+     */
     @Transactional
     public void generateLessonsFromPlans(Integer course) {
         System.out.println("=== ГЕНЕРАЦИЯ УРОКОВ ===");
@@ -82,13 +94,13 @@ public class ScheduleService {
             groupsForCourse.forEach(lessonRepository::deleteByGroup);
         }
         lessonRepository.flush();
-        
+
         List<CoursePlan> allPlans = coursePlanRepository.findAll();
         List<CoursePlan> plansForGeneration = course == null
                 ? allPlans
                 : allPlans.stream()
-                        .filter(plan -> plan.getGroup() != null && course.equals(plan.getGroup().getCourse()))
-                        .toList();
+                .filter(plan -> plan.getGroup() != null && course.equals(plan.getGroup().getCourse()))
+                .toList();
         if (plansForGeneration.isEmpty()) {
             throw new IllegalStateException(course == null
                     ? "Немає навчальних планів для генерації"
@@ -102,7 +114,7 @@ public class ScheduleService {
                 continue;
             }
 
-            // Генерируем уроки согласно часам и периодичности из плана
+            // Generate lessons from the session counts and periodicity configured in the plan.
             for (int i = 0; i < plan.getLectureSessionsPerWeek(); i++) {
                 addLessonsForPlan(newLessons, plan, LessonType.LECTURE, plan.getLecturePeriodicity(), i + 1);
             }
@@ -121,6 +133,13 @@ public class ScheduleService {
         lessonRepository.flush();
     }
 
+    /**
+     * Adds one planned weekly session to the generated lesson list.
+     * <p>
+     * If a course plan has two teachers, the session becomes two subgroup
+     * lessons with the same split-group index; otherwise it becomes one
+     * whole-group lesson.
+     */
     private void addLessonsForPlan(List<Lesson> lessons, CoursePlan plan, LessonType lessonType, com.sergofoox.domain.plan.Periodicity periodicity, int splitGroupIndex) {
         Teacher primaryTeacher = getPrimaryTeacher(plan);
         if (primaryTeacher == null) {
@@ -183,7 +202,7 @@ public class ScheduleService {
 
     public Schedule findById(UUID id) {
         Integer courseFilter = activeCourseFilter;
-        // Загружаем все справочники
+        // Load all reference data.
         List<Room> rooms = roomRepository.findAll();
         List<Timeslot> timeslots = timeslotRepository.findAll();
         List<Teacher> teachers = teacherRepository.findAll();
@@ -192,7 +211,7 @@ public class ScheduleService {
         List<CoursePlan> plans = coursePlanRepository.findAll();
         List<Lesson> lessons = lessonRepository.findAll();
 
-        // Создаем карты для быстрой унификации объектов (чтобы ссылки в памяти совпадали)
+        // Build maps to reuse entity instances and keep in-memory references consistent.
         Map<Long, Room> roomMap = rooms.stream().collect(Collectors.toMap(Room::getId, Function.identity()));
         Map<Long, Timeslot> timeslotMap = timeslots.stream().collect(Collectors.toMap(Timeslot::getId, Function.identity()));
         Map<Long, Teacher> teacherMap = teachers.stream().collect(Collectors.toMap(Teacher::getId, Function.identity()));
@@ -206,7 +225,7 @@ public class ScheduleService {
             }
         }
 
-        // Принудительная прошивка ссылок
+        // Force all lesson references to point to the unified entity instances.
         for (Lesson lesson : lessons) {
             if (lesson.getRoom() != null) lesson.setRoom(roomMap.get(lesson.getRoom().getId()));
             if (lesson.getTimeslot() != null) lesson.setTimeslot(timeslotMap.get(lesson.getTimeslot().getId()));
@@ -217,7 +236,7 @@ public class ScheduleService {
             lesson.setPinned(courseFilter != null && !isLessonInCourse(lesson, courseFilter));
         }
 
-        // Перемешиваем для рандома
+        // Shuffle inputs to make solver runs non-deterministic.
         if (courseFilter != null) {
             lessons = lessons.stream()
                     .filter(lesson -> isLessonInCourse(lesson, courseFilter) || isScheduled(lesson))
@@ -245,9 +264,9 @@ public class ScheduleService {
 
     private void persistSolution(Schedule schedule) {
         System.out.println("Найдено улучшение. Score: " + schedule.getScore());
-        Set<Long> lessonsToUnschedule = findTeacherConflictLessonIds(schedule.getLessons());
+        Set<Long> lessonsToUnschedule = findUnschedulableLessonIds(schedule.getLessons());
         if (!lessonsToUnschedule.isEmpty()) {
-            System.out.println("Unscheduling lessons with remaining teacher conflicts: " + lessonsToUnschedule.size());
+            System.out.println("Unscheduling lessons with remaining teacher conflicts or unavailable slots: " + lessonsToUnschedule.size());
         }
         int savedCount = 0;
         for (Lesson lesson : schedule.getLessons()) {
@@ -271,16 +290,22 @@ public class ScheduleService {
         System.out.println("Saved scheduled lessons: " + savedCount);
     }
 
-    private Set<Long> findTeacherConflictLessonIds(List<Lesson> lessons) {
+    private Set<Long> findUnschedulableLessonIds(List<Lesson> lessons) {
         Set<Long> lessonIds = new HashSet<>();
+        for (Lesson lesson : lessons) {
+            if (lesson.getId() != null && hasTeacherAvailability(lesson, AvailabilityStatus.UNAVAILABLE)) {
+                lessonIds.add(lesson.getId());
+            }
+        }
+
         for (int i = 0; i < lessons.size(); i++) {
             Lesson first = lessons.get(i);
-            if (!canCheckTeacherConflict(first)) {
+            if (!canCheckTeacherConflict(first) || lessonIds.contains(first.getId())) {
                 continue;
             }
             for (int j = i + 1; j < lessons.size(); j++) {
                 Lesson second = lessons.get(j);
-                if (!canCheckTeacherConflict(second)) {
+                if (!canCheckTeacherConflict(second) || lessonIds.contains(second.getId())) {
                     continue;
                 }
                 if (sameTeacher(first, second) && samePhysicalSlot(first, second) && weeksOverlap(first, second)) {
@@ -330,7 +355,30 @@ public class ScheduleService {
         if (second.isPinned() && !first.isPinned()) {
             return first;
         }
+        boolean firstPreferred = hasTeacherAvailability(first, AvailabilityStatus.PREFERRED);
+        boolean secondPreferred = hasTeacherAvailability(second, AvailabilityStatus.PREFERRED);
+        if (firstPreferred && !secondPreferred) {
+            return second;
+        }
+        if (secondPreferred && !firstPreferred) {
+            return first;
+        }
         return first.getId() > second.getId() ? first : second;
+    }
+
+    private boolean hasTeacherAvailability(Lesson lesson, AvailabilityStatus status) {
+        if (lesson.getTeacher() == null || lesson.getTimeslot() == null) {
+            return false;
+        }
+        List<TeacherAvailability> availability = lesson.getTeacher().getAvailability();
+        if (availability == null || availability.isEmpty()) {
+            return false;
+        }
+        return availability.stream()
+                .anyMatch(item -> item != null
+                        && item.getStatus() == status
+                        && item.getDayOfWeek() == lesson.getTimeslot().getDayOfWeek()
+                        && lesson.getTimeslot().getLessonNumber().equals(item.getLessonNumber()));
     }
 
     public SolverStatus getSolverStatus() { return solverManager.getSolverStatus(SINGLETON_ID); }

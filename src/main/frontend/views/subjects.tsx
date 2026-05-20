@@ -8,6 +8,7 @@ import { SubjectEndpoint } from '../generated/endpoints';
 import Subject from '../generated/com/sergofoox/domain/subject/Subject';
 import { SubjectDialog } from '../components/SubjectDialog';
 import { BASE_TEMPLATE_LOCKED_MESSAGE, getMutationErrorMessage, isBaseTemplateLocked } from '../store/app-state';
+import { notifyDataChanged, useCrossTabRefresh } from '../utils/cross-tab-sync';
 
 export default function SubjectsView() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -27,6 +28,8 @@ export default function SubjectsView() {
   useEffect(() => {
     refreshSubjects();
   }, []);
+
+  useCrossTabRefresh(() => refreshSubjects());
 
   const handleAdd = () => {
     if (isBaseTemplateLocked.value) {
@@ -55,7 +58,8 @@ export default function SubjectsView() {
       try {
         await SubjectEndpoint.deleteSubject(id as any);
         Notification.show('Дисципліну та всі повʼязані дані видалено', { theme: 'success' });
-        refreshSubjects();
+        await refreshSubjects();
+        notifyDataChanged('subjects');
       } catch (err) {
         console.error(err);
         Notification.show(getMutationErrorMessage(err, 'Помилка видалення дисципліни'), { theme: 'error' });

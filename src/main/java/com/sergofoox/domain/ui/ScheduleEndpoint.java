@@ -1,5 +1,7 @@
 package com.sergofoox.domain.ui;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sergofoox.domain.competence.Priority;
@@ -23,8 +25,11 @@ import com.sergofoox.domain.autosave.AutosaveService;
 import com.sergofoox.domain.subject.SubjectRepository;
 import com.sergofoox.domain.subject.LessonType;
 import com.sergofoox.domain.subject.Subject;
+import com.sergofoox.domain.teacher.AvailabilityStatus;
 import com.sergofoox.domain.teacher.PositionType;
 import com.sergofoox.domain.teacher.Teacher;
+import com.sergofoox.domain.teacher.TeacherAvailability;
+import com.sergofoox.domain.teacher.TeacherAvailabilityRepository;
 import com.sergofoox.domain.teacher.TeacherRepository;
 import com.sergofoox.domain.timeslot.Timeslot;
 import com.sergofoox.domain.timeslot.TimeslotRepository;
@@ -40,6 +45,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.DayOfWeek;
@@ -47,7 +55,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @BrowserCallable
@@ -69,17 +80,20 @@ public class ScheduleEndpoint {
     private final LessonRepository lessonRepository;
     private final CoursePlanRepository coursePlanRepository;
     private final TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository;
+    private final TeacherAvailabilityRepository teacherAvailabilityRepository;
     private final ScheduleService scheduleService;
     private final SavedScheduleRepository savedScheduleRepository;
     private final AutosaveService autosaveService;
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
     private final TemplateAccessService templateAccessService;
+    private final SchedulePdfExportService schedulePdfExportService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
-    private boolean published = false;
+    private volatile FullTemplateSnapshot cachedBuiltInTemplateSnapshot;
+    private final AtomicBoolean startupAutosaveRecoveryAttempted = new AtomicBoolean(false);
 
     public ScheduleEndpoint(
             TeacherRepository teacherRepository,
@@ -90,11 +104,13 @@ public class ScheduleEndpoint {
             LessonRepository lessonRepository,
             CoursePlanRepository coursePlanRepository,
             TeacherCompetenceMatrixRepository teacherCompetenceMatrixRepository,
+            TeacherAvailabilityRepository teacherAvailabilityRepository,
             ScheduleService scheduleService,
             SavedScheduleRepository savedScheduleRepository,
             AutosaveService autosaveService,
             DataSource dataSource,
             TemplateAccessService templateAccessService,
+            SchedulePdfExportService schedulePdfExportService,
             ObjectMapper objectMapper) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
@@ -104,11 +120,13 @@ public class ScheduleEndpoint {
         this.lessonRepository = lessonRepository;
         this.coursePlanRepository = coursePlanRepository;
         this.teacherCompetenceMatrixRepository = teacherCompetenceMatrixRepository;
+        this.teacherAvailabilityRepository = teacherAvailabilityRepository;
         this.scheduleService = scheduleService;
         this.savedScheduleRepository = savedScheduleRepository;
         this.autosaveService = autosaveService;
         this.dataSource = dataSource;
         this.templateAccessService = templateAccessService;
+        this.schedulePdfExportService = schedulePdfExportService;
         this.objectMapper = objectMapper;
     }
 
@@ -120,9 +138,6 @@ public class ScheduleEndpoint {
     @AnonymousAllowed
     public void generateScheduleForCourse(Integer course) {
         try {
-            if (published) {
-                throw new IllegalStateException("Неможливо згенерувати розклад: його вже опубліковано");
-            }
             Integer courseFilter = course != null && course > 0 ? course : null;
             if (courseFilter != null && courseFilter > 4) {
                 throw new IllegalArgumentException("Курс має бути від 1 до 4");
@@ -139,9 +154,6 @@ public class ScheduleEndpoint {
     @Transactional
     public void clearSchedule() {
         try {
-            if (published) {
-                throw new IllegalStateException("Неможливо очистити розклад: його вже опубліковано");
-            }
             templateAccessService.requireWritableTemplate();
             clearLessonPlacements();
         } catch (Exception e) {
@@ -160,7 +172,7 @@ public class ScheduleEndpoint {
     public List<SavedScheduleDTO> getSavedSchedules() {
         List<SavedSchedule> savedSchedules = savedScheduleRepository.findAllByOrderBySortOrderAscUpdatedAtDescIdAsc();
         List<SavedScheduleDTO> dtos = new ArrayList<>();
-        
+
         dtos.add(new SavedScheduleDTO(
                 BUILT_IN_TEMPLATE_ID,
                 BUILT_IN_TEMPLATE_NAME,
@@ -176,7 +188,7 @@ public class ScheduleEndpoint {
                 dtos.add(mapToSavedScheduleDTO(s));
             }
         }
-        
+
         return dtos;
     }
 
@@ -205,8 +217,8 @@ public class ScheduleEndpoint {
         savedSchedule.setUpdatedAt(now);
         savedSchedule.setSortOrder(nextSavedScheduleSortOrder());
         savedSchedule.setFullTemplate(true);
-        
-        // Створюємо ПОВНІСТЮ порожній знімок (Absolute Zero)
+
+        // Create a completely empty snapshot, the absolute zero state.
         FullTemplateSnapshot cleanSnapshot = new FullTemplateSnapshot(
                 Collections.emptyList(), // subjects
                 Collections.emptyList(), // rooms
@@ -215,6 +227,7 @@ public class ScheduleEndpoint {
                 Collections.emptyList(), // coursePlans
                 Collections.emptyList(), // timeslots
                 Collections.emptyList(), // competences
+                Collections.emptyList(), // availability
                 Collections.emptyList()  // lessons
         );
 
@@ -222,12 +235,12 @@ public class ScheduleEndpoint {
         savedSchedule.replaceLessons(List.of());
 
         SavedSchedule saved = savedScheduleRepository.save(savedSchedule);
-        
-        // Одразу активуємо цей новий розклад та очищуємо все робоче середовище
+
+        // Activate the new schedule immediately and clear the working state.
         templateAccessService.activateEditableTemplate(saved.getId());
         autosaveService.deleteSnapshotsForSchedule(saved.getId());
-        clearWorkingData(); 
-        
+        clearWorkingData();
+
         return mapToSavedScheduleDTO(saved);
     }
 
@@ -241,9 +254,8 @@ public class ScheduleEndpoint {
 
         SavedSchedule savedSchedule = savedScheduleRepository.findById(id).orElseThrow();
         savedSchedule.setUpdatedAt(LocalDateTime.now());
-        if (savedSchedule.isFullTemplate()) {
-            savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
-        }
+        savedSchedule.setFullTemplate(true);
+        savedSchedule.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
         savedSchedule.replaceLessons(lessonRepository.findAll().stream()
                 .map(this::createSavedScheduleLesson)
                 .toList());
@@ -259,7 +271,7 @@ public class ScheduleEndpoint {
             throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
         }
 
-        // 1. Створюємо новий порожній розклад
+        // 1. Create a new empty schedule.
         LocalDateTime now = LocalDateTime.now();
         SavedSchedule copy = new SavedSchedule();
         copy.setName(normalizedName);
@@ -267,24 +279,24 @@ public class ScheduleEndpoint {
         copy.setUpdatedAt(now);
         copy.setSortOrder(nextSavedScheduleSortOrder());
         copy.setFullTemplate(true);
-        
-        // 2. Отримуємо дані "Базового шаблону" з SQL файлу безпосередньо, 
-        // НЕ зачіпаючи поточні робочі таблиці БД.
-        // Ми використовуємо вже існуючий механізм десеріалізації, 
-        // але для цього нам потрібно отримати snapshot базового шаблону.
+
+        // 2. Read base template data directly from the SQL file without touching
+        // the current working database tables.
+        // This reuses the existing deserialization path, but first needs a base
+        // template snapshot.
         FullTemplateSnapshot baseSnapshot = getBaseTemplateSnapshotWithoutImport();
-        
-        // 3. Зберігаємо цей snapshot у копію
+
+        // 3. Store this snapshot in the copy.
         copy.setSnapshotJson(serializeSnapshot(baseSnapshot));
-        
-        // 4. Копіюємо уроки зі snapshot у список занять розкладу
+
+        // 4. Copy lessons from the snapshot into the saved schedule lesson list.
         List<SavedScheduleLesson> lessons = baseSnapshot.lessons().stream()
                 .map(l -> {
                     SavedScheduleLesson sl = new SavedScheduleLesson();
                     sl.setLessonId(l.id());
                     sl.setCoursePlanId(l.coursePlanId());
                     sl.setGroupId(l.groupId());
-                    sl.setSubjectId(l.id()); // У шаблоні ID часто збігаються
+                    sl.setSubjectId(l.subjectId());
                     sl.setTeacherId(l.teacherId());
                     sl.setTimeslotId(l.timeslotId());
                     sl.setRoomId(l.roomId());
@@ -297,41 +309,347 @@ public class ScheduleEndpoint {
         copy.replaceLessons(lessons);
 
         SavedSchedule saved = savedScheduleRepository.save(copy);
-        
-        // Оскільки це копія шаблону, історія "Машини часу" для неї має бути порожньою
+
+        // Template copies should start with an empty Time Machine history.
         autosaveService.deleteSnapshotsForSchedule(saved.getId());
-        
+
         return mapToSavedScheduleDTO(saved);
     }
 
-    /**
-     * Helper to read the SQL script and turn it into a Snapshot object without DB import.
-     * This is more robust as it doesn't touch working tables.
-     */
     private FullTemplateSnapshot getBaseTemplateSnapshotWithoutImport() {
-        // Оскільки у нас вже є розклад у V2__Base_Template.sql, 
-        // а написання парсера SQL - це надто складно, ми використаємо "тіньову" процедуру:
-        // Ми завантажуємо дані, робимо snapshot і ВІДКОЧУЄМО транзакцію.
-        // Але оскільки ми в @Transactional методі, ми зробимо це простіше:
-        // Ми просто завантажимо його, зробимо snapshot і ПОВЕРНЕМО поточний стан.
-        
-        Long currentActiveId = templateAccessService.getActiveSavedScheduleId();
-        FullTemplateSnapshot currentWork = captureCurrentSnapshot();
-        
-        try {
-            importBuiltInTemplate();
-            if (entityManager != null) entityManager.clear();
-            FullTemplateSnapshot base = captureCurrentSnapshot();
-            return base;
-        } finally {
-            // Відновлюємо те, що було у користувача до натискання кнопки
-            restoreSnapshot(currentWork);
-            if (currentActiveId != null) {
-                templateAccessService.activateEditableTemplate(currentActiveId);
-            } else {
-                templateAccessService.resetBaseTemplateSession();
+        FullTemplateSnapshot cached = cachedBuiltInTemplateSnapshot;
+        if (cached != null) {
+            return cached;
+        }
+
+        synchronized (this) {
+            if (cachedBuiltInTemplateSnapshot == null) {
+                cachedBuiltInTemplateSnapshot = parseBuiltInTemplateSnapshot();
+            }
+            return cachedBuiltInTemplateSnapshot;
+        }
+    }
+
+    private FullTemplateSnapshot parseBuiltInTemplateSnapshot() {
+        String sql = readBuiltInTemplateSql();
+
+        List<SubjectSnapshot> subjects = readInsertRows(sql, "subject").stream()
+                .map(row -> new SubjectSnapshot(
+                        sqlLong(row, "id"),
+                        sqlText(row, "name"),
+                        sqlText(row, "abbreviation")))
+                .sorted(Comparator.comparing(SubjectSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        List<RoomSnapshot> rooms = readInsertRows(sql, "room").stream()
+                .map(row -> new RoomSnapshot(
+                        sqlLong(row, "id"),
+                        sqlText(row, "name"),
+                        sqlInteger(row, "capacity"),
+                        sqlText(row, "building"),
+                        sqlText(row, "equipment"),
+                        sqlEnum(row, "type", RoomType.class)))
+                .sorted(Comparator.comparing(RoomSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        List<TeacherSnapshot> teachers = readInsertRows(sql, "teacher").stream()
+                .map(row -> new TeacherSnapshot(
+                        sqlLong(row, "id"),
+                        sqlText(row, "full_name"),
+                        sqlText(row, "department"),
+                        sqlText(row, "specialization"),
+                        sqlEnum(row, "position_type", PositionType.class),
+                        sqlInteger(row, "weekly_hour_limit"),
+                        sqlInteger(row, "max_working_days_per_week"),
+                        sqlLong(row, "assigned_room_id"),
+                        false))
+                .sorted(Comparator.comparing(TeacherSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        List<GroupSnapshot> groups = readInsertRows(sql, "student_group").stream()
+                .map(row -> new GroupSnapshot(
+                        sqlLong(row, "id"),
+                        sqlText(row, "name"),
+                        sqlInteger(row, "size"),
+                        sqlInteger(row, "course"),
+                        sqlText(row, "department"),
+                        sqlLong(row, "curator_id")))
+                .sorted(Comparator.comparing(GroupSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        List<CoursePlanSnapshot> coursePlans = readInsertRows(sql, "course_plan").stream()
+                .map(row -> new CoursePlanSnapshot(
+                        sqlLong(row, "id"),
+                        sqlLong(row, "subject_id"),
+                        sqlLong(row, "teacher_id"),
+                        sqlLong(row, "second_teacher_id"),
+                        sqlLong(row, "group_id"),
+                        sqlInteger(row, "total_hours"),
+                        sqlInteger(row, "lecture_hours"),
+                        sqlInteger(row, "practice_hours"),
+                        sqlInteger(row, "lab_hours"),
+                        sqlInteger(row, "lecture_sessions_per_week"),
+                        sqlInteger(row, "practice_sessions_per_week"),
+                        sqlInteger(row, "lab_sessions_per_week"),
+                        sqlEnum(row, "lecture_periodicity", Periodicity.class),
+                        sqlEnum(row, "practice_periodicity", Periodicity.class),
+                        sqlEnum(row, "lab_periodicity", Periodicity.class),
+                        sqlInteger(row, "executed_hours"),
+                        sqlEnum(row, "required_room_type", RoomType.class)))
+                .sorted(Comparator.comparing(CoursePlanSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        List<TimeslotSnapshot> timeslots = readInsertRows(sql, "timeslot").stream()
+                .map(row -> new TimeslotSnapshot(
+                        sqlLong(row, "id"),
+                        sqlEnum(row, "day_of_week", DayOfWeek.class),
+                        sqlTime(row, "start_time"),
+                        sqlTime(row, "end_time"),
+                        sqlEnum(row, "week_parity", Periodicity.class),
+                        sqlInteger(row, "lesson_number")))
+                .sorted(Comparator.comparing(TimeslotSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        List<CompetenceSnapshot> competences = readInsertRows(sql, "teacher_competence_matrix").stream()
+                .map(row -> new CompetenceSnapshot(
+                        sqlLong(row, "id"),
+                        sqlLong(row, "teacher_id"),
+                        sqlLong(row, "subject_id"),
+                        sqlEnum(row, "lesson_type", LessonType.class),
+                        sqlEnum(row, "priority", Priority.class)))
+                .sorted(Comparator.comparing(CompetenceSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        List<LessonSnapshot> lessons = readInsertRows(sql, "lesson").stream()
+                .map(row -> new LessonSnapshot(
+                        sqlLong(row, "id"),
+                        sqlLong(row, "subject_id"),
+                        sqlEnum(row, "lesson_type", LessonType.class),
+                        sqlLong(row, "teacher_id"),
+                        sqlLong(row, "group_id"),
+                        sqlLong(row, "course_plan_id"),
+                        sqlLong(row, "timeslot_id"),
+                        sqlLong(row, "room_id"),
+                        sqlEnum(row, "periodicity", Periodicity.class),
+                        sqlInteger(row, "subgroup"),
+                        sqlInteger(row, "split_group_index")))
+                .sorted(Comparator.comparing(LessonSnapshot::id, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        Set<String> deletedGroupNames = readDeletedStudentGroupNames(sql);
+        if (!deletedGroupNames.isEmpty()) {
+            Set<Long> deletedGroupIds = groups.stream()
+                    .filter(group -> deletedGroupNames.contains(group.name()))
+                    .map(GroupSnapshot::id)
+                    .collect(Collectors.toSet());
+            Set<Long> deletedCoursePlanIds = coursePlans.stream()
+                    .filter(plan -> deletedGroupIds.contains(plan.groupId()))
+                    .map(CoursePlanSnapshot::id)
+                    .collect(Collectors.toSet());
+
+            groups = groups.stream()
+                    .filter(group -> !deletedGroupIds.contains(group.id()))
+                    .toList();
+            coursePlans = coursePlans.stream()
+                    .filter(plan -> !deletedGroupIds.contains(plan.groupId()))
+                    .toList();
+            lessons = lessons.stream()
+                    .filter(lesson -> !deletedGroupIds.contains(lesson.groupId()))
+                    .filter(lesson -> !deletedCoursePlanIds.contains(lesson.coursePlanId()))
+                    .toList();
+        }
+
+        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, Collections.emptyList(), lessons);
+    }
+
+    private String readBuiltInTemplateSql() {
+        try (InputStream inputStream = new ClassPathResource("db/migration/V2__Base_Template.sql").getInputStream()) {
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read built-in schedule template SQL.", e);
+        }
+    }
+
+    private List<Map<String, String>> readInsertRows(String sql, String tableName) {
+        Pattern pattern = Pattern.compile(
+                "INSERT\\s+INTO\\s+" + Pattern.quote(tableName) + "\\s*\\(([^)]*)\\)\\s*VALUES\\s*(.*?)\\s+ON\\s+CONFLICT",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(sql);
+        List<Map<String, String>> rows = new ArrayList<>();
+
+        while (matcher.find()) {
+            List<String> columns = Arrays.stream(matcher.group(1).split(","))
+                    .map(column -> column.trim().toLowerCase(Locale.ROOT))
+                    .toList();
+
+            for (List<String> values : parseSqlValueRows(matcher.group(2))) {
+                if (values.size() != columns.size()) {
+                    throw new IllegalStateException("Unexpected column count while reading " + tableName);
+                }
+
+                Map<String, String> row = new HashMap<>();
+                for (int i = 0; i < columns.size(); i++) {
+                    row.put(columns.get(i), values.get(i).trim());
+                }
+                rows.add(row);
             }
         }
+
+        if (rows.isEmpty()) {
+            throw new IllegalStateException("No built-in template data found for table " + tableName);
+        }
+
+        return rows;
+    }
+
+    private List<List<String>> parseSqlValueRows(String valuesSql) {
+        List<List<String>> rows = new ArrayList<>();
+        StringBuilder currentRow = null;
+        boolean inString = false;
+        int depth = 0;
+
+        for (int i = 0; i < valuesSql.length(); i++) {
+            char c = valuesSql.charAt(i);
+
+            if (c == '\'') {
+                if (currentRow != null) {
+                    currentRow.append(c);
+                }
+                if (inString && i + 1 < valuesSql.length() && valuesSql.charAt(i + 1) == '\'') {
+                    if (currentRow != null) {
+                        currentRow.append(valuesSql.charAt(i + 1));
+                    }
+                    i++;
+                } else {
+                    inString = !inString;
+                }
+                continue;
+            }
+
+            if (!inString) {
+                if (c == '(') {
+                    if (depth == 0) {
+                        currentRow = new StringBuilder();
+                    } else if (currentRow != null) {
+                        currentRow.append(c);
+                    }
+                    depth++;
+                    continue;
+                }
+                if (c == ')') {
+                    depth--;
+                    if (depth == 0) {
+                        rows.add(splitSqlRow(currentRow.toString()));
+                        currentRow = null;
+                        continue;
+                    }
+                }
+            }
+
+            if (currentRow != null) {
+                currentRow.append(c);
+            }
+        }
+
+        return rows;
+    }
+
+    private List<String> splitSqlRow(String rowSql) {
+        List<String> values = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inString = false;
+
+        for (int i = 0; i < rowSql.length(); i++) {
+            char c = rowSql.charAt(i);
+            if (c == '\'') {
+                current.append(c);
+                if (inString && i + 1 < rowSql.length() && rowSql.charAt(i + 1) == '\'') {
+                    current.append(rowSql.charAt(i + 1));
+                    i++;
+                } else {
+                    inString = !inString;
+                }
+                continue;
+            }
+
+            if (c == ',' && !inString) {
+                values.add(current.toString().trim());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+
+        values.add(current.toString().trim());
+        return values;
+    }
+
+    private Set<String> readDeletedStudentGroupNames(String sql) {
+        Pattern pattern = Pattern.compile(
+                "DELETE\\s+FROM\\s+student_group\\s+WHERE\\s+name\\s+IN\\s*\\(([^)]*)\\)",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(sql);
+        if (!matcher.find()) {
+            return Collections.emptySet();
+        }
+
+        return splitSqlRow(matcher.group(1)).stream()
+                .map(this::sqlText)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    private Long sqlLong(Map<String, String> row, String column) {
+        String value = sqlText(row, column);
+        return value != null ? Long.valueOf(value) : null;
+    }
+
+    private Integer sqlInteger(Map<String, String> row, String column) {
+        String value = sqlText(row, column);
+        return value != null ? Integer.valueOf(value) : null;
+    }
+
+    private LocalTime sqlTime(Map<String, String> row, String column) {
+        String value = sqlText(row, column);
+        return value != null ? LocalTime.parse(value) : null;
+    }
+
+    private <E extends Enum<E>> E sqlEnum(Map<String, String> row, String column, Class<E> enumType) {
+        String value = sqlText(row, column);
+        return value != null ? Enum.valueOf(enumType, value) : null;
+    }
+
+    private String sqlText(Map<String, String> row, String column) {
+        String value = row.get(column.toLowerCase(Locale.ROOT));
+        if (value == null) {
+            throw new IllegalStateException("Missing SQL column " + column);
+        }
+        return sqlText(value);
+    }
+
+    private String sqlText(String value) {
+        String token = value.trim();
+        if ("NULL".equalsIgnoreCase(token)) {
+            return null;
+        }
+
+        String upper = token.toUpperCase(Locale.ROOT);
+        if (upper.startsWith("TIMESTAMP WITH TIME ZONE ")) {
+            token = token.substring("TIMESTAMP WITH TIME ZONE ".length()).trim();
+        } else if (upper.startsWith("TIMESTAMP ")) {
+            token = token.substring("TIMESTAMP ".length()).trim();
+        } else if (upper.startsWith("TIME ")) {
+            token = token.substring("TIME ".length()).trim();
+        }
+
+        if (token.length() >= 2 && (token.charAt(0) == 'E' || token.charAt(0) == 'e') && token.charAt(1) == '\'') {
+            token = token.substring(1);
+        }
+        if (token.length() >= 2 && token.charAt(0) == '\'' && token.charAt(token.length() - 1) == '\'') {
+            return token.substring(1, token.length() - 1).replace("''", "'");
+        }
+
+        return token;
     }
 
     @AnonymousAllowed
@@ -346,9 +664,9 @@ public class ScheduleEndpoint {
             throw new IllegalArgumentException("Шаблон із такою назвою вже існує");
         }
 
-        // Перевіряємо, чи є цей розклад зараз активним у робочій пам'яті
+        // Check whether this schedule is currently active in the working state.
         boolean isSourceActive = Objects.equals(templateAccessService.getActiveSavedScheduleId(), id);
-        
+
         LocalDateTime now = LocalDateTime.now();
         SavedSchedule copy = new SavedSchedule();
         copy.setName(normalizedName);
@@ -357,17 +675,17 @@ public class ScheduleEndpoint {
         copy.setSortOrder(nextSavedScheduleSortOrder());
 
         if (isSourceActive) {
-            // Якщо розклад активний - копіюємо його поточний стан із таблиць (включаючи незбережені зміни)
+            // If the schedule is active, copy its current table state, including unsaved changes.
             copy.setFullTemplate(true);
             copy.setSnapshotJson(serializeSnapshot(captureCurrentSnapshot()));
             copy.replaceLessons(lessonRepository.findAll().stream()
                     .map(this::createSavedScheduleLesson)
                     .toList());
         } else {
-            // Якщо не активний - копіюємо його останній збережений стан із бази даних
+            // If it is not active, copy its last saved database state.
             SavedSchedule source = savedScheduleRepository.findById(id).orElseThrow();
             copy.setFullTemplate(source.isFullTemplate());
-            copy.setSnapshotJson(source.getSnapshotJson()); 
+            copy.setSnapshotJson(source.getSnapshotJson());
             copy.replaceLessons(source.getLessons().stream()
                     .map(this::copySavedScheduleLesson)
                     .toList());
@@ -375,17 +693,13 @@ public class ScheduleEndpoint {
 
         SavedSchedule saved = savedScheduleRepository.save(copy);
         autosaveService.copySnapshots(id, saved.getId());
-        
+
         return mapToSavedScheduleDTO(saved);
     }
 
     @AnonymousAllowed
     @Transactional
     public void loadSavedSchedule(Long id) {
-        if (published) {
-            throw new IllegalStateException("Неможливо завантажити збережений розклад: розклад вже опубліковано");
-        }
-
         if (Objects.equals(id, BUILT_IN_TEMPLATE_ID)) {
             importBuiltInTemplate();
             templateAccessService.lockBaseTemplate();
@@ -393,6 +707,10 @@ public class ScheduleEndpoint {
         }
 
         SavedSchedule savedSchedule = savedScheduleRepository.findById(id).orElseThrow();
+        if (autosaveService.restoreLatestSnapshotForSchedule(savedSchedule.getId())) {
+            return;
+        }
+
         if (savedSchedule.isFullTemplate() && savedSchedule.getSnapshotJson() != null && !savedSchedule.getSnapshotJson().isBlank()) {
             restoreSnapshot(deserializeSnapshot(savedSchedule.getSnapshotJson()));
             templateAccessService.activateEditableTemplate(savedSchedule.getId());
@@ -436,7 +754,6 @@ public class ScheduleEndpoint {
         autosaveService.deleteSnapshotsForSchedule(id);
         if (deletedScheduleIsActive) {
             clearWorkingData();
-            published = false;
             templateAccessService.resetBaseTemplateSession();
         }
     }
@@ -502,11 +819,6 @@ public class ScheduleEndpoint {
     }
 
     @AnonymousAllowed
-    public boolean isPublished() {
-        return published;
-    }
-
-    @AnonymousAllowed
     public boolean isBaseTemplateLocked() {
         return templateAccessService.isBaseTemplateLocked();
     }
@@ -518,35 +830,25 @@ public class ScheduleEndpoint {
             return;
         }
         clearWorkingData();
-        published = false;
         templateAccessService.resetBaseTemplateSession();
-    }
-
-    @AnonymousAllowed
-    public String getCurrentUserRole() {
-        return "DISPATCHER";
-    }
-
-    @AnonymousAllowed
-    public void togglePublishedStatus() {
-        templateAccessService.requireWritableTemplate();
-        this.published = !this.published;
     }
 
     @AnonymousAllowed
     @Transactional(readOnly = true)
     public ScheduleGridDTO getScheduleGridData() {
         try {
+            recoverLatestAutosaveAfterStartup();
+
             List<Lesson> allLessons = lessonRepository.findAll();
             List<Timeslot> allTimeslots = timeslotRepository.findAll();
             List<Teacher> allTeachers = teacherRepository.findByArchivedFalse();
             List<Group> allGroups = groupRepository.findAll();
             List<Room> allRooms = roomRepository.findAll();
-            
+
             Map<Long, Teacher> teachersById = allTeachers.stream()
                     .filter(t -> t.getId() != null)
                     .collect(Collectors.toMap(Teacher::getId, Function.identity(), (a, b) -> a));
-            
+
             Map<Long, List<Lesson>> lessonsByTimeslot = allLessons.stream()
                     .filter(l -> l.getTimeslot() != null && l.getTimeslot().getId() != null)
                     .collect(Collectors.groupingBy(l -> l.getTimeslot().getId()));
@@ -554,8 +856,8 @@ public class ScheduleEndpoint {
             List<LessonDTO> lessons = allLessons.stream()
                     .map(lesson -> {
                         List<Lesson> sameSlot = (lesson.getTimeslot() != null && lesson.getTimeslot().getId() != null)
-                            ? lessonsByTimeslot.getOrDefault(lesson.getTimeslot().getId(), Collections.emptyList())
-                            : Collections.emptyList();
+                                ? lessonsByTimeslot.getOrDefault(lesson.getTimeslot().getId(), Collections.emptyList())
+                                : Collections.emptyList();
                         return mapToLessonDTO(lesson, sameSlot);
                     })
                     .toList();
@@ -579,86 +881,36 @@ public class ScheduleEndpoint {
             return new ScheduleGridDTO(lessons, teachers, groups, rooms, timeslots);
         } catch (Exception e) {
             e.printStackTrace();
-            return new ScheduleGridDTO(Collections.emptyList(), Collections.emptyList(), 
-                                     Collections.emptyList(), Collections.emptyList(), 
-                                     Collections.emptyList());
+            return new ScheduleGridDTO(Collections.emptyList(), Collections.emptyList(),
+                    Collections.emptyList(), Collections.emptyList(),
+                    Collections.emptyList());
         }
     }
 
     @AnonymousAllowed
     @Transactional(readOnly = true)
-    public ScheduleAnalyticsDTO getAnalytics(Long entityId, String entityType) {
+    public String exportSchedulePdf(String selectedCourse, String scheduleName) {
         try {
-            String entityName = "Unknown";
-            List<CoursePlan> plans = Collections.emptyList();
-            List<Lesson> lessons = Collections.emptyList();
-
-            if ("GROUP".equals(entityType)) {
-                Group group = groupRepository.findById(entityId).orElse(null);
-                if (group != null) {
-                    entityName = group.getName();
-                    plans = coursePlanRepository.findByGroup(group);
-                    lessons = lessonRepository.findAll().stream()
-                            .filter(l -> l.getGroup() != null && l.getGroup().getId().equals(entityId))
-                            .toList();
-                }
-            } else if ("TEACHER".equals(entityType)) {
-                Teacher teacher = teacherRepository.findById(entityId).orElse(null);
-                if (teacher != null) {
-                    entityName = teacher.getFullName();
-                    plans = coursePlanRepository.findByTeacher(teacher);
-                    lessons = lessonRepository.findAll().stream()
-                            .filter(l -> l.getTeacher() != null && l.getTeacher().getId().equals(entityId))
-                            .toList();
-                }
-            } else if ("ROOM".equals(entityType)) {
-                Room room = roomRepository.findById(entityId).orElse(null);
-                if (room != null) {
-                    entityName = room.getName();
-                    lessons = lessonRepository.findAll().stream()
-                            .filter(l -> l.getRoom() != null && l.getRoom().getId().equals(entityId))
-                            .toList();
-                }
-            }
-
-            List<CourseWorkloadDTO> workloads = plans.stream()
-                    .map(cp -> new CourseWorkloadDTO(
-                            cp.getSubject().getName(),
-                            cp.getExecutedHours(),
-                            cp.getTotalHours(),
-                            cp.getCompletionPercentage()
-                    ))
-                    .toList();
-
-            int windows = calculateWindows(lessons);
-            return new ScheduleAnalyticsDTO(entityName, entityType, workloads, windows);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
+            ScheduleGridDTO data = getScheduleGridData();
+            byte[] pdf = schedulePdfExportService.exportPdf(data, selectedCourse, scheduleName);
+            return Base64.getEncoder().encodeToString(pdf);
+        } catch (IOException e) {
+            throw new IllegalStateException("Не вдалося створити PDF", e);
         }
     }
 
-    private int calculateWindows(List<Lesson> entityLessons) {
-        Map<Object, List<Lesson>> byDay = entityLessons.stream()
-                .filter(l -> l.getTimeslot() != null)
-                .collect(Collectors.groupingBy(l -> l.getTimeslot().getDayOfWeek() + "-" + l.getTimeslot().getWeekParity()));
-
-        int totalWindows = 0;
-        for (List<Lesson> dayLessons : byDay.values()) {
-            if (dayLessons.size() < 2) continue;
-
-            List<Integer> slots = dayLessons.stream()
-                    .map(l -> l.getTimeslot().getStartTime().getHour() * 60 + l.getTimeslot().getStartTime().getMinute())
-                    .sorted()
-                    .toList();
-            
-            for (int i = 0; i < slots.size() - 1; i++) {
-                if (slots.get(i+1) - slots.get(i) > 120) {
-                    totalWindows++;
-                }
+    private void recoverLatestAutosaveAfterStartup() {
+        if (templateAccessService.getActiveSavedScheduleId() != null || templateAccessService.isBaseTemplateOpened()) {
+            return;
+        }
+        if (startupAutosaveRecoveryAttempted.compareAndSet(false, true)) {
+            try {
+                autosaveService.restoreLatestSnapshotAsCurrent();
+            } catch (Exception e) {
+                System.err.println("Failed to restore latest autosave snapshot: " + e.getMessage());
+                e.printStackTrace();
             }
         }
-        return totalWindows;
     }
 
     private SavedScheduleLesson createSavedScheduleLesson(Lesson lesson) {
@@ -791,6 +1043,7 @@ public class ScheduleEndpoint {
             statement.execute("""
                     TRUNCATE TABLE
                         lesson,
+                        teacher_availability,
                         teacher_competence_matrix,
                         course_plan,
                         student_group,
@@ -803,6 +1056,7 @@ public class ScheduleEndpoint {
                     RESTART IDENTITY CASCADE
                     """);
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V2__Base_Template.sql"));
+            clearPersistenceContext();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to import built-in schedule template.", e);
         } finally {
@@ -831,7 +1085,8 @@ public class ScheduleEndpoint {
                         teacher.getPositionType(),
                         teacher.getWeeklyHourLimit(),
                         teacher.getMaxWorkingDaysPerWeek(),
-                        idOf(teacher.getAssignedRoom())))
+                        idOf(teacher.getAssignedRoom()),
+                        teacher.isArchived()))
                 .toList();
 
         List<GroupSnapshot> groups = groupRepository.findAll().stream()
@@ -882,6 +1137,16 @@ public class ScheduleEndpoint {
                         matrix.getPriority()))
                 .toList();
 
+        List<AvailabilitySnapshot> availability = teacherAvailabilityRepository.findAll().stream()
+                .sorted(Comparator.comparing(TeacherAvailability::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(item -> new AvailabilitySnapshot(
+                        item.getId(),
+                        idOf(item.getTeacher()),
+                        item.getDayOfWeek(),
+                        item.getLessonNumber(),
+                        item.getStatus()))
+                .toList();
+
         List<LessonSnapshot> lessons = lessonRepository.findAll().stream()
                 .sorted(Comparator.comparing(Lesson::getId, Comparator.nullsLast(Long::compareTo)))
                 .map(lesson -> new LessonSnapshot(
@@ -898,7 +1163,7 @@ public class ScheduleEndpoint {
                         lesson.getSplitGroupIndex()))
                 .toList();
 
-        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, lessons);
+        return new FullTemplateSnapshot(subjects, rooms, teachers, groups, coursePlans, timeslots, competences, availability, lessons);
     }
 
     private FullTemplateSnapshot clearSnapshotLessonPlacements(FullTemplateSnapshot snapshot) {
@@ -925,6 +1190,7 @@ public class ScheduleEndpoint {
                 snapshot.coursePlans(),
                 snapshot.timeslots(),
                 snapshot.competences(),
+                snapshot.availability(),
                 emptyLessons);
     }
 
@@ -945,7 +1211,16 @@ public class ScheduleEndpoint {
     }
 
     private void restoreSnapshot(FullTemplateSnapshot snapshot) {
+        List<TimeslotSnapshot> timeslotSources = snapshot.timeslots();
+        if (timeslotSources.isEmpty()) {
+            timeslotSources = currentTimeslotSnapshots();
+        }
+        if (timeslotSources.isEmpty()) {
+            timeslotSources = getBaseTemplateSnapshotWithoutImport().timeslots();
+        }
+
         clearWorkingData();
+        clearPersistenceContext();
 
         Map<Long, Subject> subjectsByOldId = new HashMap<>();
         for (SubjectSnapshot source : snapshot.subjects()) {
@@ -976,7 +1251,22 @@ public class ScheduleEndpoint {
             teacher.setWeeklyHourLimit(source.weeklyHourLimit());
             teacher.setMaxWorkingDaysPerWeek(source.maxWorkingDaysPerWeek());
             teacher.setAssignedRoom(roomsByOldId.get(source.assignedRoomId()));
+            teacher.setArchived(Boolean.TRUE.equals(source.archived()));
             teachersByOldId.put(source.id(), teacherRepository.save(teacher));
+        }
+
+        for (AvailabilitySnapshot source : snapshot.availability()) {
+            Teacher teacher = teachersByOldId.get(source.teacherId());
+            if (teacher == null) {
+                continue;
+            }
+
+            TeacherAvailability availability = new TeacherAvailability();
+            availability.setTeacher(teacher);
+            availability.setDayOfWeek(source.dayOfWeek());
+            availability.setLessonNumber(source.lessonNumber());
+            availability.setStatus(source.status());
+            teacherAvailabilityRepository.save(availability);
         }
 
         Map<Long, Group> groupsByOldId = new HashMap<>();
@@ -1014,7 +1304,7 @@ public class ScheduleEndpoint {
         }
 
         Map<Long, Timeslot> timeslotsByOldId = new HashMap<>();
-        for (TimeslotSnapshot source : snapshot.timeslots()) {
+        for (TimeslotSnapshot source : timeslotSources) {
             Timeslot timeslot = new Timeslot();
             timeslot.setDayOfWeek(source.dayOfWeek());
             timeslot.setStartTime(source.startTime());
@@ -1049,12 +1339,32 @@ public class ScheduleEndpoint {
         }
     }
 
+    private void clearPersistenceContext() {
+        if (entityManager != null) {
+            entityManager.clear();
+        }
+    }
+
+    private List<TimeslotSnapshot> currentTimeslotSnapshots() {
+        return timeslotRepository.findAll().stream()
+                .sorted(Comparator.comparing(Timeslot::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(timeslot -> new TimeslotSnapshot(
+                        timeslot.getId(),
+                        timeslot.getDayOfWeek(),
+                        timeslot.getStartTime(),
+                        timeslot.getEndTime(),
+                        timeslot.getWeekParity(),
+                        timeslot.getLessonNumber()))
+                .toList();
+    }
+
     private void clearWorkingData() {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         try (Statement statement = connection.createStatement()) {
             statement.execute("""
                     TRUNCATE TABLE
                         lesson,
+                        teacher_availability,
                         teacher_competence_matrix,
                         course_plan,
                         student_group,
@@ -1073,6 +1383,7 @@ public class ScheduleEndpoint {
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record FullTemplateSnapshot(
             List<SubjectSnapshot> subjects,
             List<RoomSnapshot> rooms,
@@ -1080,9 +1391,22 @@ public class ScheduleEndpoint {
             List<GroupSnapshot> groups,
             List<CoursePlanSnapshot> coursePlans,
             List<TimeslotSnapshot> timeslots,
+            @JsonAlias("matrix")
             List<CompetenceSnapshot> competences,
+            List<AvailabilitySnapshot> availability,
             List<LessonSnapshot> lessons
     ) {
+        private FullTemplateSnapshot {
+            subjects = listOrEmpty(subjects);
+            rooms = listOrEmpty(rooms);
+            teachers = listOrEmpty(teachers);
+            groups = listOrEmpty(groups);
+            coursePlans = listOrEmpty(coursePlans);
+            timeslots = listOrEmpty(timeslots);
+            competences = listOrEmpty(competences);
+            availability = listOrEmpty(availability);
+            lessons = listOrEmpty(lessons);
+        }
     }
 
     private record SubjectSnapshot(Long id, String name, String abbreviation) {
@@ -1091,6 +1415,7 @@ public class ScheduleEndpoint {
     private record RoomSnapshot(Long id, String name, Integer capacity, String building, String equipment, RoomType type) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record TeacherSnapshot(
             Long id,
             String fullName,
@@ -1099,7 +1424,8 @@ public class ScheduleEndpoint {
             PositionType positionType,
             Integer weeklyHourLimit,
             Integer maxWorkingDaysPerWeek,
-            Long assignedRoomId
+            Long assignedRoomId,
+            Boolean archived
     ) {
     }
 
@@ -1146,6 +1472,15 @@ public class ScheduleEndpoint {
     ) {
     }
 
+    private record AvailabilitySnapshot(
+            Long id,
+            Long teacherId,
+            DayOfWeek dayOfWeek,
+            Integer lessonNumber,
+            AvailabilityStatus status
+    ) {
+    }
+
     private record LessonSnapshot(
             Long id,
             Long subjectId,
@@ -1176,6 +1511,10 @@ public class ScheduleEndpoint {
         return null;
     }
 
+    private static <T> List<T> listOrEmpty(List<T> items) {
+        return items != null ? items : Collections.emptyList();
+    }
+
     private boolean sameId(Long firstId, Long secondId) {
         return firstId != null && firstId.equals(secondId);
     }
@@ -1184,18 +1523,15 @@ public class ScheduleEndpoint {
     @Transactional
     public void moveLesson(Long lessonId, Long timeslotId, String roomName, com.sergofoox.domain.plan.Periodicity periodicity) {
         try {
-            if (published) {
-                throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
-            }
             templateAccessService.requireWritableTemplate();
             Lesson primaryLesson = lessonRepository.findById(lessonId).orElseThrow();
             Timeslot newTimeslot = timeslotRepository.findById(timeslotId).orElseThrow();
-            
+
             Timeslot oldTimeslot = primaryLesson.getTimeslot();
             com.sergofoox.domain.plan.Periodicity oldPeriodicity = primaryLesson.getPeriodicity();
             com.sergofoox.domain.plan.Periodicity requestedPeriodicity = periodicity != null ? periodicity : oldPeriodicity;
             com.sergofoox.domain.plan.Periodicity newPeriodicity = requestedPeriodicity;
-            
+
             List<Lesson> allLessons = lessonRepository.findAll();
             List<Lesson> lessonsToMove = allLessons.stream()
                     .filter(l -> shouldMoveWithPrimaryLesson(l, primaryLesson, oldTimeslot))
@@ -1358,7 +1694,6 @@ public class ScheduleEndpoint {
     @Transactional
     public void unassignLesson(Long lessonId) {
         try {
-            if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
             templateAccessService.requireWritableTemplate();
             Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
             lesson.setTimeslot(null);
@@ -1374,10 +1709,9 @@ public class ScheduleEndpoint {
     @Transactional
     public LessonDTO assignReplacement(Long lessonId, Long teacherId, Long roomId, Long subjectId) {
         try {
-            if (published) throw new IllegalStateException("Редагування заборонено: розклад опубліковано");
             templateAccessService.requireWritableTemplate();
             Lesson lesson = lessonRepository.findById(lessonId).orElseThrow();
-            
+
             if (subjectId != null) {
                 Subject subject = subjectRepository.findById(subjectId).orElseThrow();
                 lesson.setSubject(subject);
@@ -1397,7 +1731,7 @@ public class ScheduleEndpoint {
                 Room room = roomRepository.findById(roomId).orElse(null);
                 lesson.setRoom(room);
             }
-            
+
             lessonRepository.save(lesson);
 
             List<Lesson> allLessons = lessonRepository.findAll();
@@ -1412,13 +1746,12 @@ public class ScheduleEndpoint {
     @Transactional
     public void assignManualLesson(Long groupId, Long subjectId, Long timeslotId, Long roomId, Long teacherId, Integer subgroup, com.sergofoox.domain.plan.Periodicity periodicity) {
         try {
-            if (published) throw new IllegalStateException("Розклад опубліковано");
             templateAccessService.requireWritableTemplate();
-            
+
             Group group = groupRepository.findById(groupId).orElseThrow();
             Subject subject = subjectRepository.findById(subjectId).orElseThrow();
             Timeslot timeslot = timeslotRepository.findById(timeslotId).orElseThrow();
-            
+
             CoursePlan plan = coursePlanRepository.findByGroup(group).stream()
                     .filter(p -> p.getSubject().getId().equals(subjectId))
                     .findFirst()
@@ -1432,17 +1765,17 @@ public class ScheduleEndpoint {
             lesson.setLessonType(LessonType.LECTURE);
             lesson.setSubgroup(subgroup != null ? subgroup : 0);
             lesson.setPeriodicity(periodicity != null ? periodicity : com.sergofoox.domain.plan.Periodicity.WEEKLY);
-            
+
             if (teacherId != null) {
                 Teacher teacher = teacherRepository.findById(teacherId).orElseThrow();
                 lesson.setTeacher(teacher);
             }
-            
+
             if (roomId != null) {
                 Room room = roomRepository.findById(roomId).orElse(null);
                 lesson.setRoom(room);
             }
-            
+
             lessonRepository.save(lesson);
         } catch (Exception e) {
             System.err.println("Error in assignManualLesson: " + e.getMessage());
@@ -1477,20 +1810,20 @@ public class ScheduleEndpoint {
                     .anyMatch(l -> {
                         if (!weeksOverlap(l, lesson)) return false;
 
-                        boolean teacherConflict = l.getTeacher() != null && lesson.getTeacher() != null && 
-                                                 l.getTeacher().getId().equals(lesson.getTeacher().getId());
-                        
-                        boolean roomConflict = l.getRoom() != null && lesson.getRoom() != null && 
-                                              l.getRoom().getId().equals(lesson.getRoom().getId());
-                        
+                        boolean teacherConflict = l.getTeacher() != null && lesson.getTeacher() != null &&
+                                l.getTeacher().getId().equals(lesson.getTeacher().getId());
+
+                        boolean roomConflict = l.getRoom() != null && lesson.getRoom() != null &&
+                                l.getRoom().getId().equals(lesson.getRoom().getId());
+
                         boolean subjectConflict = l.getSubject() != null && lesson.getSubject() != null
                                 && l.getSubject().getId().equals(lesson.getSubject().getId())
                                 && !sameSplitGroupLesson(l, lesson);
-                        
+
                         boolean groupConflict = l.getGroup() != null && lesson.getGroup() != null
                                 && l.getGroup().getId().equals(lesson.getGroup().getId())
                                 && !sameSplitGroupLesson(l, lesson);
-                        
+
                         return teacherConflict || roomConflict || subjectConflict || groupConflict;
                     });
         }
