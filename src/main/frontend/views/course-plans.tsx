@@ -181,7 +181,7 @@ export default function CoursePlansView() {
           Навчальні плани
         </h2>
         <TextField
-          placeholder="Пошук групи або кафедри..."
+          placeholder="Пошук групи або відділення..."
           value={filter}
           onValueChanged={(e) => setFilter(e.detail.value)}
           className="w-96 max-w-full"
