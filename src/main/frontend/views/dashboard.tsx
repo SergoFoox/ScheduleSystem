@@ -126,19 +126,7 @@ export default function DashboardView() {
             <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 whitespace-nowrap">
               Розклад занять
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase">Режим:</span>
-              <Select
-                value={mode.value}
-                items={modeOptions}
-                onValueChanged={(e) => {
-                  mode.value = e.detail.value as Mode;
-                }}
-                className="w-44"
-              />
-            </div>
           </div>
-
           <div className="flex items-center gap-4">
             {isSolving && (
               <div className="flex flex-col items-end mr-4 min-w-[200px]">
