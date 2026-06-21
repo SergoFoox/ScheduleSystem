@@ -167,7 +167,7 @@ export default function TeachersView() {
             <Tab>Архів</Tab>
           </Tabs>
           <TextField
-            placeholder="Пошук за ПІБ або кафедрою..."
+            placeholder="Пошук за ПІБ або відділенням..."
             value={filter}
             onValueChanged={(e) => setFilter(e.detail.value)}
             className="w-96"
@@ -192,7 +192,7 @@ export default function TeachersView() {
         >
           <GridColumn header="ПІБ викладача" path="fullName" autoWidth />
           <GridColumn header="Спеціалізація" path="specialization" autoWidth />
-          <GridColumn header="Кафедра" path="department" autoWidth />
+          <GridColumn header="Відділення" path="department" autoWidth />
           <GridColumn header="Аудиторія" path="assignedRoomName" autoWidth />
           <GridColumn 
             header="Посада" 

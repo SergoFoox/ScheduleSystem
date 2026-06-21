@@ -114,7 +114,7 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
           className="col-span-2"
         />
         <TextField
-          label="Кафедра"
+          label="Відділення"
           required
           value={formData.department || ''}
           onValueChanged={(e) => setFormData({ ...formData, department: e.detail.value })}
