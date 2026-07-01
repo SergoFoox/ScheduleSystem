@@ -4,7 +4,7 @@
     <!-- Project from https://start.vaadin.com/59e69ba5-d71f-4f0f-8a5d-50e4d172d96c -->
     <groupId>com.sergofoox</groupId>
     <artifactId>schedule-system</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.2-SNAPSHOT</version>
     <packaging>jar</packaging>
     
     <properties>
