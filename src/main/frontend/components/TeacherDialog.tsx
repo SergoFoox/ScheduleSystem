@@ -66,7 +66,7 @@ export const TeacherDialog: React.FC<TeacherDialogProps> = ({ opened, teacher, o
 
   const handleSave = async () => {
     if (!formData.fullName || !formData.department) {
-      Notification.show('Будь ласка, заповніть ПІБ та кафедру', { theme: 'error' });
+      Notification.show('Будь ласка, заповніть ПІБ та відділення', { theme: 'error' });
       return;
     }
 
